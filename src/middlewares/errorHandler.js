@@ -19,7 +19,12 @@ function errorHandler(error, req, res, _next) {
     });
   }
   const status = error.status || 500;
-  if (status >= 500) console.error(`[${req.correlationId}]`, error);
+  if (status >= 500) {
+    console.error("Unhandled request error", {
+      correlationId: req.correlationId,
+      error,
+    });
+  }
   return res.status(status).json({
     error: {
       code: error.code || "INTERNAL_ERROR",

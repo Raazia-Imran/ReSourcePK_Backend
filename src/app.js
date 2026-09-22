@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 const { corsOrigins } = require("./config/env");
 const { query } = require("./db");
 
@@ -28,7 +28,8 @@ app.use(
 app.use(express.json({ limit: "256kb" }));
 app.use(cookieParser());
 app.use((req, res, next) => {
-  req.correlationId = req.get("x-request-id") || crypto.randomUUID();
+  // Generate this value server-side so untrusted request data never reaches logs.
+  req.correlationId = crypto.randomUUID();
   res.set("x-request-id", req.correlationId);
   next();
 });

@@ -7,6 +7,7 @@ const { verificationEmail, passwordResetEmail } = require("../email/templates");
 const { deliverEmail } = require("../email/deliveryService");
 
 const BCRYPT_ROUNDS = 12;
+const DEFAULT_QUERY_RUNNER = Object.freeze({ query });
 
 function slugify(value) {
   return value
@@ -21,7 +22,7 @@ function refreshExpiry() {
   return new Date(Date.now() + env.REFRESH_TOKEN_DAYS * 86_400_000);
 }
 
-async function loadContext(userId, runner = { query }) {
+async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
   const userResult = await runner.query(
     `SELECT id, email, full_name, status, email_verified_at, created_at
      FROM app.users WHERE id = $1`,
@@ -51,7 +52,7 @@ async function loadContext(userId, runner = { query }) {
   };
 }
 
-async function createSession(user, meta, runner = { query }) {
+async function createSession(user, meta, runner = DEFAULT_QUERY_RUNNER) {
   const refreshToken = randomToken();
   await runner.query(
     `INSERT INTO app.sessions(user_id, refresh_token_hash, user_agent, ip_address, expires_at)
@@ -67,7 +68,12 @@ async function createSession(user, meta, runner = { query }) {
   return { accessToken: signAccessToken(user), refreshToken };
 }
 
-async function createEmailToken(userId, type, ttlMs, runner = { query }) {
+async function createEmailToken(
+  userId,
+  type,
+  ttlMs,
+  runner = DEFAULT_QUERY_RUNNER,
+) {
   const token = randomToken();
   const tokenHash = hashToken(token);
   const result = await runner.query(

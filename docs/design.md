@@ -9,6 +9,12 @@
 5. Every async action has loading, success, empty, partial and retry states.
 6. Never use color alone to communicate status.
 
+## Visual direction override
+
+This direction supersedes the earlier generic green/copper foundation below. ReSource PK must feel like a custom digital textile exchange: immersive editorial composition, layered kinetic textile forms, purposeful 3D material objects, physical depth, sharp typography, and a distinctive palette selected through a visual-direction pass. Do not use default SaaS colors, repeated rounded cards, low-quality image backgrounds, or AI-template ornament.
+
+Use expressive display typography plus a highly legible operational sans; use tabular numerals for commerce data. Build bespoke material tokens inspired by weave, selvage labels, rolls and reclaimed-fabric layers. Motion may use scroll sequencing, cursor depth and controlled hover physics. All 3D/motion must lazy-load, respect reduced motion, provide a polished static fallback and never obstruct checkout or mobile performance.
+
 ## Visual foundation
 
 - Canvas: warm off-white `#F7F4EC`; surface `#FFFFFF`; text `#17201B`.
@@ -22,7 +28,7 @@
 
 ## Application shell
 
-Desktop dashboards use a 240-280 px collapsible sidebar, top context bar, breadcrumbs and a max-width content region. Mobile uses a drawer; primary task actions remain reachable without horizontal scrolling. Organization switcher and role context are always visible. Marketplace browsing remains lighter than operational dashboards.
+Desktop dashboards use a 240-280 px collapsible sidebar, top context bar, breadcrumbs and a max-width content region. Mobile uses a drawer; primary task actions remain reachable without horizontal scrolling. Organization switcher and role context are always visible. Marketplace browsing remains lighter than operational dashboards. The public landing experience is an immersive editorial journey, not a dashboard: a minimal hero, kinetic material world, visible business story, group-buy flow and credibility sections.
 
 ## Key screens
 
@@ -36,6 +42,8 @@ Desktop dashboards use a 240-280 px collapsible sidebar, top context bar, breadc
 - Team management: pending/expired invites, role matrix, revoke and ownership transfer.
 - Platform operations: queues, disputes, moderation, organizations, users, audit events.
 - Passport verification: anchored state, transaction ID, timestamp, snapshot version and precise claim limitation.
+- Role dashboards: Owner/CEO financial and strategic reports; Manager operational analytics; Staff assigned work; Buyer procurement/pool analytics; Platform Admin marketplace health.
+- Report centre: weekly/monthly/yearly/custom filters, transparent metric definitions, table/chart views, drill-down and CSV/PDF export.
 
 ## Components
 
@@ -55,4 +63,4 @@ Use plain commerce language: “Join group order,” “Quantity reserved,” an
 
 ## Definition of design complete
 
-Figma or implementation includes every critical screen at mobile and desktop widths, component states, keyboard/focus behavior, token references, empty/loading/error cases, and final copy. A pretty happy path alone is not design complete.
+Figma or implementation includes every critical screen at mobile and desktop widths, component states, keyboard/focus behavior, token references, empty/loading/error cases, final copy, static/reduced-motion states, and chart/table drill-down behavior. A pretty happy path alone is not design complete.

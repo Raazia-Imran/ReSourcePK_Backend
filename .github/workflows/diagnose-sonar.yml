@@ -1,0 +1,22 @@
+name: Diagnose Sonar annotations
+on:
+  push:
+    paths:
+      - ".github/workflows/diagnose-sonar.yml"
+permissions:
+  checks: read
+jobs:
+  annotations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read latest Sonar annotations
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const response = await github.rest.checks.listAnnotations({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: 106828347355,
+              per_page: 100
+            });
+            core.info(JSON.stringify(response.data));

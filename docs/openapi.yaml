@@ -1,0 +1,174 @@
+openapi: 3.1.0
+info:
+  title: ReSource PK API
+  version: 1.0.0
+  description: Phase 1 authentication and organization-access contract.
+servers:
+  - url: /api/v1
+paths:
+  /auth/register:
+    post:
+      summary: Register a buyer or seller owner
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/Registration" } },
+            },
+        }
+      responses:
+        {
+          "201": { description: Account created; email verification required },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/Validation" },
+        }
+  /auth/verify-email:
+    post:
+      summary: Consume a single-use email verification token
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/Token" } },
+            },
+        }
+      responses:
+        {
+          "200": { description: Email verified },
+          "400": { $ref: "#/components/responses/BadToken" },
+        }
+  /auth/resend-verification:
+    post:
+      summary: Request a replacement verification email
+      responses:
+        { "200": { description: Generic response prevents account discovery } }
+  /auth/login:
+    post:
+      summary: Start a rotating session
+      responses:
+        {
+          "200":
+            {
+              description: Access token and role context; refresh token in HttpOnly cookie,
+            },
+          "401": { description: Invalid credentials },
+          "403": { description: Email or account unavailable },
+        }
+  /auth/refresh:
+    post:
+      summary: Rotate the refresh session
+      responses:
+        {
+          "200": { description: New access token and role context },
+          "401": { description: Session expired },
+        }
+  /auth/logout:
+    post:
+      summary: Revoke the current refresh session
+      responses: { "204": { description: Signed out } }
+  /auth/forgot-password:
+    post:
+      summary: Request a one-hour password-reset link
+      responses:
+        { "200": { description: Generic response prevents account discovery } }
+  /auth/reset-password:
+    post:
+      summary: Set a new password and revoke all sessions
+      responses:
+        {
+          "204": { description: Password changed },
+          "400": { $ref: "#/components/responses/BadToken" },
+        }
+  /auth/me:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Return user, organization memberships, and platform roles
+      responses:
+        {
+          "200": { description: Current access context },
+          "401": { description: Authentication required },
+        }
+  /organizations/{organizationId}/invitations:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Invite an organization administrator, manager, or staff member
+      parameters:
+        [
+          {
+            in: path,
+            name: organizationId,
+            required: true,
+            schema: { type: string, format: uuid },
+          },
+        ]
+      responses:
+        {
+          "201": { description: Single-use invitation sent },
+          "403": { description: Membership cannot grant requested role },
+        }
+  /invitations/details:
+    get:
+      summary: Read non-sensitive invitation context
+      responses:
+        { "200": { description: Organization, email, role and expiry } }
+  /invitations/accept-new:
+    post:
+      summary: Create an account from an invitation and join the organization
+      responses:
+        {
+          "201": { description: Invitation accepted },
+          "409": { description: Existing users must sign in },
+        }
+  /invitations/accept:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Accept an invitation for the signed-in email
+      responses:
+        {
+          "200": { description: Invitation accepted },
+          "403": { description: Invitation email mismatch },
+        }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Registration:
+      oneOf:
+        - {
+            type: object,
+            required: [accountType, fullName, email, password],
+            properties:
+              {
+                accountType: { const: buyer },
+                fullName: { type: string },
+                email: { type: string, format: email },
+                password: { type: string, minLength: 10 },
+              },
+          }
+        - {
+            type: object,
+            required:
+              [accountType, fullName, organizationName, email, password],
+            properties:
+              {
+                accountType: { const: seller },
+                fullName: { type: string },
+                organizationName: { type: string },
+                email: { type: string, format: email },
+                password: { type: string, minLength: 10 },
+              },
+          }
+    Token:
+      {
+        type: object,
+        required: [token],
+        properties: { token: { type: string, minLength: 32 } },
+      }
+  responses:
+    Conflict: { description: Resource already exists }
+    Validation: { description: Submitted fields are invalid }
+    BadToken: { description: Token is invalid, consumed, or expired }

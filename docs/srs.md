@@ -2,7 +2,7 @@
 
 ## Purpose and system boundary
 
-This specification defines the MVP behavior of the KapraLoop responsive web platform. PostgreSQL is the system of record. External providers (email, storage, payments, optional tagging, Polygon) are adapters and must not own core business state.
+This specification defines the MVP behavior of the ReSource PK responsive web platform. PostgreSQL is the system of record. External providers (email, storage, payments, optional tagging, Polygon) are adapters and must not own core business state.
 
 ## Functional requirements
 
@@ -30,6 +30,7 @@ This specification defines the MVP behavior of the KapraLoop responsive web plat
 - **FR-CAT-03:** Published listings are searchable by keyword and filterable/sortable using indexed fields.
 - **FR-CAT-04:** Buyers can post, pause and close requirements; matching is deterministic and explainable.
 - **FR-CAT-05:** Uploads are size/type limited, renamed, scanned when supported, and served from object storage.
+- **FR-CAT-06:** Seller can import bulk listings through CSV/XLSX using a published template. The service validates headers and each row, reports row-level errors without silently publishing bad data, and supports a review-before-publish step.
 
 ### Pools, orders and inventory
 
@@ -39,6 +40,8 @@ This specification defines the MVP behavior of the KapraLoop responsive web plat
 - **FR-POOL-04:** Pool states: `draft`, `open`, `target_met`, `locked`, `cancelled`, `expired`, `converted`.
 - **FR-ORD-01:** Order states: `pending_payment`, `paid`, `processing`, `ready`, `dispatched`, `delivered`, `completed`, `cancelled`, `refunded`, `disputed`.
 - **FR-ORD-02:** Only allowed state transitions are accepted and each transition records actor, time, reason and prior state.
+
+- **FR-POOL-05:** A direct checkout is available only when buyer quantity meets the listing MOQ, the buyer purchases the full permitted lot, or the seller explicitly enables a smaller direct-buy lot. Otherwise the API returns an eligibility result for group purchase.
 
 ### Payments and ledger
 
@@ -58,6 +61,17 @@ This specification defines the MVP behavior of the KapraLoop responsive web plat
 - **FR-PASS-03:** Public verification reveals no private buyer, seller, price, message, address, phone or email data.
 - **FR-IMP-01:** Diversion quantity is derived from completed transactions, reversed for refunds/returns, and traceable to source orders.
 
+### Reporting and analytics
+
+- **FR-REP-01:** All dashboards support weekly, monthly, yearly and custom date ranges with an explicit timezone.
+- **FR-REP-02:** Every headline metric links to filtered source records and displays its formula/definition.
+- **FR-REP-03:** Authorized users can export the filtered dataset/report in CSV and PDF; exports are asynchronous for large ranges and audit logged.
+- **FR-REP-04:** Owner dashboard includes GMV, seller proceeds, completed/refunded value, inventory value/ageing, MOQ/pool conversion, top materials/buyers, fulfilment SLA, impact and team activity.
+- **FR-REP-05:** Manager dashboard includes operational queues, listings, pools, fulfilment, payment exceptions, inventory ageing and team workload; it excludes ownership-only finance/account controls unless permitted.
+- **FR-REP-06:** Staff workspace shows assigned listings/orders/tasks, stock/reservation state and permitted operational progress; it excludes unrelated finance/team data.
+- **FR-REP-07:** Buyer dashboard includes spending, active pools, contribution/payment status, order history, requirement matches and completed-purchase impact.
+- **FR-REP-08:** Platform Admin dashboard includes marketplace health, active organizations/users, moderation/disputes, payment/anchor failures, GMV/platform fees where enabled, impact totals and audit/security events.
+
 ### Administration
 
 - **FR-ADM-01:** Platform Admin can review users, organizations, listings, disputes and flagged reviews under explicit permissions.
@@ -70,7 +84,8 @@ This specification defines the MVP behavior of the KapraLoop responsive web plat
 - **NFR-PERF:** p95 cached/list reads under 500 ms and writes under 800 ms under agreed demo load, excluding external-provider latency.
 - **NFR-REL:** Health/readiness endpoints, structured logs, correlation IDs, graceful shutdown, retry with backoff, and no blocking blockchain call in a user request.
 - **NFR-DATA:** UTC timestamps, UUID identifiers, database constraints, migrations, daily managed backups, tested restore, retention policy, and soft deletion where auditability is required.
-- **NFR-UX:** Responsive 360-1440+ px, keyboard accessible, WCAG 2.2 AA target, clear empty/loading/error/success states, and reduced-motion support.
+- **NFR-UX:** 100% responsive and tested at 360, 390, 768, 1024, 1280 and 1440+ px; keyboard accessible, WCAG 2.2 AA target, clear empty/loading/error/success states, and reduced-motion support.
+- **NFR-VIS-01:** 3D/WebGL or canvas motion is progressively enhanced: it must have a static/reduced-motion fallback, lazy loading, mobile GPU budget, no layout shift and no effect on core commerce completion.
 - **NFR-PRIV:** Data minimization, purpose limitation, masked admin displays, export/delete process, and no personal data on-chain.
 - **NFR-MAINT:** Feature-based modules, OpenAPI contract, lint/format/test gates, ADRs for major decisions, and no business logic in controllers or React components.
 

@@ -26,7 +26,7 @@ KapraLoop enables textile suppliers to sell usable deadstock to small buyers who
 ## Goals and measurable outcomes
 
 - A new buyer or seller can verify email, complete onboarding, and reach the correct workspace.
-- A seller can publish a listing manually; bulk CSV/XLSX import is stretch scope.
+- A seller can publish a listing manually or through a validated bulk CSV/XLSX import.
 - Buyers can search/filter, post a requirement, and receive deterministic matches.
 - Multiple buyers can join one pool without overselling under concurrent requests.
 - Each contribution has a server-calculated amount and idempotent payment state.

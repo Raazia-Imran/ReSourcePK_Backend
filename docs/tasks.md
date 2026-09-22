@@ -14,7 +14,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 - T-004 Create initial migrations for users, sessions, organizations, memberships, invitations, permissions and audit events.
 - T-005 Implement verification, login/logout, reset, session rotation/revocation, rate limits.
 - T-006 Implement invitation acceptance and organization permission middleware with escalation tests.
-- T-007 Build shared tokens/components and routed shells for marketplace, buyer, organization and platform admin.
+- T-007 Build shared tokens/components, visual-direction prototype and routed shells for public landing, buyer, organization and platform admin.
 - T-008 Deploy staging frontend/API/database and complete auth E2E test.
 
 **Gate:** no mock auth; expired/reused invitation and forbidden-role tests pass.
@@ -29,7 +29,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 - T-104 Indexed keyword/filter/sort API with pagination.
 - T-105 Requirements and explainable rules-based matching.
 - T-106 Seed 4-5 suppliers and 20-25 realistic listings.
-- T-107 Optional bulk CSV/XLSX import only after the primary flow passes.
+- T-107 Build CSV/XLSX import: downloadable template, upload validation, row-level error report, review queue and safe publish.
 
 **Gate:** seller-to-published-listing-to-search journey passes on mobile and desktop.
 
@@ -42,7 +42,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 - T-203 Atomic/idempotent join flow with concurrency and expiry tests.
 - T-204 Pool UI with target, tiers, countdown, reservation/payment states.
 - T-205 Payment adapter, signed request/callback validation, replay protection and simulator fallback.
-- T-206 Checkout/contribution UI; refund/cancel paths and reconciliation job.
+- T-206 Direct checkout eligibility based on MOQ/full-lot/seller rules, group contribution UI, separate payment lifecycles, refund/cancel paths and reconciliation job.
 - T-207 Security review of amounts, callbacks, secrets and authorization.
 
 **Gate:** parallel test cannot overfill; callback replay has one financial effect; ledger reconciles.
@@ -58,6 +58,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 - T-305 Outbox/worker, Polygon Amoy contract with first-write protection, retry/verification API.
 - T-306 Public verification UI with accurate claim wording.
 - T-307 Impact event derivation and buyer/seller/admin dashboard metrics.
+- T-308 Implement role-aware report centre, metric definitions, drill-down views and CSV/PDF exports.
 
 **Gate:** payment -> fulfilment -> passport -> verification journey works; deliberate DB alteration causes mismatch.
 
@@ -67,7 +68,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 - T-401 Threat-model review, dependency/secret scan and authorization matrix test.
 - T-402 Full E2E matrix across buyer, owner, manager, staff and platform roles.
-- T-403 Accessibility, 360/768/1024/1440 responsive, slow-network and browser checks.
+- T-403 Accessibility, 360/390/768/1024/1280/1440+ responsive, slow-network and browser checks; validate static/reduced-motion fallbacks for all 3D/motion layers.
 - T-404 Load/concurrency tests for search, pool joins and callback bursts.
 - T-405 Migration/rollback, backup restore, worker retry and provider outage drills.
 - T-406 Production deployment, observability, alerts, privacy-safe demo data and smoke test.

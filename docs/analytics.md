@@ -6,13 +6,13 @@ Reports answer a role's next decision. They are not decorative charts. Every met
 
 ## Dashboard map
 
-| View | Weekly decision | Monthly/yearly decision | Key measures |
-|---|---|---|---|
-| Buyer | Join/pay/collect which pool? | Which suppliers/materials are reliable and affordable? | spend, active pools, contribution status, orders, requirement matches, completed-purchase impact |
-| Owner / CEO | Is recovered inventory/value improving? | Which material/seller strategy and team investment works? | GMV, seller proceeds, refunds, inventory value/ageing, pool conversion, fulfilment SLA, repeat buyers, impact |
-| Manager | What needs attention today? | Where is the operational bottleneck? | unreviewed listings, open/near-expiry pools, late orders, payment exceptions, inventory ageing, team workload |
-| Staff | What task must I complete? | What is my permitted workload/outcome? | assigned listings/orders, reservation status, task SLA, permitted stock updates |
-| Platform Admin | What threatens safety/reliability? | Is the marketplace healthy and growing? | active users/orgs, moderation/disputes, payment/anchor failures, GMV/fees if enabled, audit/security events |
+| View           | Weekly decision                         | Monthly/yearly decision                                   | Key measures                                                                                                  |
+| -------------- | --------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Buyer          | Join/pay/collect which pool?            | Which suppliers/materials are reliable and affordable?    | spend, active pools, contribution status, orders, requirement matches, completed-purchase impact              |
+| Owner / CEO    | Is recovered inventory/value improving? | Which material/seller strategy and team investment works? | GMV, seller proceeds, refunds, inventory value/ageing, pool conversion, fulfilment SLA, repeat buyers, impact |
+| Manager        | What needs attention today?             | Where is the operational bottleneck?                      | unreviewed listings, open/near-expiry pools, late orders, payment exceptions, inventory ageing, team workload |
+| Staff          | What task must I complete?              | What is my permitted workload/outcome?                    | assigned listings/orders, reservation status, task SLA, permitted stock updates                               |
+| Platform Admin | What threatens safety/reliability?      | Is the marketplace healthy and growing?                   | active users/orgs, moderation/disputes, payment/anchor failures, GMV/fees if enabled, audit/security events   |
 
 ## Calculation definitions
 

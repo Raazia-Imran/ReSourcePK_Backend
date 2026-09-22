@@ -40,14 +40,14 @@ Modules expose service interfaces; routes call services, services own transactio
 
 Use one React application, one identity, one design system, and routed workspaces:
 
-| Route area | Audience | Pattern |
-|---|---|---|
-| `/marketplace/*` | Public/buyers | discovery and purchase flows |
-| `/account/*` | Any signed-in user | profile, security, sessions |
-| `/buyer/*` | Buyer | requirements, contributions, orders |
-| `/org/:orgSlug/*` | Seller organization member | listings, orders, team, analytics |
-| `/admin/*` | Platform staff | moderation and operations |
-| `/verify/:passportId` | Public | privacy-safe verification |
+| Route area            | Audience                   | Pattern                             |
+| --------------------- | -------------------------- | ----------------------------------- |
+| `/marketplace/*`      | Public/buyers              | discovery and purchase flows        |
+| `/account/*`          | Any signed-in user         | profile, security, sessions         |
+| `/buyer/*`            | Buyer                      | requirements, contributions, orders |
+| `/org/:orgSlug/*`     | Seller organization member | listings, orders, team, analytics   |
+| `/admin/*`            | Platform staff             | moderation and operations           |
+| `/verify/:passportId` | Public                     | privacy-safe verification           |
 
 This is not one giant dashboard page and not three separately deployed portals. Route layouts provide role-specific navigation. API permissions remain authoritative.
 
@@ -55,13 +55,13 @@ This is not one giant dashboard page and not three separately deployed portals. 
 
 There are five role-aware dashboard home views, inside one deployed web app:
 
-| Dashboard | Principal | Decision it supports |
-|---|---|---|
-| Buyer | Small business/user | What to buy, group status, payments and procurement history |
-| Seller Owner / CEO | Organization owner | Revenue recovery, inventory exposure, conversion, fulfilment and impact |
-| Seller Manager | Operational manager | Team workload, listing/pool/order queues and exceptions |
-| Seller Staff | Approved employee | Assigned work, stock and permitted order/listing actions |
-| Platform Admin | ReSource PK operator | Marketplace safety, health, disputes, moderation and failures |
+| Dashboard          | Principal            | Decision it supports                                                    |
+| ------------------ | -------------------- | ----------------------------------------------------------------------- |
+| Buyer              | Small business/user  | What to buy, group status, payments and procurement history             |
+| Seller Owner / CEO | Organization owner   | Revenue recovery, inventory exposure, conversion, fulfilment and impact |
+| Seller Manager     | Operational manager  | Team workload, listing/pool/order queues and exceptions                 |
+| Seller Staff       | Approved employee    | Assigned work, stock and permitted order/listing actions                |
+| Platform Admin     | ReSource PK operator | Marketplace safety, health, disputes, moderation and failures           |
 
 Analytics is generated from transactionally consistent operational tables plus read models/materialized aggregates. It is not calculated in the browser from partial pages. An analytics/export service applies the same policy check as the dashboard, then creates CSV/PDF exports asynchronously and records the export in audit logs.
 
@@ -97,11 +97,15 @@ Use permission-based RBAC scoped by organization.
 ## Deployment
 
 - Frontend: Vercel or equivalent static hosting/CDN.
-- API/worker: Render or equivalent managed Node runtime.
+- API: Vercel Node Functions for the MVP; introduce a continuously running worker only when queued jobs require it.
 - Data: managed PostgreSQL; object storage for uploads.
 - Environments: local, preview/staging, production with separate credentials and databases.
 - CI: install from lockfile, lint, unit/integration tests, build, migration check, secret/dependency scan.
 - Deploy: backward-compatible migration, API/worker, smoke tests, then frontend. Production rollback never rewrites migration history.
+
+## Transactional email
+
+Phase 1 uses a provider adapter implemented with Nodemailer and Gmail SMTP. Only the backend reads `GMAIL_USER` and `GMAIL_APP_PASSWORD`; the app password is created with Google two-step verification and is never committed, logged, returned to the browser, or stored in PostgreSQL. Verification links expire after 24 hours and password-reset links after one hour. Tokens are random, single-use, and stored only as SHA-256 hashes. Each delivery has an idempotent event key and a status record so a provider change does not affect identity logic. A later production domain can replace Gmail by changing the adapter, without changing auth services or API contracts.
 
 ## Observability and recovery
 

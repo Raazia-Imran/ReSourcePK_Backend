@@ -2,7 +2,7 @@
 
 ## Purpose and system boundary
 
-This specification defines the MVP behavior of the KapraLoop responsive web platform. PostgreSQL is the system of record. External providers (email, storage, payments, optional tagging, Polygon) are adapters and must not own core business state.
+This specification defines the MVP behavior of the ReSource PK responsive web platform. PostgreSQL is the system of record. External providers (email, storage, payments, optional tagging, Polygon) are adapters and must not own core business state.
 
 ## Functional requirements
 

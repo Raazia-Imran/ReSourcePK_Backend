@@ -1,6 +1,17 @@
 const app = require("./app");
-const PORT = process.env.PORT || 5000;
+const { env } = require("./config/env");
+const { pool } = require("./db");
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const server = app.listen(env.PORT, () => {
+  console.log(`API listening on port ${env.PORT}`);
 });
+
+async function shutdown(signal) {
+  console.log(`${signal} received; closing connections`);
+  server.close(async () => {
+    await pool.end();
+    process.exit(0);
+  });
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

@@ -9,12 +9,12 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 **Outcome:** verified user can sign in and reach the correct routed workspace against the deployed API/database.
 
 - T-001 Protect branches, add PR template, CODEOWNERS, CI, lint/format/test/build.
-- T-002 Finalize OpenAPI conventions, error envelope, correlation IDs and health endpoints.
+- [x] T-002 Finalize OpenAPI conventions, error envelope, correlation IDs and health endpoints.
 - T-003 Select managed PostgreSQL/auth/storage through time-boxed spikes; document ADRs.
-- T-004 Create initial migrations for users, sessions, organizations, memberships, invitations, permissions and audit events.
-- T-005 Implement verification, login/logout, reset, session rotation/revocation, rate limits.
-- T-006 Implement invitation acceptance and organization permission middleware with escalation tests.
-- T-007 Build shared tokens/components, visual-direction prototype and routed shells for public landing, buyer, organization and platform admin.
+- [x] T-004 Create initial migrations for users, sessions, organizations, memberships, invitations, permissions and audit events.
+- [x] T-005 Implement verification, login/logout, reset, session rotation/revocation, rate limits.
+- [x] T-006 Implement invitation acceptance and organization permission boundaries.
+- [x] T-007 Build shared tokens/components, visual-direction prototype and routed shells for public landing, buyer, organization and platform admin.
 - T-008 Deploy staging frontend/API/database and complete auth E2E test.
 
 **Gate:** no mock auth; expired/reused invitation and forbidden-role tests pass.

@@ -2,7 +2,7 @@
 
 ## Document control
 
-- Product: **KapraLoop** (working name; repository names remain unchanged until brand clearance)
+- Product: **ReSource PK** (working name; repository names remain unchanged until brand clearance)
 - Current name: ReSource PK
 - Product type: Pakistan-focused circular B2B textile deadstock marketplace
 - Release: MVP 1.0
@@ -11,17 +11,17 @@
 
 ## Product decision
 
-KapraLoop enables textile suppliers to sell usable deadstock to small buyers who cannot meet industrial minimum-order quantities. Buyers may purchase directly or pool demand until a seller's minimum is reached. The MVP is a real, deployed, responsive web application, not a static demonstration.
+ReSource PK enables textile suppliers to sell usable deadstock to small buyers who cannot meet industrial minimum-order quantities. Buyers may purchase directly or pool demand until a seller's minimum is reached. The MVP is a real, deployed, responsive web application, not a static demonstration.
 
 ## Users and value
 
-| Actor | Need | Product value |
-|---|---|---|
-| Buyer | Affordable small quantities | Search, requirements, pooled orders, transparent contribution status |
+| Actor               | Need                         | Product value                                                          |
+| ------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| Buyer               | Affordable small quantities  | Search, requirements, pooled orders, transparent contribution status   |
 | Seller organization | Recover value from deadstock | Listings, tiered pricing, order fulfilment, revenue and impact metrics |
-| Organization owner | Delegate operations safely | Invite managers/staff and grant only necessary permissions |
-| Platform operator | Keep the marketplace safe | Moderation, disputes, user/organization controls, audit trail |
-| Public verifier | Check an impact record | Privacy-safe material passport verification |
+| Organization owner  | Delegate operations safely   | Invite managers/staff and grant only necessary permissions             |
+| Platform operator   | Keep the marketplace safe    | Moderation, disputes, user/organization controls, audit trail          |
+| Public verifier     | Check an impact record       | Privacy-safe material passport verification                            |
 
 ## Goals and measurable outcomes
 
@@ -116,4 +116,4 @@ The visual language is a custom digital textile exchange: immersive editorial co
 
 ## Naming decision
 
-Recommended working name: **KapraLoop**. It is memorable, locally understandable, directly signals textiles plus circularity, and still sounds suitable for industry. This is a product recommendation, not trademark/domain clearance. Keep the current repository/package identifiers until legal, domain, social-handle, and stakeholder checks are completed.
+Current working name: **ReSource PK**. The name is intentionally provisional and does not block implementation. Keep repository, package, database and deployment identifiers stable until the team approves a researched replacement and completes trademark, domain and social-handle checks.

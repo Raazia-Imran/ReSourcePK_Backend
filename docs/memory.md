@@ -20,6 +20,10 @@ This file records durable decisions so team members and coding assistants do not
 | D-012 | Async, hash-only Polygon Amoy passport | Keeps PII off-chain and user flow resilient | Accepted |
 | D-013 | Blockchain claim is tamper evidence, not truth proof | Accurate trust boundary | Accepted |
 | D-014 | Impact derives from completed, non-reversed orders | Prevents marketing totals from drifting from records | Accepted |
+| D-015 | Bulk CSV/XLSX import ships in MVP after manual listing | Factories commonly manage deadstock in spreadsheets; validation/review keeps data safe | Accepted |
+| D-016 | MOQ controls direct buying; below-MOQ demand uses pools | Preserves the core deadstock problem and supports full-lot purchase when valid | Accepted |
+| D-017 | Five role-aware dashboards in one web app | Gives CEO, manager, staff, buyer and operator only their needed decisions/data | Accepted |
+| D-018 | Visual direction is immersive custom digital-textile design | User rejected generic SaaS/AI template styling; 3D is progressive enhancement | Accepted |
 
 ## Known constraints
 

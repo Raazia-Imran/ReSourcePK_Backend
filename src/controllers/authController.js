@@ -8,7 +8,7 @@ const strongPassword = z
   .max(128)
   .regex(/[a-z]/, "Password needs a lowercase letter")
   .regex(/[A-Z]/, "Password needs an uppercase letter")
-  .regex(/[0-9]/, "Password needs a number");
+  .regex(/\d/, "Password needs a number");
 
 const registrationSchema = z.discriminatedUnion("accountType", [
   z.object({

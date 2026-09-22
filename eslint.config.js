@@ -1,7 +1,9 @@
 const globals = require("globals");
+const sonarjs = require("eslint-plugin-sonarjs");
 
 module.exports = [
   { ignores: ["node_modules/**"] },
+  sonarjs.configs.recommended,
   {
     files: ["**/*.js"],
     languageOptions: {

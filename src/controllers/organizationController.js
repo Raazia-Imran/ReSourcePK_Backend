@@ -7,7 +7,7 @@ const password = z
   .max(128)
   .regex(/[a-z]/)
   .regex(/[A-Z]/)
-  .regex(/[0-9]/);
+  .regex(/\d/);
 const invite = z.object({
   email: z.string().email(),
   role: z.enum(["org_admin", "manager", "staff"]),

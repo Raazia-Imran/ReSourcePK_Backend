@@ -3,8 +3,7 @@ const { env } = require("../config/env");
 
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
-  ssl:
-    env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+  ssl: env.NODE_ENV === "production" ? { rejectUnauthorized: true } : undefined,
   max: env.NODE_ENV === "test" ? 2 : 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,

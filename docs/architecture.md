@@ -51,6 +51,20 @@ Use one React application, one identity, one design system, and routed workspace
 
 This is not one giant dashboard page and not three separately deployed portals. Route layouts provide role-specific navigation. API permissions remain authoritative.
 
+## Dashboards and analytics
+
+There are five role-aware dashboard home views, inside one deployed web app:
+
+| Dashboard | Principal | Decision it supports |
+|---|---|---|
+| Buyer | Small business/user | What to buy, group status, payments and procurement history |
+| Seller Owner / CEO | Organization owner | Revenue recovery, inventory exposure, conversion, fulfilment and impact |
+| Seller Manager | Operational manager | Team workload, listing/pool/order queues and exceptions |
+| Seller Staff | Approved employee | Assigned work, stock and permitted order/listing actions |
+| Platform Admin | ReSource PK operator | Marketplace safety, health, disputes, moderation and failures |
+
+Analytics is generated from transactionally consistent operational tables plus read models/materialized aggregates. It is not calculated in the browser from partial pages. An analytics/export service applies the same policy check as the dashboard, then creates CSV/PDF exports asynchronously and records the export in audit logs.
+
 ## Authorization model
 
 Use permission-based RBAC scoped by organization.

@@ -11,3 +11,5 @@ Read in this order:
 7. [`memory.md`](memory.md) - durable decisions, constraints and open decisions.
 
 These files form one baseline. A change to scope, behavior or architecture must update every affected document in the same pull request.
+
+The analytics specification is in analytics.md and is part of the required product baseline.

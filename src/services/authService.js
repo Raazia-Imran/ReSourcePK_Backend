@@ -320,6 +320,19 @@ async function resetPassword(token, password, meta) {
         "Reset link is invalid or expired",
       );
     const record = tokens.rows[0];
+    const previous = await client.query(
+      "SELECT password_hash FROM app.users WHERE id = $1 FOR UPDATE",
+      [record.user_id],
+    );
+    if (
+      previous.rowCount &&
+      (await bcrypt.compare(password, previous.rows[0].password_hash))
+    )
+      throw new AppError(
+        422,
+        "PASSWORD_REUSED",
+        "Choose a password different from your previous password",
+      );
     await client.query(
       "UPDATE app.users SET password_hash = $2 WHERE id = $1",
       [record.user_id, passwordHash],

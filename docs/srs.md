@@ -98,9 +98,13 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 ## Acceptance scenarios
 
 1. An expired or already-used invitation is rejected without creating membership.
-2. A Manager lacking `members.invite` cannot invite Staff; an Org Admin cannot create a Platform Admin.
+2. A Manager lacking `members.invite` cannot invite Staff; a Manager cannot create a Platform Admin.
 3. Two concurrent joins cannot overfill a pool or double-reserve stock.
 4. Replaying a payment callback leaves one payment transition and one ledger effect.
 5. A completed order cannot have passport source fields edited; return/refund creates linked events.
 6. Changing a passport snapshot produces a mismatch against the on-chain hash.
 7. An administrator cannot view another organization’s private data without an authorized platform moderation workflow.
+
+## Account transition and onboarding
+
+An existing verified Buyer may create a seller organization from the same account, becoming its Owner. The Owner invites Managers or Staff. A Manager may invite Staff only when the Owner grants that permission. The browser does not require a second registration with the same email. Invitations remain one-time, bound to the invited email, and expire after 72 hours.

@@ -3,6 +3,8 @@ const controller = require("../controllers/organizationController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
+router.post("/organizations", requireAuth, controller.createOrganization);
+
 router.get("/invitations/details", controller.invitationDetails);
 router.post("/invitations/accept-new", controller.acceptNewUser);
 router.post("/invitations/accept", requireAuth, controller.acceptExistingUser);

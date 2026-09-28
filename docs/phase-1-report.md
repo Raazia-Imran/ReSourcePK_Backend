@@ -10,7 +10,7 @@
 
 - Responsive public landing page with a custom dimensional textile visual language.
 - Buyer and Seller registration, login, verification, forgotten-password and reset-password screens.
-- One application shell with role-aware Buyer, Organization and Platform views. Organization data supports distinct Owner, Organization Admin, Manager and Staff permissions.
+- One application shell with role-aware Buyer, Organization and Platform views. Organization data supports distinct Owner, Manager and Staff permissions.
 - Secure organization invitation acceptance for new and existing users.
 - Real empty states in dashboards. Metrics are never invented; role-specific weekly, monthly, yearly and custom reports remain scheduled for the analytics phase.
 
@@ -42,7 +42,7 @@ There is one responsive website and one login, with five dashboard experiences s
 | Seller Staff       | invited employee                  | organization shell for assigned operations           |
 | Platform Admin     | ReSource PK operations            | separate platform navigation and role data           |
 
-The Owner invites an Admin or Manager by email. A Manager can invite Staff only when `can_invite_staff` is granted. Invite tokens expire after 72 hours, work once, and must match the invited email. The API enforces access; hiding a menu item is never treated as security.
+The Owner invites a Manager or Staff member by email. A Manager can invite Staff only when `can_invite_staff` is granted. Invite tokens expire after 72 hours, work once, and must match the invited email. The API enforces access; hiding a menu item is never treated as security.
 
 ## What each teammate does next
 

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: ReSource PK API
   version: 1.0.0
-  description: Phase 1 authentication and organization-access contract.
+  description: Authentication, organization access, and catalog contract.
 servers:
   - url: /api/v1
 paths:
@@ -92,10 +92,26 @@ paths:
           "200": { description: Current access context },
           "401": { description: Authentication required },
         }
+  /organizations:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a seller organization from an existing verified buyer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                { name: { type: string, minLength: 2, maxLength: 180 } }
+      responses:
+        "201": { description: Organization created with current user as Owner }
+        "409": { description: Account already owns a seller organization }
   /organizations/{organizationId}/invitations:
     post:
       security: [{ bearerAuth: [] }]
-      summary: Invite an organization administrator, manager, or staff member
+      summary: Invite a manager or staff member
       parameters:
         [
           {
@@ -132,10 +148,153 @@ paths:
           "200": { description: Invitation accepted },
           "403": { description: Invitation email mismatch },
         }
+  /listings:
+    get:
+      summary: Search published listings with q, material, unit, page, limit, and sort
+      responses:
+        "200": { description: Paginated public listings }
+  /listings/{listingId}:
+    get:
+      summary: Get a published listing by ID
+      responses:
+        "200": { description: Published listing }
+        "404": { description: Not published or not found }
+  /organizations/{organizationId}/listings:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Get seller organization listings, including drafts
+      responses:
+        "200": { description: Own organization listings }
+        "403": { description: Owner or Manager access required }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a draft listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ListingInput" }
+      responses:
+        "201": { description: Draft created }
+        "403": { description: Owner or Manager access required }
+  /organizations/{organizationId}/listings/{listingId}:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Edit a draft or rejected listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ListingInput" }
+      responses:
+        "200": { description: Draft updated }
+        "409": { description: Listing not editable }
+  /organizations/{organizationId}/listings/{listingId}/submit:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Submit a draft for platform review
+      responses:
+        "200": { description: Pending review }
+        "409": { description: Listing not submittable }
+  /organizations/{organizationId}/listings/import/template:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Download CSV stock sheet template
+      responses:
+        "200": { description: CSV template }
+  /organizations/{organizationId}/listings/import/preview:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Validate a CSV or XLSX upload with row-level errors, without saving it
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties: { file: { type: string, format: binary } }
+      responses:
+        "200": { description: Valid rows and row-level errors }
+        "413": { description: File exceeds upload limit }
+  /organizations/{organizationId}/listings/import/commit:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Atomically create reviewed draft listings with a UUID idempotency key
+      responses:
+        "201": { description: Drafts created }
+        "200": { description: Same import was already committed }
+        "409": { description: Import key reused with different rows }
+  /platform/listings/pending:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Platform Admin review queue
+      responses:
+        "200": { description: Pending listings }
+  /platform/listings/{listingId}/review:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Publish or reject a pending listing
+      responses:
+        "200": { description: Review recorded }
+        "403": { description: Platform Admin required }
+  /requirements:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: View your buyer requirements
+      responses:
+        "200": { description: Requirements }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a buyer requirement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequirementInput" }
+      responses:
+        "201": { description: Requirement saved }
+  /requirements/{requirementId}/matches:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Explainably match your requirement to published listings
+      responses:
+        "200": { description: Matching listings and MOQ suitability }
+        "404": { description: Not your active requirement }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    ListingInput:
+      type: object
+      required:
+        [
+          title,
+          description,
+          material,
+          condition,
+          unit,
+          quantity,
+          minOrderQuantity,
+          pricePerUnit,
+        ]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 160 }
+        description: { type: string, minLength: 20, maxLength: 5000 }
+        material: { type: string, minLength: 2, maxLength: 80 }
+        condition: { type: string, minLength: 2, maxLength: 80 }
+        unit: { type: string, enum: [kg, meter, roll, piece] }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        minOrderQuantity: { type: number, exclusiveMinimum: 0 }
+        pricePerUnit: { type: number, exclusiveMinimum: 0 }
+    RequirementInput:
+      type: object
+      required: [material, minQuantity, unit]
+      properties:
+        material: { type: string, minLength: 2, maxLength: 80 }
+        minQuantity: { type: number, exclusiveMinimum: 0 }
+        unit: { type: string, enum: [kg, meter, roll, piece] }
+        maxPricePerUnit: { type: number, exclusiveMinimum: 0 }
+        notes: { type: string, maxLength: 1000 }
     Registration:
       oneOf:
         - {

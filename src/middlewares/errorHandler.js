@@ -1,5 +1,6 @@
 const { ZodError } = require("zod");
 const { AppError } = require("../lib/errors");
+const multer = require("multer");
 
 function notFound(req, _res, next) {
   next(
@@ -8,6 +9,14 @@ function notFound(req, _res, next) {
 }
 
 function errorHandler(error, req, res, _next) {
+  if (error instanceof multer.MulterError)
+    return res.status(413).json({
+      error: {
+        code: "UPLOAD_LIMIT",
+        message: "Upload a CSV or XLSX file smaller than 2 MB",
+        correlationId: req.correlationId,
+      },
+    });
   if (error instanceof ZodError) {
     return res.status(422).json({
       error: {
@@ -33,6 +42,7 @@ function errorHandler(error, req, res, _next) {
           ? "The server could not complete this request"
           : error.message,
       correlationId: req.correlationId,
+      ...(error.details && status < 500 ? { details: error.details } : {}),
     },
   });
 }

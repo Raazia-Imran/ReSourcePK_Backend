@@ -8,6 +8,7 @@ const { query } = require("./db");
 
 const authRoutes = require("./routes/authRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
+const catalogRoutes = require("./routes/catalogRoutes");
 const { AppError } = require("./lib/errors");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
 
@@ -41,6 +42,7 @@ app.get("/ready", async (_req, res) => {
 });
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", organizationRoutes);
+app.use("/api/v1", catalogRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

@@ -2,26 +2,33 @@ const db = require("../../db");
 const repo = require("./repository");
 const images = require("./imageAdapter");
 
+async function cleanObject(runner, key) {
+  if (await repo.imageIsLinked(runner, key)) {
+    await repo.finishImageCleanup(key, runner);
+    return "linked";
+  }
+  try {
+    await images.remove(key);
+    await repo.finishImageCleanup(key, runner);
+    return "removed";
+  } catch {
+    await repo.retryImageCleanup(runner, key);
+    return "failed";
+  }
+}
 async function cleanImageObjects() {
   return db.transaction(async (runner) => {
     const jobs = await repo.cleanupCandidates(runner);
-    let removed = 0;
-    let failed = 0;
-    for (const job of jobs) {
-      if (await repo.imageIsLinked(runner, job.object_key)) {
-        await repo.finishImageCleanup(job.object_key, runner);
-        continue;
-      }
-      try {
-        await images.remove(job.object_key);
-        await repo.finishImageCleanup(job.object_key, runner);
-        removed++;
-      } catch {
-        await repo.retryImageCleanup(runner, job.object_key);
-        failed++;
-      }
-    }
-    return { queued: jobs.length, removed, failed };
+    // Each candidate is independently locked; provider work is bounded by
+    // the repository batch size and never involves a shared object key.
+    const results = await Promise.all(
+      jobs.map((job) => cleanObject(runner, job.object_key)),
+    );
+    return {
+      queued: jobs.length,
+      removed: results.filter((result) => result === "removed").length,
+      failed: results.filter((result) => result === "failed").length,
+    };
   });
 }
 module.exports = { cleanImageObjects };

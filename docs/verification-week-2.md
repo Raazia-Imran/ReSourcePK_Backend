@@ -152,7 +152,7 @@ Locally, clone both repos side by side, create a dedicated local `resourcepk_tes
 npm ci --ignore-scripts
 node scripts/prepare-test-db.js
 npm run db:seed:demo
-npm exec playwright install -- --with-deps chromium
+node node_modules/@playwright/test/cli.js install --with-deps chromium
 # Frontend terminal: set VITE_API_URL=http://localhost:5000/api/v1
 npm ci --ignore-scripts
 npm run build

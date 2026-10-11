@@ -47,13 +47,13 @@ async function checkDrawer(page, width) {
   const drawer = page.getByRole("dialog", { name: "Workspace navigation" });
   await expect(drawer).toBeVisible();
   await expect(
-    drawer.getByRole("button", { name: "Close navigation" }),
+    drawer.getByRole("link", { name: "ReSource PK home" }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(drawer.getByRole("button", { name: "Sign out" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    drawer.getByRole("button", { name: "Close navigation" }),
+    drawer.getByRole("link", { name: "ReSource PK home" }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(opener).toBeFocused();

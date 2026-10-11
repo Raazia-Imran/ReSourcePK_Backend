@@ -121,3 +121,7 @@ Current working name: **ReSource PK**. The name is intentionally provisional and
 ## Account transition and onboarding
 
 An existing verified Buyer may create a seller organization from the same account, becoming its Owner. The Owner invites Managers or Staff. A Manager may invite Staff only when the Owner grants that permission. The browser does not require a second registration with the same email. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+
+## Catalog delivery update — 11 October 2026
+
+Week 2 includes optional composition/color/location, quantity tiers, private raster images, audited moderation, terminal archive, and requirement pause/resume/close. Demo inventory is opt-in and visibly synthetic; it is excluded from real metrics. Week 3 pools/payments and Week 4 passports/reports remain planned. Implementation and weekly release acceptance are tracked separately in `delivery-status.md`; mobile/desktop hosted acceptance is still required.

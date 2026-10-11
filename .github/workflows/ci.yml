@@ -1,0 +1,66 @@
+name: CI
+on:
+  push:
+    branches: [main, "feature/**", "fix/**"]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: resourcepk_test_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-test-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:ci-only-test-password@127.0.0.1:5432/resourcepk_test_ci
+      TEST_DATABASE_URL: postgresql://postgres:ci-only-test-password@127.0.0.1:5432/resourcepk_test_ci
+      JWT_ACCESS_SECRET: ci-only-secret-for-isolated-test-database
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: node scripts/prepare-test-db.js
+      - run: npm run test:integration
+      - name: Verify opt-in demo seed and replay on isolated CI database
+        env:
+          ALLOW_DEMO_SEED: "true"
+          DEMO_PASSWORD: IntegrationDemoPassword123
+        run: |
+          npm run db:seed:demo
+          npm run db:seed:demo
+          node scripts/verify-demo.js
+      - run: npm audit --omit=dev --audit-level=high
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"

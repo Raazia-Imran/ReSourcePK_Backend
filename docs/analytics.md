@@ -32,3 +32,7 @@ Users select current/previous week, month, year or custom range; apply permitted
 ## Security and correctness
 
 The server calculates aggregates. Browser charts receive only authorized data. Large exports run as jobs, expire after download and are audit logged. Ownership-only financial reports are not available to managers/staff without an explicit permission. Charts have accessible table equivalents.
+
+## Current delivery boundary — 11 October 2026
+
+Reporting/analytics implementation remains Week 4. Catalog records now contain `is_demo`; default real-world metrics and exports must exclude these fixtures, with an explicit separately labelled demo mode if needed. Tier prices and stock levels do not establish revenue, verified waste diversion or completed purchases. Do not render invented KPIs while orders, ledger and impact events are unavailable.

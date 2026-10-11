@@ -50,3 +50,14 @@ This file records durable decisions so team members and coding assistants do not
 Only the user's onboarding/catalog work is retained in `main`. The user explicitly excludes the friend's `feature/correcting-database-schema` and `feature/some-minor-fixes` commits. The mistakenly introduced consolidation ancestry is replaced using a lease against the observed tip; a separate archive ref supports recovery and must not be merged back. No runtime or schema change is required for this correction. See `merge-reconciliation.md` for the source commits and resolution. Local preview instructions are in `local-preview-guide.md`. Live acceptance gates remain open.
 
 Add a dated row describing what changed, why, affected requirements and migration consequence. Major architecture, security, data, provider or scope changes require an ADR and updates to PRD/SRS/tasks in the same pull request.
+
+## 11 October 2026 — catalog completion slice
+
+- User scope is their work only. Backend main was rebuilt with one user patch parent; friend additions from PRs 1/2 were excluded again. Keep recovery archive/old consolidation refs out of future merges. Historical PR merge labels are not ancestry evidence.
+- Before new implementation: Week 2, with 5/37 existing checked tasks (13.5% checklist) and zero verified weekly release gates. Calendar elapsed time is not delivery progress.
+- Catalog completion adds optional metadata, exact decimal/paisa handling, tiers, private normalized images, audited archive/review, version conflicts, requirement lifecycle, opt-in synthetic fixtures and CI. Old sessions need sign-in after deploying session-bound JWTs.
+- Staging project was inactive and was restored; migrations 004/005 applied with the app ledger. No demo inventory was seeded into staging by this session. Security advisor returned no findings; missing import actor FK index was resolved. Unused-index INFO entries remain expected on an empty database and do not establish load readiness.
+- The first real XLSX regression caught the v9 default reader returning worksheet objects. Import now uses its documented first-sheet reader and bounded archive sanitization.
+- Hosted API/SMTP/storage, global abuse controls, mobile/desktop acceptance, production provisioning/step-up, load/concurrency scale and backup restore remain gates. Payments/pools/passports/analytics are not implemented. See verification guide and delivery status.
+
+- Final automated evidence: backend 23 regression tests + 9 real PostgreSQL integration scenarios, migration replay, opt-in demo seed twice (4 suppliers/20 labelled listings/6 accounts), secret scan and production audit pass. Frontend lint/build/audit/secret scan pass. Checklist updated to 10/37 (27.0%); zero fully verified weekly release gates.

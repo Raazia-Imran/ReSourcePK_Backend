@@ -9,6 +9,9 @@ async function migrate() {
     .sort();
   const client = await pool.connect();
   try {
+    await client.query(
+      "SELECT pg_advisory_lock(hashtext('resourcepk-migrations'))",
+    );
     await client.query("CREATE SCHEMA IF NOT EXISTS app");
     await client.query(`CREATE TABLE IF NOT EXISTS app.schema_migrations (
       name TEXT PRIMARY KEY,
@@ -40,6 +43,9 @@ async function migrate() {
       }
     }
   } finally {
+    await client.query(
+      "SELECT pg_advisory_unlock(hashtext('resourcepk-migrations'))",
+    );
     client.release();
     await pool.end();
   }

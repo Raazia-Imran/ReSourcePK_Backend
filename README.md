@@ -18,3 +18,7 @@ For beginner clone, credential setup and feature checks, follow [the local previ
 - `npm run format:check`
 
 The API contract is in `docs/openapi.yaml`. Applied migrations are immutable; add a new numbered migration for every schema change.
+
+## Current catalog verification
+
+Read [Week 2 setup and verification](docs/verification-week-2.md), [delivery status](docs/delivery-status.md) and [catalog ADR 004](docs/adr/004-catalog-completion.md). This UI/API slice needs migrations 004–005 and coordinated deployment; previous sessions must sign in again. Image storage and synthetic seed are explicit optional configuration, not hardcoded data.

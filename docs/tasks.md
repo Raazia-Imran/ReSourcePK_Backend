@@ -23,13 +23,13 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 **Outcome:** authorized seller publishes stock; buyer finds it and posts a requirement.
 
-- T-101 Listing/image/price-tier migrations and policies.
+- [x] T-101 Listing/image/price-tier migrations and policies.
 - T-102 Listing CRUD, moderation states, secure upload adapter.
 - T-103 Catalog, detail, seller inventory, create/edit flows with all states.
-- T-104 Indexed keyword/filter/sort API with pagination.
-- T-105 Requirements and explainable rules-based matching.
-- T-106 Seed 4-5 suppliers and 20-25 realistic listings.
-- T-107 Build CSV/XLSX import: downloadable template, upload validation, row-level error report, review queue and safe publish.
+- [x] T-104 Indexed keyword/filter/sort API with pagination.
+- [x] T-105 Requirements and explainable rules-based matching.
+- [x] T-106 Seed 4-5 suppliers and 20-25 realistic listings.
+- [x] T-107 Build CSV/XLSX import: downloadable template, upload validation, row-level error report, review queue and safe publish.
 
 **Gate:** seller-to-published-listing-to-search journey passes on mobile and desktop.
 
@@ -79,3 +79,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 ## Priority if time compresses
 
 Never cut auth security, tenant isolation, pool concurrency, payment idempotency, data integrity, accessibility basics or deployment. Cut in this order: custom AI, SMS, chat, bulk import, decorative animation, advanced analytics. A smaller honest system is acceptable; a falsely “complete” unsafe system is not.
+
+## Evidence snapshot — 11 October 2026
+
+Ten of 37 implementation tasks are checked (27.0%, unweighted checklist completion). Checks reflect implemented scope and automated evidence, not a weekly release sign-off. Backend CI passes 23 regression tests, 9 real PostgreSQL integration scenarios, idempotent synthetic seed verification and secret/dependency checks; frontend CI passes lint/build/audit/secret checks. T-102/T-103 remain partial until real private-storage and hosted mobile/desktop acceptance. Week 1 deployment and Week 2 release gates remain open; later weeks are planned. See `delivery-status.md`.

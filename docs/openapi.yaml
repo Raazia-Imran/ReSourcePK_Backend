@@ -10,91 +10,116 @@ paths:
     post:
       summary: Register a buyer or seller owner
       requestBody:
-        {
-          required: true,
-          content:
-            {
-              application/json:
-                { schema: { $ref: "#/components/schemas/Registration" } },
-            },
-        }
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Registration"
       responses:
-        {
-          "201": { description: Account created; email verification required },
-          "409": { $ref: "#/components/responses/Conflict" },
-          "422": { $ref: "#/components/responses/Validation" },
-        }
+        "201":
+          description: Account created; email verification required
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Validation"
   /auth/verify-email:
     post:
       summary: Consume a single-use email verification token
       requestBody:
-        {
-          required: true,
-          content:
-            {
-              application/json:
-                { schema: { $ref: "#/components/schemas/Token" } },
-            },
-        }
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Token"
       responses:
-        {
-          "200": { description: Email verified },
-          "400": { $ref: "#/components/responses/BadToken" },
-        }
+        "200":
+          description: Email verified
+        "400":
+          $ref: "#/components/responses/BadToken"
   /auth/resend-verification:
     post:
       summary: Request a replacement verification email
       responses:
-        { "200": { description: Generic response prevents account discovery } }
+        "200":
+          description: Generic response prevents account discovery
   /auth/login:
     post:
       summary: Start a rotating session
       responses:
-        {
-          "200":
-            {
-              description: Access token and role context; refresh token in HttpOnly cookie,
-            },
-          "401": { description: Invalid credentials },
-          "403": { description: Email or account unavailable },
-        }
+        "200":
+          description: Access token and role context; refresh token in HttpOnly cookie
+        "401":
+          description: Invalid credentials
+        "403":
+          description: Email or account unavailable
   /auth/refresh:
     post:
       summary: Rotate the refresh session
       responses:
-        {
-          "200": { description: New access token and role context },
-          "401": { description: Session expired },
-        }
+        "200":
+          description: New access token and role context
+        "401":
+          description: Session expired
+      parameters:
+        - in: header
+          name: Origin
+          required: true
+          schema:
+            type: string
+          description: Exact configured frontend origin
+        - in: header
+          name: X-ReSourcePK-CSRF
+          required: true
+          schema:
+            type: string
+            const: "1"
   /auth/logout:
     post:
       summary: Revoke the current refresh session
-      responses: { "204": { description: Signed out } }
+      responses:
+        "204":
+          description: Signed out
+      parameters:
+        - in: header
+          name: Origin
+          required: true
+          schema:
+            type: string
+          description: Exact configured frontend origin
+        - in: header
+          name: X-ReSourcePK-CSRF
+          required: true
+          schema:
+            type: string
+            const: "1"
   /auth/forgot-password:
     post:
       summary: Request a one-hour password-reset link
       responses:
-        { "200": { description: Generic response prevents account discovery } }
+        "200":
+          description: Generic response prevents account discovery
   /auth/reset-password:
     post:
       summary: Set a new password and revoke all sessions
       responses:
-        {
-          "204": { description: Password changed },
-          "400": { $ref: "#/components/responses/BadToken" },
-        }
+        "204":
+          description: Password changed
+        "400":
+          $ref: "#/components/responses/BadToken"
   /auth/me:
     get:
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       summary: Return user, organization memberships, and platform roles
       responses:
-        {
-          "200": { description: Current access context },
-          "401": { description: Authentication required },
-        }
+        "200":
+          description: Current access context
+        "401":
+          description: Authentication required
   /organizations:
     post:
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       summary: Create a seller organization from an existing verified buyer account
       requestBody:
         required: true
@@ -102,232 +127,708 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
+              required:
+                - name
               properties:
-                { name: { type: string, minLength: 2, maxLength: 180 } }
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 180
       responses:
-        "201": { description: Organization created with current user as Owner }
-        "409": { description: Account already owns a seller organization }
+        "201":
+          description: Organization created with current user as Owner
+        "409":
+          description: Account already owns a seller organization
   /organizations/{organizationId}/invitations:
     post:
-      security: [{ bearerAuth: [] }]
+      security: &id001
+        - BearerAuth: []
       summary: Invite a manager or staff member
       parameters:
-        [
-          {
-            in: path,
-            name: organizationId,
-            required: true,
-            schema: { type: string, format: uuid },
-          },
-        ]
+        - in: path
+          name: organizationId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
-        {
-          "201": { description: Single-use invitation sent },
-          "403": { description: Membership cannot grant requested role },
-        }
+        "201":
+          description: Single-use invitation sent
+        "403":
+          description: Membership cannot grant requested role
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /invitations/details:
     get:
       summary: Read non-sensitive invitation context
       responses:
-        { "200": { description: Organization, email, role and expiry } }
+        "200":
+          description: Organization
+          email: null
+          role and expiry: null
   /invitations/accept-new:
     post:
       summary: Create an account from an invitation and join the organization
       responses:
-        {
-          "201": { description: Invitation accepted },
-          "409": { description: Existing users must sign in },
-        }
+        "201":
+          description: Invitation accepted
+        "409":
+          description: Existing users must sign in
   /invitations/accept:
     post:
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       summary: Accept an invitation for the signed-in email
       responses:
-        {
-          "200": { description: Invitation accepted },
-          "403": { description: Invitation email mismatch },
-        }
+        "200":
+          description: Invitation accepted
+        "403":
+          description: Invitation email mismatch
   /listings:
     get:
-      summary: Search published listings with q, material, unit, page, limit, and sort
+      summary:
+        Search published listings with q, material, unit, page, limit, and
+        sort
       responses:
-        "200": { description: Paginated public listings }
+        "200":
+          description: Paginated public listings
+      description:
+        Only published stock from active organizations; keyword/material/unit/sort,
+        page 1–200, limit 1–50; consistent count and rows.
   /listings/{listingId}:
     get:
       summary: Get a published listing by ID
       responses:
-        "200": { description: Published listing }
-        "404": { description: Not published or not found }
+        "200":
+          description: Published listing
+        "404":
+          description: Not published or not found
+    parameters:
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings:
     get:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Get seller organization listings, including drafts
       responses:
-        "200": { description: Own organization listings }
-        "403": { description: Owner or Manager access required }
+        "200":
+          description: Own organization listings
+        "403":
+          description: Owner or Manager access required
     post:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Create a draft listing
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ListingInput" }
+            schema:
+              $ref: "#/components/schemas/ListingInput"
       responses:
-        "201": { description: Draft created }
-        "403": { description: Owner or Manager access required }
+        "201":
+          description: Draft created
+        "403":
+          description: Owner or Manager access required
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings/{listingId}:
     put:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Edit a draft or rejected listing
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ListingInput" }
+            schema:
+              $ref: "#/components/schemas/ListingEdit"
       responses:
-        "200": { description: Draft updated }
-        "409": { description: Listing not editable }
+        "200":
+          description: Draft updated
+        "409":
+          description: Listing not editable
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings/{listingId}/submit:
     post:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Submit a draft for platform review
       responses:
-        "200": { description: Pending review }
-        "409": { description: Listing not submittable }
+        "200":
+          description: Pending review
+        "409":
+          description: Listing not submittable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Version"
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings/import/template:
     get:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Download CSV stock sheet template
       responses:
-        "200": { description: CSV template }
+        "200":
+          description: CSV template
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings/import/preview:
     post:
-      security: [{ bearerAuth: [] }]
-      summary: Validate a CSV or XLSX upload with row-level errors, without saving it
+      security: *id001
+      summary:
+        Validate a CSV or XLSX upload with row-level errors, without saving
+        it
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              properties: { file: { type: string, format: binary } }
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
-        "200": { description: Valid rows and row-level errors }
-        "413": { description: File exceeds upload limit }
+        "200":
+          description: Valid rows and row-level errors
+        "413":
+          description: File exceeds upload limit
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /organizations/{organizationId}/listings/import/commit:
     post:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Atomically create reviewed draft listings with a UUID idempotency key
       responses:
-        "201": { description: Drafts created }
-        "200": { description: Same import was already committed }
-        "409": { description: Import key reused with different rows }
+        "201":
+          description: Drafts created
+        "200":
+          description: Same import was already committed
+        "409":
+          description: Import key reused with different rows
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /platform/listings/pending:
     get:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Platform Admin review queue
       responses:
-        "200": { description: Pending listings }
+        "200":
+          description: Pending listings
   /platform/listings/{listingId}/review:
     post:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Publish or reject a pending listing
       responses:
-        "200": { description: Review recorded }
-        "403": { description: Platform Admin required }
+        "200":
+          description: Review recorded
+        "403":
+          description: Platform Admin required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Review"
+    parameters:
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
   /requirements:
     get:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: View your buyer requirements
       responses:
-        "200": { description: Requirements }
+        "200":
+          description: Requirements
     post:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Create a buyer requirement
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/RequirementInput" }
+            schema:
+              $ref: "#/components/schemas/RequirementInput"
       responses:
-        "201": { description: Requirement saved }
+        "201":
+          description: Requirement saved
   /requirements/{requirementId}/matches:
     get:
-      security: [{ bearerAuth: [] }]
+      security: *id001
       summary: Explainably match your requirement to published listings
       responses:
-        "200": { description: Matching listings and MOQ suitability }
-        "404": { description: Not your active requirement }
+        "200":
+          description: Matching listings and MOQ suitability
+        "404":
+          description: Not your active requirement
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /organizations/{organizationId}/listings/{listingId}/archive:
+    post:
+      summary: Archive stock permanently from discovery, retaining audit history
+      security: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Version"
+      responses: &id006
+        "200":
+          description: Action completed; updated data and version
+        "401": &id002
+          description: Sign in with active verified account and live session
+        "403": &id003
+          description: Required permission unavailable
+        "409": &id004
+          description: Stale version or invalid state
+        "422": &id005
+          description: Invalid input
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /organizations/{organizationId}/listings/{listingId}/images:
+    post:
+      summary: Upload draft/rejected listing raster, at most eight images
+      security: *id001
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - altText
+                - version
+              properties:
+                file:
+                  type: string
+                  format: binary
+                altText:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                version:
+                  type: integer
+                  minimum: 1
+      responses:
+        "201":
+          description: Re-encoded WebP image metadata
+        "413":
+          description: Upload limit exceeded
+        "401": *id002
+        "403": *id003
+        "409": *id004
+        "422": *id005
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /organizations/{organizationId}/listings/{listingId}/images/{imageId}:
+    delete:
+      summary: Remove image metadata and queue private-object cleanup
+      security: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Version"
+      responses: *id006
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /listing-images/{imageId}:
+    get:
+      summary:
+        Request a 60-second private image URL; published active seller images
+        are public, others require seller/reviewer access
+      responses:
+        "200":
+          description: URL and expiresIn; response is not cached
+        "404":
+          description: Image unavailable
+        "503":
+          description: Storage not configured or unavailable
+    parameters:
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /requirements/{requirementId}/status:
+    patch:
+      summary: Pause, resume or terminally close an owned requirement
+      security: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequirementStatus"
+      responses: *id006
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     ListingInput:
       type: object
       required:
-        [
-          title,
-          description,
-          material,
-          condition,
-          unit,
-          quantity,
-          minOrderQuantity,
-          pricePerUnit,
-        ]
+        - title
+        - description
+        - material
+        - condition
+        - unit
+        - quantity
+        - minOrderQuantity
+        - pricePerUnit
       properties:
-        title: { type: string, minLength: 3, maxLength: 160 }
-        description: { type: string, minLength: 20, maxLength: 5000 }
-        material: { type: string, minLength: 2, maxLength: 80 }
-        condition: { type: string, minLength: 2, maxLength: 80 }
-        unit: { type: string, enum: [kg, meter, roll, piece] }
-        quantity: { type: number, exclusiveMinimum: 0 }
-        minOrderQuantity: { type: number, exclusiveMinimum: 0 }
-        pricePerUnit: { type: number, exclusiveMinimum: 0 }
+        title: &id009
+          type: string
+          minLength: 3
+          maxLength: 160
+        description: &id010
+          type: string
+          minLength: 20
+          maxLength: 5000
+        material: &id011
+          type: string
+          minLength: 2
+          maxLength: 80
+        condition: &id012
+          type: string
+          minLength: 2
+          maxLength: 80
+        unit: &id013
+          type: string
+          enum:
+            - kg
+            - meter
+            - roll
+            - piece
+        quantity: &id007
+          oneOf:
+            - type: string
+              pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,3})?$
+            - type: number
+              exclusiveMinimum: 0
+              maximum: 100000000
+          description:
+            Prefer exact decimal text; at most 3 fractional digits. No
+            rounding or exponent text.
+        minOrderQuantity: &id014
+          oneOf:
+            - type: string
+              pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,3})?$
+            - type: number
+              exclusiveMinimum: 0
+              maximum: 100000000
+          description:
+            Prefer exact decimal text; at most 3 fractional digits. No
+            rounding or exponent text.
+        pricePerUnit: &id008
+          oneOf:
+            - type: string
+              pattern: ^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$
+            - type: number
+              exclusiveMinimum: 0
+              maximum: 100000000
+          description:
+            Prefer exact decimal text; at most 2 fractional digits. No
+            rounding or exponent text.
+        color: &id015
+          type: string
+          maxLength: 80
+          default: ""
+        composition: &id016
+          type: string
+          maxLength: 200
+          default: ""
+        location: &id017
+          type: string
+          maxLength: 180
+          default: ""
+        priceTiers: &id018
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/PriceTier"
+          description:
+            Increasing thresholds from MOQ to available stock; nonincreasing
+            unit prices.
+      additionalProperties: false
     RequirementInput:
       type: object
-      required: [material, minQuantity, unit]
+      required:
+        - material
+        - minQuantity
+        - unit
       properties:
-        material: { type: string, minLength: 2, maxLength: 80 }
-        minQuantity: { type: number, exclusiveMinimum: 0 }
-        unit: { type: string, enum: [kg, meter, roll, piece] }
-        maxPricePerUnit: { type: number, exclusiveMinimum: 0 }
-        notes: { type: string, maxLength: 1000 }
+        material:
+          type: string
+          minLength: 2
+          maxLength: 80
+        minQuantity: *id007
+        unit:
+          type: string
+          enum:
+            - kg
+            - meter
+            - roll
+            - piece
+        maxPricePerUnit: *id008
+        notes:
+          type: string
+          maxLength: 1000
+      additionalProperties: false
     Registration:
       oneOf:
-        - {
-            type: object,
-            required: [accountType, fullName, email, password],
-            properties:
-              {
-                accountType: { const: buyer },
-                fullName: { type: string },
-                email: { type: string, format: email },
-                password: { type: string, minLength: 10 },
-              },
-          }
-        - {
-            type: object,
-            required:
-              [accountType, fullName, organizationName, email, password],
-            properties:
-              {
-                accountType: { const: seller },
-                fullName: { type: string },
-                organizationName: { type: string },
-                email: { type: string, format: email },
-                password: { type: string, minLength: 10 },
-              },
-          }
+        - type: object
+          required:
+            - accountType
+            - fullName
+            - email
+            - password
+          properties:
+            accountType:
+              const: buyer
+            fullName:
+              type: string
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+              minLength: 10
+        - type: object
+          required:
+            - accountType
+            - fullName
+            - organizationName
+            - email
+            - password
+          properties:
+            accountType:
+              const: seller
+            fullName:
+              type: string
+            organizationName:
+              type: string
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+              minLength: 10
+      description:
+        Passwords require 10–72 UTF-8 bytes and uppercase/lowercase/digit;
+        unknown fields rejected. No default credentials.
     Token:
-      {
-        type: object,
-        required: [token],
-        properties: { token: { type: string, minLength: 32 } },
-      }
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 32
+    PriceTier:
+      type: object
+      additionalProperties: false
+      required:
+        - minQuantity
+        - pricePerUnit
+      properties:
+        minQuantity: *id007
+        pricePerUnit: *id008
+    Version:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          minimum: 1
+    ListingEdit:
+      type: object
+      required:
+        - title
+        - description
+        - material
+        - condition
+        - unit
+        - quantity
+        - minOrderQuantity
+        - pricePerUnit
+        - version
+      properties:
+        title: *id009
+        description: *id010
+        material: *id011
+        condition: *id012
+        unit: *id013
+        quantity: *id007
+        minOrderQuantity: *id014
+        pricePerUnit: *id008
+        color: *id015
+        composition: *id016
+        location: *id017
+        priceTiers: *id018
+        version:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+    RequirementStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          enum:
+            - active
+            - paused
+            - closed
+        version:
+          type: integer
+          minimum: 1
+    Review:
+      type: object
+      additionalProperties: false
+      required:
+        - decision
+        - reason
+        - version
+      properties:
+        decision:
+          type: string
+          enum:
+            - published
+            - rejected
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 1000
+        version:
+          type: integer
+          minimum: 1
   responses:
-    Conflict: { description: Resource already exists }
-    Validation: { description: Submitted fields are invalid }
-    BadToken: { description: Token is invalid, consumed, or expired }
+    Conflict:
+      description: Resource already exists
+    Validation:
+      description: Submitted fields are invalid
+    BadToken:
+      description: Token is invalid
+      consumed: null
+      or expired: null

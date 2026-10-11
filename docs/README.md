@@ -13,3 +13,5 @@ Read in this order:
 These files form one baseline. A change to scope, behavior or architecture must update every affected document in the same pull request.
 
 The analytics specification is in analytics.md and is part of the required product baseline.
+
+Current implementation evidence: [delivery status](delivery-status.md), [Week 2 verification guide](verification-week-2.md), and [catalog ADR 004](adr/004-catalog-completion.md).

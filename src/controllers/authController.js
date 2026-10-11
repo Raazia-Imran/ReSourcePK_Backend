@@ -2,35 +2,35 @@ const { z } = require("zod");
 const auth = require("../services/authService");
 const { env } = require("../config/env");
 
-const strongPassword = z
-  .string()
-  .min(10)
-  .max(128)
-  .regex(/[a-z]/, "Password needs a lowercase letter")
-  .regex(/[A-Z]/, "Password needs an uppercase letter")
-  .regex(/\d/, "Password needs a number");
+const { strongPassword } = require("../lib/password");
 
 const registrationSchema = z.discriminatedUnion("accountType", [
-  z.object({
-    accountType: z.literal("buyer"),
-    fullName: z.string().trim().min(2).max(120),
-    email: z.string().email(),
-    password: strongPassword,
-  }),
-  z.object({
-    accountType: z.literal("seller"),
-    fullName: z.string().trim().min(2).max(120),
-    organizationName: z.string().trim().min(2).max(180),
-    email: z.string().email(),
-    password: strongPassword,
-  }),
+  z
+    .object({
+      accountType: z.literal("buyer"),
+      fullName: z.string().trim().min(2).max(120),
+      email: z.string().email().max(254),
+      password: strongPassword,
+    })
+    .strict(),
+  z
+    .object({
+      accountType: z.literal("seller"),
+      fullName: z.string().trim().min(2).max(120),
+      organizationName: z.string().trim().min(2).max(180),
+      email: z.string().email().max(254),
+      password: strongPassword,
+    })
+    .strict(),
 ]);
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1).max(128),
-});
-const tokenSchema = z.object({ token: z.string().min(32).max(200) });
-const emailSchema = z.object({ email: z.string().email() });
+const loginSchema = z
+  .object({
+    email: z.string().email().max(254),
+    password: z.string().min(1).max(128),
+  })
+  .strict();
+const tokenSchema = z.object({ token: z.string().min(32).max(200) }).strict();
+const emailSchema = z.object({ email: z.string().email().max(254) }).strict();
 const resetSchema = tokenSchema.extend({ password: strongPassword });
 
 function requestMeta(req) {

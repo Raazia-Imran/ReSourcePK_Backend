@@ -56,12 +56,17 @@ async function createOrganization(userId, name, meta) {
   });
 }
 
-async function requireInviter(userId, organizationId, requestedRole) {
-  const result = await query(
+async function requireInviter(
+  userId,
+  organizationId,
+  requestedRole,
+  runner = { query },
+) {
+  const result = await runner.query(
     `SELECT m.role, m.can_invite_staff, o.name AS organization_name, u.full_name
      FROM app.organization_memberships m JOIN app.organizations o ON o.id=m.organization_id
      JOIN app.users u ON u.id=m.user_id
-     WHERE m.user_id=$1 AND m.organization_id=$2 AND m.status='active' AND o.status='active'`,
+     WHERE m.user_id=$1 AND m.organization_id=$2 AND m.status='active' AND o.status='active' AND u.status='active' AND u.email_verified_at IS NOT NULL FOR SHARE OF m,o,u`,
     [userId, organizationId],
   );
   if (!result.rowCount)
@@ -86,10 +91,11 @@ async function requireInviter(userId, organizationId, requestedRole) {
 }
 
 async function createInvitation(userId, organizationId, input, meta) {
-  const actor = await requireInviter(userId, organizationId, input.role);
+  let actor;
   const email = input.email.trim().toLowerCase();
   const token = randomToken();
   const invitation = await transaction(async (client) => {
+    actor = await requireInviter(userId, organizationId, input.role, client);
     await client.query(
       `UPDATE app.organization_invitations SET revoked_at=NOW() WHERE organization_id=$1 AND email=$2 AND accepted_at IS NULL AND revoked_at IS NULL`,
       [organizationId, email],
@@ -153,6 +159,21 @@ async function invitationDetails(token) {
   };
 }
 
+async function validateInvitationAuthority(client, invite) {
+  if (!["manager", "staff"].includes(invite.role))
+    throw new AppError(
+      400,
+      "INVALID_OR_EXPIRED_INVITATION",
+      "Invitation role is no longer supported",
+    );
+  await requireInviter(
+    invite.invited_by,
+    invite.organization_id,
+    invite.role,
+    client,
+  );
+}
+
 async function acceptNewUser(token, input, meta) {
   const passwordHash = await bcrypt.hash(input.password, 12);
   return transaction(async (client) => {
@@ -167,6 +188,7 @@ async function acceptNewUser(token, input, meta) {
         "Invitation is invalid or expired",
       );
     const invite = inviteResult.rows[0];
+    await validateInvitationAuthority(client, invite);
     const existing = await client.query(
       "SELECT id FROM app.users WHERE email=$1",
       [invite.email],
@@ -211,6 +233,7 @@ async function acceptExistingUser(userId, token, meta) {
         "Invitation is invalid or expired",
       );
     const invite = invites.rows[0];
+    await validateInvitationAuthority(client, invite);
     const user = await client.query("SELECT email FROM app.users WHERE id=$1", [
       userId,
     ]);
@@ -222,6 +245,16 @@ async function acceptExistingUser(userId, token, meta) {
         403,
         "INVITATION_EMAIL_MISMATCH",
         "This invitation belongs to another email address",
+      );
+    const membership = await client.query(
+      "SELECT role FROM app.organization_memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",
+      [invite.organization_id, userId],
+    );
+    if (membership.rows[0]?.role === "owner")
+      throw new AppError(
+        409,
+        "OWNER_ROLE_PROTECTED",
+        "An invitation cannot replace an Owner role",
       );
     await client.query(
       `INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,user_id) DO UPDATE SET role=EXCLUDED.role,status='active',can_invite_staff=EXCLUDED.can_invite_staff`,

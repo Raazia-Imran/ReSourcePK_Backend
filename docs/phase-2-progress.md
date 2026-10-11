@@ -1,3 +1,5 @@
+> Superseded for current status on 11 October 2026 by [delivery status](delivery-status.md) and [Week 2 verification](verification-week-2.md). The section below records the earlier September slice.
+
 # Phase 2 catalog progress and handoff
 
 Updated 28 September 2026. This branch builds on the Phase 1 foundation and the user's onboarding feedback. Staging database `ReSourcePK-Staging` has migration `003_catalog.sql` applied; the application migration ledger now records migrations 001–003 so `npm run db:migrate` skips the already-applied files on this project. Run new migrations only through the numbered migration workflow, never by editing an applied migration.

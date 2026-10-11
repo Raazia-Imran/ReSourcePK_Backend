@@ -114,3 +114,9 @@ Structured JSON logs include timestamp, level, correlation ID, actor ID (when sa
 ## Blockchain boundary
 
 PostgreSQL remains authoritative. The contract stores `orderId/passportId -> bytes32 hash` with an authorized writer and first-write protection for version 1. Corrections are linked versions/events, never silent overwrites. Anchoring proves later tamper evidence only, not truth of initial physical data.
+
+## Catalog implementation boundary — 11 October 2026
+
+Catalog routes translate validated HTTP input; `src/modules/catalog/service.js` owns policy/transactions, `repository.js` owns queries, `importService.js` owns bounded import, `zipGuard.js` verifies/rebuilds XLSX ZIP entries, and `imageAdapter.js` owns private Supabase Storage and raster normalization. See ADR 004. Migration 004 adds generated integer price columns, tiers/images, versioned requirements, cleanup jobs and demo markers; migration 005 adds the import actor FK index. Applied migrations are immutable.
+
+Public pagination/count share a read-only repeatable-read snapshot, with deterministic ordering and bounded offsets. Session verification uses the session primary key. Per-instance DB connection limits and trusted proxy hops come from environment configuration. Production requires global rate-limit controls, pooler sizing/load checks, scheduled object cleanup and hosted acceptance; these are not claimed complete. `app` remains private and is not a Supabase browser Data API schema.

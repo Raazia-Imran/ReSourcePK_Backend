@@ -1,18 +1,14 @@
 const { z } = require("zod");
 const service = require("../services/organizationService");
 
-const password = z
-  .string()
-  .min(10)
-  .max(128)
-  .regex(/[a-z]/)
-  .regex(/[A-Z]/)
-  .regex(/\d/);
-const invite = z.object({
-  email: z.string().email(),
-  role: z.enum(["manager", "staff"]),
-  canInviteStaff: z.boolean().default(false),
-});
+const { strongPassword: password } = require("../lib/password");
+const invite = z
+  .object({
+    email: z.string().email().max(254),
+    role: z.enum(["manager", "staff"]),
+    canInviteStaff: z.boolean().default(false),
+  })
+  .strict();
 const token = z.string().min(32).max(200);
 const meta = (req) => ({ ip: req.ip });
 
@@ -43,13 +39,14 @@ async function invitationDetails(req, res) {
 async function acceptNewUser(req, res) {
   const body = z
     .object({ token, fullName: z.string().trim().min(2).max(120), password })
+    .strict()
     .parse(req.body);
   res
     .status(201)
     .json({ data: await service.acceptNewUser(body.token, body, meta(req)) });
 }
 async function acceptExistingUser(req, res) {
-  const body = z.object({ token }).parse(req.body);
+  const body = z.object({ token }).strict().parse(req.body);
   res.json({
     data: await service.acceptExistingUser(req.auth.sub, body.token, meta(req)),
   });

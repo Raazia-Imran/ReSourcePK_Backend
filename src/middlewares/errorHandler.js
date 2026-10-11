@@ -13,7 +13,8 @@ function errorHandler(error, req, res, _next) {
     return res.status(413).json({
       error: {
         code: "UPLOAD_LIMIT",
-        message: "Upload a CSV or XLSX file smaller than 2 MB",
+        message:
+          "Upload exceeded its size, file count or field limits. Stock sheets allow 2 MB; raster images allow 5 MB.",
         correlationId: req.correlationId,
       },
     });
@@ -31,7 +32,11 @@ function errorHandler(error, req, res, _next) {
   if (status >= 500) {
     console.error("Unhandled request error", {
       correlationId: req.correlationId,
-      error,
+      errorName: error.name,
+      errorCode:
+        typeof error.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)
+          ? error.code
+          : "UNCLASSIFIED",
     });
   }
   return res.status(status).json({

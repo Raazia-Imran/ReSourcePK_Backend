@@ -3,7 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const crypto = require("node:crypto");
-const { corsOrigins } = require("./config/env");
+const { corsOrigins, env } = require("./config/env");
 const { query } = require("./db");
 
 const authRoutes = require("./routes/authRoutes");
@@ -13,7 +13,12 @@ const { AppError } = require("./lib/errors");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
 
 const app = express();
-app.set("trust proxy", 1);
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
+app.use((req, res, next) => {
+  req.correlationId = crypto.randomUUID();
+  res.set("x-request-id", req.correlationId);
+  next();
+});
 app.use(helmet());
 app.use(
   cors({
@@ -28,12 +33,6 @@ app.use(
 );
 app.use(express.json({ limit: "256kb" }));
 app.use(cookieParser());
-app.use((req, res, next) => {
-  // Generate this value server-side so untrusted request data never reaches logs.
-  req.correlationId = crypto.randomUUID();
-  res.set("x-request-id", req.correlationId);
-  next();
-});
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.get("/ready", async (_req, res) => {

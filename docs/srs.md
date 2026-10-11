@@ -108,3 +108,15 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 ## Account transition and onboarding
 
 An existing verified Buyer may create a seller organization from the same account, becoming its Owner. The Owner invites Managers or Staff. A Manager may invite Staff only when the Owner grants that permission. The browser does not require a second registration with the same email. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+
+## Catalog acceptance details — 11 October 2026
+
+FR-CAT-01/02: owner/manager edits require draft/rejected state and current version; archive is terminal. Tiers increase from MOQ through available stock, with nonincreasing unit prices. Decimal text is validated exactly; API responses expose integer paisa as strings. Composition/color/location are optional, without invented values.
+
+FR-CAT-03/04: discovery/detail/count/matching exclude inactive seller organizations. Matching uses the tier applicable to requested quantity, with an explicit separate MOQ result. Owned requirements can pause/resume and terminally close. Stale mutations return 409.
+
+FR-CAT-05: up to eight JPEG/PNG/WebP images per listing; 5 MB, 16 megapixels, strict decode/re-encode, no animation/SVG; private WebP bucket and access-checked 60-second download URLs. No malware scanning service is configured; do not claim antivirus scanning.
+
+FR-CAT-06: at most 100 data rows; XLSX first worksheet only, 2 MB input and 8 MB actual ZIP expansion. Reject encrypted/unsupported archives, forged sizes/CRC and duplicate entries; rebuild bounded archive before parsing. Imports create drafts, never publish automatically.
+
+FR-AUTH-03/05/07/08: bind access JWT to a live session; enforce account status/verification every protected request. Logout/reset invalidate access immediately. Cookie mutation requires configured Origin plus custom header. Invitation acceptance rechecks current inviter grant authority and cannot replace an Owner. Password creation rejects more than 72 UTF-8 bytes to prevent bcrypt truncation.

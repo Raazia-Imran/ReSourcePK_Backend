@@ -54,3 +54,7 @@
 - Branch: `feature/<scope>`, `fix/<scope>`, `docs/<scope>`.
 - Commit: imperative Conventional Commit style, e.g. `feat(pools): make joins idempotent`.
 - Squash merge; delete merged branches. Protect `main` and require at least one reviewer.
+
+## Catalog review clarifications — 11 October 2026
+
+Integer paisa columns are authoritative for financial use; decimal compatibility fields are for exact input/display. Never calculate transaction totals in React. Keep fixture data in the explicit demo seed, never in runtime catalog fallbacks; passwords must come from the user environment, with no seeded default. Preserve applied SQL files and use new numbered migrations for advisor fixes. Every status/image/import mutation is scoped and audited. CI uses isolated local PostgreSQL and must not target project credentials; database tests refuse nonlocal/non-test database URLs. No hosted, device, antivirus, load or backup-restore gate is inferred from lint or build results.

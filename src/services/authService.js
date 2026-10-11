@@ -54,9 +54,9 @@ async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
 
 async function createSession(user, meta, runner = DEFAULT_QUERY_RUNNER) {
   const refreshToken = randomToken();
-  await runner.query(
+  const session = await runner.query(
     `INSERT INTO app.sessions(user_id, refresh_token_hash, user_agent, ip_address, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
     [
       user.id,
       hashToken(refreshToken),
@@ -65,7 +65,10 @@ async function createSession(user, meta, runner = DEFAULT_QUERY_RUNNER) {
       refreshExpiry(),
     ],
   );
-  return { accessToken: signAccessToken(user), refreshToken };
+  return {
+    accessToken: signAccessToken(user, session.rows[0].id),
+    refreshToken,
+  };
 }
 
 async function createEmailToken(
@@ -248,6 +251,7 @@ async function refresh(refreshToken, meta) {
       `SELECT s.id, s.user_id, u.email FROM app.sessions s
        JOIN app.users u ON u.id = s.user_id
        WHERE s.refresh_token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()
+         AND u.status = 'active' AND u.email_verified_at IS NOT NULL
        FOR UPDATE`,
       [hashToken(refreshToken)],
     );

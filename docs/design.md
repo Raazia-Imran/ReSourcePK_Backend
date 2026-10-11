@@ -64,3 +64,7 @@ Use plain commerce language: “Join group order,” “Quantity reserved,” an
 ## Definition of design complete
 
 Figma or implementation includes every critical screen at mobile and desktop widths, component states, keyboard/focus behavior, token references, empty/loading/error cases, final copy, static/reduced-motion states, and chart/table drill-down behavior. A pretty happy path alone is not design complete.
+
+## Catalog UI states — 11 October 2026
+
+Render optional listing metadata only when present, display seller tier tables, and show a visible Demo stock badge for `is_demo` records. Discovery has loading/error/empty states and pagination. Draft/rejected cards offer image descriptions/upload, edit and submit; archive uses an explicit inline confirmation. Reviewer cards show images/tiers and require a reason. Requirements show active/paused/closed state, with matching disabled outside active state. Image failures are actionable and never replaced with fabricated supplier photos. Respect reduced-motion settings when scrolling to edit. Full keyboard and six-width browser acceptance remains a Week 2/5 gate.

@@ -61,3 +61,10 @@ Add a dated row describing what changed, why, affected requirements and migratio
 - Hosted API/SMTP/storage, global abuse controls, mobile/desktop acceptance, production provisioning/step-up, load/concurrency scale and backup restore remain gates. Payments/pools/passports/analytics are not implemented. See verification guide and delivery status.
 
 - Final automated evidence: backend 23 regression tests + 9 real PostgreSQL integration scenarios, migration replay, opt-in demo seed twice (4 suppliers/20 labelled listings/6 accounts), secret scan and production audit pass. Frontend lint/build/audit/secret scan pass. Checklist updated to 10/37 (27.0%); zero fully verified weekly release gates.
+
+## 11 October 2026 — recovered handoff and CI quality-gate follow-up
+
+- GitHub confirms backend PR #6 and frontend PR #4 were merged into `main` at 11:03 UTC. Backend friend branches still diverge: their one/two extra commits are not ancestors of the corrected main.
+- The merged PR heads passed application CI and secret scans, but SonarCloud reported a C security rating for dependency installation with lifecycle hooks enabled. Do not describe those heads as having all checks green.
+- Separate `fix/ci-dependency-scripts` branches disable hooks with `npm ci --ignore-scripts`; explicit lint/test/build steps remain. Verify Sharp image regression tests and the Vite production build from clean installs, then require the follow-up PR's CI and SonarCloud result before merge.
+- This correction changes CI policy only. It does not add product scope, alter applied migrations or increase the 10/37 completion count. Hosted SMTP/storage, mobile/desktop journeys, load and recovery acceptance remain open.

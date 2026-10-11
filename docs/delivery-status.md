@@ -82,6 +82,7 @@ Status: **checked** means implemented scope with recorded automated evidence; **
 
 - Backend: 23 regression tests and 9 real PostgreSQL integration scenarios passed in GitHub CI; ESLint/Prettier, all five migrations, synthetic seed/replay/count verification, production dependency audit and secret scan passed.
 - Frontend: GitHub CI passed ESLint, production build, production dependency audit and secret scan. No generated build output or backend secrets are committed.
+- Quality-gate follow-up: the merged Week 2 PR heads failed SonarCloud's security gate because CI used `npm ci` without disabling dependency lifecycle hooks. The follow-up changes both workflows to `npm ci --ignore-scripts`; its CI and SonarCloud checks must pass before merge. The successful jobs above were not proof that every check passed. Nonblocking maintainability findings and hosted release gates remain separate work.
 - Production dependencies: both npm audits reported zero known vulnerabilities on 11 October 2026.
 - Staging: restored from inactive to healthy; migrations 001–005 recorded. Transactional exact-money/version/grant checks passed and rolled back fixture data. Security advisor had no findings; missing import actor FK index resolved. Remaining unused-index INFO reflects little/no traffic and is not evidence to remove useful indexes.
 - Storage: strict adapter implemented; live bucket/credential roundtrip is not verified. No antivirus service is configured. Signed URLs last 60 seconds.

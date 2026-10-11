@@ -100,7 +100,7 @@ Use permission-based RBAC scoped by organization.
 - API: Vercel Node Functions for the MVP; introduce a continuously running worker only when queued jobs require it.
 - Data: managed PostgreSQL; object storage for uploads.
 - Environments: local, preview/staging, production with separate credentials and databases.
-- CI: install from lockfile, lint, unit/integration tests, build, migration check, secret/dependency scan.
+- CI: install from lockfile with `npm ci --ignore-scripts`, lint, unit/integration tests, build, migration check, secret/dependency scan. Dependency lifecycle hooks are disabled; a required native build needs a separately reviewed, explicit command.
 - Deploy: backward-compatible migration, API/worker, smoke tests, then frontend. Production rollback never rewrites migration history.
 
 ## Transactional email

@@ -31,6 +31,7 @@
 
 - JavaScript is permitted for the existing baseline; migrate incrementally to TypeScript only with one agreed plan, not mixed ad hoc.
 - ESLint and Prettier are required. Use clear names, small functions and feature modules.
+- CI dependency installation must use `npm ci --ignore-scripts`. Keep application tests/builds as explicit steps; do not re-enable all dependency lifecycle hooks to fix one package. Any necessary native build must be reviewed and explicitly scoped.
 - Validate API inputs with a schema library and reject unknown security-sensitive fields.
 - Use parameterized SQL/query builder/ORM; add database constraints even when validation exists.
 - Return stable machine error codes. Never expose stack traces in production.

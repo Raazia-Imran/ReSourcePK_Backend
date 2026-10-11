@@ -298,7 +298,7 @@ test("expired/reused invitations, revoked inviters and Owner role replacement ar
   async function invite(expiry = "1 hour", who = email) {
     const raw = crypto.randomUUID() + crypto.randomUUID();
     await db.query(
-      `INSERT INTO app.organization_invitations(organization_id,email,role,token_hash,invited_by,expires_at) VALUES($1,$2,'staff',$3,$4,now()+$5::interval)`,
+      `INSERT INTO app.organization_invitations(organization_id,email,role,token_hash,invited_by,expires_at,created_at) VALUES($1,$2,'staff',$3,$4,now()+$5::interval,now()-interval '2 hours')`,
       [org, who, hashToken(raw), owner, expiry],
     );
     return raw;

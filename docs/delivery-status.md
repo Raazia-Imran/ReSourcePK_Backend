@@ -2,7 +2,7 @@
 
 The current delivery stage is **Week 2, catalog and discovery**. The five-week schedule describes five delivery stages; it is not a claim that five calendar weeks of work or three engineers' effort have been completed. Week 1 hosted identity acceptance remains open, and Week 2 mobile/desktop acceptance is not yet signed off. No weekly release gate is fully verified.
 
-Before this slice, the baseline explicitly checked 5 of 37 tasks: **13.5% checklist completion**. That is not an exact percentage of code, time or product value. New catalog work is listed below; its final automated evidence and task checkmarks will be updated after CI. Partial tasks receive no invented fraction.
+Before this slice, the baseline explicitly checked 5 of 37 tasks: **13.5% checklist completion**. That is not an exact percentage of code, time or product value. After this slice, five additional tasks (T-101, T-104, T-105, T-106, T-107) are checked: **10/37 = 27.0% unweighted checklist completion**. Partial tasks receive no invented fraction. This is not a claim that 27% of all engineering effort or product risk is complete.
 
 | Stage  | Delivered scope                                                                                                                                                   | Remaining acceptance                                                                                                                           |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -14,7 +14,7 @@ Before this slice, the baseline explicitly checked 5 of 37 tasks: **13.5% checkl
 
 ## Task map
 
-Status: **checked** means an existing baseline checkmark; **implemented** means code/data are present but acceptance evidence is still being completed; **partial** means scope or deployment remains; **planned** means later-stage work is not implemented.
+Status: **checked** means implemented scope with recorded automated evidence; **implemented** means code/data are present but acceptance evidence is still being completed; **partial** means scope or deployment remains; **planned** means later-stage work is not implemented.
 
 ### Week 1: Foundation
 
@@ -31,15 +31,15 @@ Status: **checked** means an existing baseline checkmark; **implemented** means 
 
 ### Week 2: Catalog
 
-| Task  | Status      | Work                                                                                                                    |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
-| T-101 | implemented | Listing/image/price-tier migrations and policies.                                                                       |
-| T-102 | partial     | Listing CRUD, moderation states, secure upload adapter.                                                                 |
-| T-103 | partial     | Catalog, detail, seller inventory, create/edit flows with all states.                                                   |
-| T-104 | implemented | Indexed keyword/filter/sort API with pagination.                                                                        |
-| T-105 | implemented | Requirements and explainable rules-based matching.                                                                      |
-| T-106 | implemented | Seed 4-5 suppliers and 20-25 realistic listings.                                                                        |
-| T-107 | implemented | Build CSV/XLSX import: downloadable template, upload validation, row-level error report, review queue and safe publish. |
+| Task  | Status  | Work                                                                                                                    |
+| ----- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| T-101 | checked | Listing/image/price-tier migrations and policies.                                                                       |
+| T-102 | partial | Listing CRUD, moderation states, secure upload adapter.                                                                 |
+| T-103 | partial | Catalog, detail, seller inventory, create/edit flows with all states.                                                   |
+| T-104 | checked | Indexed keyword/filter/sort API with pagination.                                                                        |
+| T-105 | checked | Requirements and explainable rules-based matching.                                                                      |
+| T-106 | checked | Seed 4-5 suppliers and 20-25 realistic listings.                                                                        |
+| T-107 | checked | Build CSV/XLSX import: downloadable template, upload validation, row-level error report, review queue and safe publish. |
 
 ### Week 3: Commerce
 
@@ -80,8 +80,8 @@ Status: **checked** means an existing baseline checkmark; **implemented** means 
 
 ## Verification and limits
 
-- Backend: 23 local regression tests passed; ESLint passes. Real PostgreSQL integration and demo replay run in isolated CI and must be checked before merge.
-- Frontend: ESLint and production build passed. No generated build output or backend secrets are committed.
+- Backend: 23 regression tests and 9 real PostgreSQL integration scenarios passed in GitHub CI; ESLint/Prettier, all five migrations, synthetic seed/replay/count verification, production dependency audit and secret scan passed.
+- Frontend: GitHub CI passed ESLint, production build, production dependency audit and secret scan. No generated build output or backend secrets are committed.
 - Production dependencies: both npm audits reported zero known vulnerabilities on 11 October 2026.
 - Staging: restored from inactive to healthy; migrations 001–005 recorded. Transactional exact-money/version/grant checks passed and rolled back fixture data. Security advisor had no findings; missing import actor FK index resolved. Remaining unused-index INFO reflects little/no traffic and is not evidence to remove useful indexes.
 - Storage: strict adapter implemented; live bucket/credential roundtrip is not verified. No antivirus service is configured. Signed URLs last 60 seconds.
@@ -91,3 +91,5 @@ Status: **checked** means an existing baseline checkmark; **implemented** means 
 ## Next checkpoint before Week 3
 
 Follow `verification-week-2.md`: provision a trusted reviewer, configure backend SMTP/storage, run seller draft → image → submit → reviewer publish → public search → buyer tier match → pause/close/archive on a hosted API at mobile/desktop widths. Fix failures, record evidence and only then begin T-201/T-202. Do not begin payments or display financial/impact figures to hide an unfinished gate.
+
+Automated evidence: [backend CI](https://github.com/Raazia-Imran/ReSourcePK_Backend/actions/runs/38133850980) and [frontend CI](https://github.com/Raazia-Imran/ReSourcePK_Frontend/actions/runs/38133734599). The final documentation update reruns these checks before merge.

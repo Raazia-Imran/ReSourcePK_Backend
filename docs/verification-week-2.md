@@ -133,7 +133,7 @@ Use separate browser profiles for Buyer, Seller and Reviewer. Check 360, 390, 76
 
 ## 8. Check CI, security and remaining work
 
-GitHub → Actions → latest **CI**. Backend runs formatting/lint, 23 regression tests, real isolated PostgreSQL integration tests, demo seed replay and production dependency audit. Both repositories run secret scans; frontend runs lint/build/audit. Passing CI does not verify hosted Gmail, private storage or mobile browsing.
+GitHub → Actions → latest **CI**. Backend runs formatting/lint, 23 regression tests, 9 real isolated PostgreSQL integration scenarios, demo seed replay and production dependency audit. Both repositories run secret scans; frontend runs lint/build/audit. Passing CI does not verify hosted Gmail, private storage or mobile browsing.
 
 Database integration tests require a separate local `resourcepk_test_*` PostgreSQL database and `TEST_DATABASE_URL`. They refuse project URLs. Run `node scripts/prepare-test-db.js`, then `npm run test:integration`. Never replace the safety check to point at staging/production.
 

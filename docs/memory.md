@@ -78,3 +78,11 @@ Add a dated row describing what changed, why, affected requirements and migratio
 - Vercel lookup returned 403 for the configured team. CLI/auth was unavailable. Backend storage/SMTP credentials were not available in this workspace and were not retrieved. Hosted deployment, real storage roundtrip, scheduled cleanup and Week 1 email acceptance remain open. See ADR 005 and delivery-status.md for exact evidence.
 
 - Full dependency audit found a high-severity `braces` chain through development-only Nodemon. Removed Nodemon and retained hot reload using Node 24 native `--watch`; no new runtime package was needed. Production API URLs now require frontend deployment configuration; the localhost fallback is development-only.
+
+## 11 October 2026 — final Week 2 automated acceptance
+
+- Coordinated backend PR #8 and frontend PR #6 retain the user's original scope and exclude friend commits. All Week 2 implementation is present; hosted provider/deployment acceptance remains blocked.
+- Final code evidence: 23 regression tests, 12 real PostgreSQL integration scenarios and eight Chromium browser scenarios passed. All six required widths passed the seller/reviewer/buyer lifecycle with focus/axe/overflow checks. CSV preview/import/edit, refresh-aware download, private drafts/archived detail and unsafe/unconfigured image states are covered. Mobile detail/requirements and desktop review screenshots were inspected.
+- Browser checks caught low contrast in sidebar branding, welcome/metric/header text and decoration over text. Colors/layering were corrected without changing the chosen visual direction. Production endpoint fallback is now development-only.
+- Backend Sonar: zero new issues/hotspots/duplication. Both full dependency audits, lint/format/build/secret scans pass. CI installs keep lifecycle hooks disabled, and the pinned browser CLI runs directly. The new API collections need coordinated frontend/backend deployment.
+- T-103 is checked with scoped automated evidence; checklist is 11/37 (29.7%). T-102 remains partial solely for the real provider/hosted acceptance boundary. Zero fully verified weekly release gates: Vercel access 403, backend credentials/configuration, actual private-storage roundtrip, scheduled cleanup and Week 1 hosted Gmail acceptance remain open.

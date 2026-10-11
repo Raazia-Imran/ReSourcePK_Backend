@@ -160,7 +160,7 @@ npm run build
 npm run test:e2e
 ```
 
-Use `E2E_FRONTEND_DIR` when the frontend is not the sibling `frontend` folder. The test starts/stops both servers and refuses a nonlocal/non-test database. Screenshots use synthetic data; auth traces are disabled. The six widths exercise draft creation with price tiers, review, public detail/reload, buyer matches, pause/resume/close and archive. A separate test injects a clearly simulated transport outage to verify retry and empty states. Automated axe checks do not establish a complete accessibility audit or hosted-storage readiness.
+Use `E2E_FRONTEND_DIR` when the frontend is not the sibling `frontend` folder. The test starts/stops both servers and refuses a nonlocal/non-test database. Screenshots use synthetic data; auth traces are disabled. Eight browser scenarios include CSV import/edit, refreshed template download, unsafe/unconfigured image errors and draft/archive privacy. The six widths exercise draft creation with price tiers, review, public detail/reload, buyer matches, pause/resume/close and archive. A separate test injects a clearly simulated transport outage to verify retry and empty states. Automated axe checks do not establish a complete accessibility audit or hosted-storage readiness.
 
 ## Hosted boundary still awaiting acceptance
 

@@ -2,6 +2,8 @@
 
 Secure Express API for the ReSource PK circular textile marketplace.
 
+For beginner clone, credential setup and feature checks, follow [the local preview guide](docs/local-preview-guide.md). Legacy branch reconciliation is recorded in [merge reconciliation](docs/merge-reconciliation.md).
+
 ## Local setup
 
 1. Copy `.env.example` to `.env` and replace every placeholder.

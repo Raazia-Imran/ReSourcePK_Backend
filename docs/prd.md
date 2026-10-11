@@ -40,7 +40,7 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 
 1. Email verification, login, logout, reset password, session rotation, and role-aware onboarding.
 2. Buyer profiles and seller organizations with membership invitations.
-3. RBAC for Platform Admin, Organization Owner, Organization Admin, Manager, Staff, Buyer.
+3. RBAC for Platform Admin, Organization Owner, Manager, Staff, Buyer.
 4. Listing CRUD, images, quantity, unit, condition, price tiers, moderation status, and validated bulk CSV/XLSX import with a downloadable template and row-level error report.
 5. Search/filter/sort and buyer requirements with rules-based matching.
 6. Direct orders only where the buyer purchases the full seller-permitted quantity/MOQ, plus group pools for sub-MOQ demand, reservations, expiry, contribution ledger, and atomic joins.
@@ -63,7 +63,7 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 
 ### Seller organization onboarding
 
-The first verified registrant creates or claims an organization and becomes Organization Owner. The owner invites an Organization Admin or Manager by email. The invite is single-use, hashed at rest, role-scoped, expires, and is accepted only after the invited address is verified. Managers may invite Staff only when granted `members.invite`; they cannot grant permissions they do not hold.
+The first verified registrant creates or claims an organization and becomes Organization Owner. The owner invites a Manager or Staff member by email. The invite is single-use, hashed at rest, role-scoped, expires, and is accepted only after the invited address is verified. Managers may invite Staff only when granted `members.invite`; they cannot grant permissions they do not hold.
 
 ### Group purchase
 
@@ -117,3 +117,7 @@ The visual language is a custom digital textile exchange: immersive editorial co
 ## Naming decision
 
 Current working name: **ReSource PK**. The name is intentionally provisional and does not block implementation. Keep repository, package, database and deployment identifiers stable until the team approves a researched replacement and completes trademark, domain and social-handle checks.
+
+## Account transition and onboarding
+
+An existing verified Buyer may create a seller organization from the same account, becoming its Owner. The Owner invites Managers or Staff. A Manager may invite Staff only when the Owner grants that permission. The browser does not require a second registration with the same email. Invitations remain one-time, bound to the invited email, and expire after 72 hours.

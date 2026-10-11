@@ -6,6 +6,56 @@ const { randomToken, hashToken } = require("../lib/tokens");
 const { deliverEmail } = require("../email/deliveryService");
 const { organizationInviteEmail } = require("../email/templates");
 
+async function createOrganization(userId, name, meta) {
+  return transaction(async (client) => {
+    const user = await client.query(
+      "SELECT status,email_verified_at FROM app.users WHERE id=$1 FOR UPDATE",
+      [userId],
+    );
+    if (
+      !user.rowCount ||
+      user.rows[0].status !== "active" ||
+      !user.rows[0].email_verified_at
+    )
+      throw new AppError(
+        403,
+        "ACCOUNT_UNAVAILABLE",
+        "Verify your active account before opening a seller organization",
+      );
+    const existing = await client.query(
+      "SELECT 1 FROM app.organizations WHERE created_by=$1",
+      [userId],
+    );
+    if (existing.rowCount)
+      throw new AppError(
+        409,
+        "ORGANIZATION_EXISTS",
+        "This account already owns a seller organization",
+      );
+    const slug = `${
+      name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 75) || "organization"
+    }-${userId.slice(0, 6)}`;
+    const organization = await client.query(
+      `INSERT INTO app.organizations(name,slug,created_by) VALUES($1,$2,$3) RETURNING id,name`,
+      [name, slug, userId],
+    );
+    await client.query(
+      "INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,'owner',true)",
+      [organization.rows[0].id, userId],
+    );
+    await client.query(
+      `INSERT INTO app.audit_events(actor_id,organization_id,action,resource_type,resource_id,ip_address) VALUES($1,$2,'organization.created','organization',$2,$3)`,
+      [userId, organization.rows[0].id, meta.ip],
+    );
+    return organization.rows[0];
+  });
+}
+
 async function requireInviter(userId, organizationId, requestedRole) {
   const result = await query(
     `SELECT m.role, m.can_invite_staff, o.name AS organization_name, u.full_name
@@ -23,7 +73,6 @@ async function requireInviter(userId, organizationId, requestedRole) {
   const actor = result.rows[0];
   const allowed =
     actor.role === "owner" ||
-    actor.role === "org_admin" ||
     (actor.role === "manager" &&
       actor.can_invite_staff &&
       requestedRole === "staff");
@@ -92,12 +141,15 @@ async function invitationDetails(token) {
       "Invitation is invalid or expired",
     );
   const invitation = result.rows[0];
-  const [name, domain] = invitation.email.split("@");
+  const account = await query("SELECT 1 FROM app.users WHERE email=$1", [
+    invitation.email,
+  ]);
   return {
     organization_name: invitation.organization_name,
     role: invitation.role,
     expires_at: invitation.expires_at,
-    email_hint: `${name.slice(0, 2)}***@${domain}`,
+    email: invitation.email,
+    account_exists: Boolean(account.rowCount),
   };
 }
 
@@ -188,6 +240,7 @@ async function acceptExistingUser(userId, token, meta) {
 }
 
 module.exports = {
+  createOrganization,
   createInvitation,
   invitationDetails,
   acceptNewUser,

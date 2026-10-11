@@ -14,6 +14,9 @@ async function migrate() {
       name TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+    await client.query(
+      "REVOKE ALL ON app.schema_migrations FROM PUBLIC, anon, authenticated",
+    );
     const applied = new Set(
       (await client.query("SELECT name FROM app.schema_migrations")).rows.map(
         (row) => row.name,

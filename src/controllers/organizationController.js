@@ -10,7 +10,7 @@ const password = z
   .regex(/\d/);
 const invite = z.object({
   email: z.string().email(),
-  role: z.enum(["org_admin", "manager", "staff"]),
+  role: z.enum(["manager", "staff"]),
   canInviteStaff: z.boolean().default(false),
 });
 const token = z.string().min(32).max(200);
@@ -24,6 +24,15 @@ async function createInvitation(req, res) {
       invite.parse(req.body),
       meta(req),
     ),
+  });
+}
+async function createOrganization(req, res) {
+  const input = z
+    .object({ name: z.string().trim().min(2).max(180) })
+    .strict()
+    .parse(req.body);
+  res.status(201).json({
+    data: await service.createOrganization(req.auth.sub, input.name, meta(req)),
   });
 }
 async function invitationDetails(req, res) {
@@ -47,6 +56,7 @@ async function acceptExistingUser(req, res) {
 }
 
 module.exports = {
+  createOrganization,
   createInvitation,
   invitationDetails,
   acceptNewUser,

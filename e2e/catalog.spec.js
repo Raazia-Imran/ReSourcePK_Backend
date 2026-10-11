@@ -15,6 +15,8 @@ async function signIn(page, account, destination) {
   await expect(page).toHaveURL(new RegExp(destination + "$"));
 }
 async function inspect(page, name, testInfo) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect
     .poll(() =>
       page.evaluate(
@@ -25,6 +27,8 @@ async function inspect(page, name, testInfo) {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
+  const screenshot = await page.screenshot({ fullPage: true });
+  await testInfo.attach(name, { body: screenshot, contentType: "image/png" });
   expect(
     results.violations,
     JSON.stringify(
@@ -34,8 +38,7 @@ async function inspect(page, name, testInfo) {
       })),
     ),
   ).toEqual([]);
-  const screenshot = await page.screenshot({ fullPage: true });
-  await testInfo.attach(name, { body: screenshot, contentType: "image/png" });
+
 }
 async function checkDrawer(page, width) {
   if (width >= 1024) return;

@@ -45,4 +45,8 @@ This file records durable decisions so team members and coding assistants do not
 
 ## Change protocol
 
+### 11 October 2026 — main consolidation
+
+Only the user's onboarding/catalog work is retained in `main`. The user explicitly excludes the friend's `feature/correcting-database-schema` and `feature/some-minor-fixes` commits. The mistakenly introduced consolidation ancestry is replaced using a lease against the observed tip; a separate archive ref supports recovery and must not be merged back. No runtime or schema change is required for this correction. See `merge-reconciliation.md` for the source commits and resolution. Local preview instructions are in `local-preview-guide.md`. Live acceptance gates remain open.
+
 Add a dated row describing what changed, why, affected requirements and migration consequence. Major architecture, security, data, provider or scope changes require an ADR and updates to PRD/SRS/tasks in the same pull request.

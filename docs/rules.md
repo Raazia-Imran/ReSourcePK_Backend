@@ -63,3 +63,7 @@ Integer paisa columns are authoritative for financial use; decimal compatibility
 ## Week 2 verification rules — 11 October 2026
 
 Pin cross-repository browser-test inputs to a reviewed revision (an explicit CI variable may select another reviewed revision). Test authentication through real API sessions and isolate fixtures in a local `resourcepk_test_*` database. Capture synthetic screenshots without auth traces. Treat vendor failures injected in tests as simulated evidence only. Keep runtime business data, credentials and URLs configuration-driven; constants defining reviewed validation bounds and test fixture data are allowed. New collection contracts require synchronized OpenAPI/UI deployment.
+
+## Scheduler boundary — 11 October 2026
+
+Use backend-only `CRON_SECRET` for image maintenance, separate from account JWTs. Never authenticate by user-agent, query-string token or UI role. Keep scheduler responses uncached and reject HEAD/POST before work. Route code reuses the existing cleanup service; no SQL or provider deletion belongs in the route. Synthetic scheduler tests are explicitly isolated from provider credentials. Cron configuration is versioned; hosted schedule activation/logs and provider checks remain required before release sign-off.

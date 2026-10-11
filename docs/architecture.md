@@ -124,3 +124,9 @@ Public pagination/count share a read-only repeatable-read snapshot, with determi
 ## Week 2 implementation alignment — 11 October 2026
 
 The routed SPA exposes `/marketplace`, `/marketplace/listings/:listingId`, `/buyer/*`, `/org/:orgSlug/*` and `/admin/*`. `/workspace` resolves live memberships/platform assignments to a default entry; route visibility does not replace backend authorization. Shared collection state handles paging/reload/retry; shared API requests refresh sessions for JSON and file downloads. Catalog services retain policy/transactions, repositories retain SQL, and the private image adapter retains vendor I/O. A durable pre-upload recovery job and locked cleanup batches handle ambiguous storage acknowledgements. No storage credential or seeded catalog fallback enters the SPA. Browser tests run against isolated local PostgreSQL and the paired frontend revision. See ADR 005.
+
+## Week 2 cleanup scheduling — 11 October 2026
+
+Vercel invokes `GET /api/v1/internal/storage-cleanup` using a separate backend-only `CRON_SECRET`; user JWTs and browser cookies cannot authorize this endpoint. Missing scheduler credentials fail closed; missing storage returns 503. Responses are never cached, HEAD/POST cannot run the worker, and partial provider failure returns 503 with durable jobs retained. The existing service owns the locked batch/linked-object/retry policy; routes only authenticate and translate results.
+
+`vercel.json` declares a daily `0 3 * * *` schedule (UTC), compatible with Vercel Hobby's daily restriction. One invocation handles at most 20 eligible jobs; review backlog and repeat the authenticated job manually or use the CLI when needed. No continuously running process or new dependency is added. A deployed scheduled run and runtime-log inspection remain acceptance requirements, not consequences of committing a cron definition.

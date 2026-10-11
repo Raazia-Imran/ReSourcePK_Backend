@@ -19,3 +19,9 @@ The staging bucket is private, WebP-only and limited to 5 MB. Hosted acceptance 
 No applied migration changes, production fixtures or new runtime dependencies are introduced. The new pinned Playwright and axe dependencies are development-only (Apache-2.0 and MPL-2.0); lifecycle scripts remain disabled during dependency installation.
 
 The auth limiter keeps its existing 12-request/15-minute default and becomes explicitly configurable through `AUTH_REQUESTS_PER_WINDOW` (3–1000). The isolated browser job uses 100 to accommodate repeated logins/refreshes across six widths; production configuration must retain an appropriate abuse-control budget. This is the same real middleware, not mock authentication.
+
+## Deployment preparation follow-up — 11 October 2026
+
+The CLI alone could not be invoked by the selected Vercel Functions host's native scheduler. Add a secret-authenticated GET endpoint that reuses the existing bounded cleanup service and declare a daily `0 3 * * *` cron. `CRON_SECRET` is optional for local catalog use, requires 32–256 characters when set, and is never exposed to the SPA. Requests fail closed without it. Missing storage and partial failures are errors; successful batches log counts/correlation ID without object keys or credentials. HEAD/POST are rejected. No migrations or runtime dependencies change.
+
+Official references: [securing/managing jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs) and [plan scheduling limits](https://vercel.com/docs/cron-jobs/usage-and-pricing). Hobby permits one daily execution with hour-level precision. Failed jobs are not automatically retried by Vercel: durable cleanup records are revisited on the next run or an authenticated manual retry. Deploy and inspect a real run before claiming the schedule is active.

@@ -6,6 +6,21 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /internal/storage-cleanup:
+    get:
+      summary: Process one bounded batch of private image cleanup jobs
+      description: Scheduler-only endpoint. CRON_SECRET is separate from user JWTs. Not cached. Failed objects remain queued for the next invocation.
+      security:
+        - cronAuth: []
+      responses:
+        "200":
+          description: Batch completed; data contains queued, removed and failed counts (maximum 20 jobs).
+        "401":
+          description: CRON_SECRET is absent or scheduler authorization is invalid.
+        "503":
+          description: Storage is not configured or one or more objects could not be cleaned.
+        "500":
+          description: Cleanup could not complete; inspect the correlation ID in backend logs.
   /auth/register:
     post:
       summary: Register a buyer or seller owner
@@ -607,6 +622,10 @@ paths:
           format: uuid
 components:
   securitySchemes:
+    cronAuth:
+      type: http
+      scheme: bearer
+      description: Backend-only CRON_SECRET sent by the scheduler; never a user access token.
     bearerAuth:
       type: http
       scheme: bearer

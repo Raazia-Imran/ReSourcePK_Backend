@@ -95,3 +95,9 @@ Status: **checked** means implemented scope with recorded automated evidence; **
 Follow `verification-week-2.md`: provision a trusted reviewer, configure backend SMTP/storage, run seller draft → image → submit → reviewer publish → public search → buyer tier match → pause/close/archive on a hosted API at mobile/desktop widths. Fix failures, record evidence and only then begin T-201/T-202. Do not begin payments or display financial/impact figures to hide an unfinished gate.
 
 Automated evidence: [backend CI including eight browser scenarios](https://github.com/Raazia-Imran/ReSourcePK_Backend/actions/runs/38141492603), [frontend CI](https://github.com/Raazia-Imran/ReSourcePK_Frontend/actions/runs/38141195308), [backend PR #8](https://github.com/Raazia-Imran/ReSourcePK_Backend/pull/8), [frontend PR #6](https://github.com/Raazia-Imran/ReSourcePK_Frontend/pull/6). Final documentation commits rerun the required checks before merge.
+
+## Latest recovery checkpoint — 11 October 2026
+
+The prior final backend/frontend CI runs passed at `f0234e8`/`2b9d07e` (runs [38141881887](https://github.com/Raazia-Imran/ReSourcePK_Backend/actions/runs/38141881887) and [38141843306](https://github.com/Raazia-Imran/ReSourcePK_Frontend/actions/runs/38141843306)). The backend completion follow-up adds four scheduler regression scenarios (27 total regression tests), an authenticated cleanup endpoint and a daily Vercel cron definition. It keeps the existing provider/SQL cleanup service and adds no dependency or migration. This definition is ready for deployment configuration; activation and a real run remain unverified.
+
+Vercel access was retried and still returns 403 for the intended team; no local authenticated CLI/provider environment is available. Staging storage restrictions and an empty security-advisor result were reconfirmed read-only. The latest hosted setup sequence is in `verification-week-2.md`; T-102 remains partial and progress remains 11/37.

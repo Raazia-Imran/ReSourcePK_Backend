@@ -50,7 +50,7 @@ jobs:
           npm run db:seed:demo
           npm run db:seed:demo
           node scripts/verify-demo.js
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=high
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -64,3 +64,63 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  week2-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: resourcepk_test_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-test-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:ci-only-test-password@127.0.0.1:5432/resourcepk_test_e2e
+      TEST_DATABASE_URL: postgresql://postgres:ci-only-test-password@127.0.0.1:5432/resourcepk_test_e2e
+      JWT_ACCESS_SECRET: ci-only-secret-for-isolated-browser-test-database
+      E2E_PASSWORD: BrowserFixturePassword123
+      AUTH_REQUESTS_PER_WINDOW: "100"
+      DEMO_PASSWORD: BrowserFixturePassword123
+      ALLOW_DEMO_SEED: "true"
+      E2E_FRONTEND_DIR: ${{ github.workspace }}/paired-frontend
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout reviewed paired frontend revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Raazia-Imran/ReSourcePK_Frontend
+          ref: ${{ vars.E2E_FRONTEND_REF || '15e33ee9ed41a84c7b9a84364d8d376dc702bbbf' }}
+          path: paired-frontend
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts
+        working-directory: paired-frontend
+      - run: npm run build
+        working-directory: paired-frontend
+        env:
+          VITE_API_URL: http://localhost:5000/api/v1
+      - run: node scripts/prepare-test-db.js
+      - run: npm run db:seed:demo
+      - run: npm exec playwright install -- --with-deps chromium
+      - run: npm run test:e2e
+      - name: Retain synthetic acceptance screenshots and report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: week2-browser-evidence
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

@@ -4,7 +4,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "dev": "node --watch src/server.js",
     "db:migrate": "node src/db/migrate.js",
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
@@ -12,7 +12,8 @@
     "test:integration": "node --test integration/*.test.js",
     "db:seed:demo": "node scripts/seed-demo.js",
     "storage:setup": "node scripts/setup-storage.js",
-    "storage:cleanup": "node scripts/cleanup-images.js"
+    "storage:cleanup": "node scripts/cleanup-images.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
@@ -33,10 +34,11 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "eslint": "^9.39.4",
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
+    "eslint": "^10.11.0",
     "eslint-plugin-sonarjs": "^4.2.1",
     "globals": "^17.4.0",
-    "nodemon": "^3.1.14",
     "prettier": "^3.8.2",
     "supertest": "^7.2.2"
   },

@@ -11,6 +11,7 @@ const {
   unit,
   listingInput,
   requirementInput,
+  paginationInput,
 } = require("../modules/catalog/validation");
 const router = express.Router();
 const { env } = require("../config/env");
@@ -126,7 +127,14 @@ router.get(
   "/organizations/:organizationId/listings",
   requireAuth,
   async (req, res) =>
-    send(res, await service.listSeller(req.auth.sub, org(req))),
+    send(
+      res,
+      await service.listSeller(
+        req.auth.sub,
+        org(req),
+        paginationInput.parse(req.query),
+      ),
+    ),
 );
 router.post(
   "/organizations/:organizationId/listings",
@@ -218,7 +226,10 @@ router.delete(
     ),
 );
 router.get("/platform/listings/pending", requireAuth, async (req, res) =>
-  send(res, await service.pending(req.auth.sub)),
+  send(
+    res,
+    await service.pending(req.auth.sub, paginationInput.parse(req.query)),
+  ),
 );
 router.post(
   "/platform/listings/:listingId/review",
@@ -238,7 +249,10 @@ router.post(
   },
 );
 router.get("/requirements", requireAuth, async (req, res) =>
-  send(res, await repo.requirements(req.auth.sub)),
+  send(
+    res,
+    await repo.requirements(req.auth.sub, paginationInput.parse(req.query)),
+  ),
 );
 router.post("/requirements", requireAuth, async (req, res) => {
   res.status(201);

@@ -68,3 +68,13 @@ Add a dated row describing what changed, why, affected requirements and migratio
 - The merged PR heads passed application CI and secret scans, but SonarCloud reported a C security rating for dependency installation with lifecycle hooks enabled. Do not describe those heads as having all checks green.
 - Separate `fix/ci-dependency-scripts` branches disable hooks with `npm ci --ignore-scripts`; explicit lint/test/build steps remain. Verify Sharp image regression tests and the Vite production build from clean installs, then require the follow-up PR's CI and SonarCloud result before merge.
 - This correction changes CI policy only. It does not add product scope, alter applied migrations or increase the 10/37 completion count. Hosted SMTP/storage, mobile/desktop journeys, load and recovery acceptance remain open.
+
+## 11 October 2026 — remaining Week 2 implementation
+
+- Restored root README links to the complete baseline and retained the required React/Express/PostgreSQL stack and SQL/service/adapter boundaries. No friend branches or recovery archives were merged.
+- Added routed public detail and buyer/organization/platform workspaces, membership selection, paginated collection states, login deep-link restoration and refresh-aware CSV downloads. Mobile drawer behavior now matches the 1024 px breakpoint.
+- Added durable image upload recovery before the storage boundary and safe cleanup grace/locking/retries. Staging `listing-images` bucket is private, WebP-only, 5 MB; no staging inventory or users were seeded/modified.
+- Added isolated PostgreSQL regressions for pagination, image access/lifecycle and ambiguous storage timeout, plus browser acceptance across six required widths. Provider transport is simulated only inside explicit tests; it is not real Supabase roundtrip evidence.
+- Vercel lookup returned 403 for the configured team. CLI/auth was unavailable. Backend storage/SMTP credentials were not available in this workspace and were not retrieved. Hosted deployment, real storage roundtrip, scheduled cleanup and Week 1 email acceptance remain open. See ADR 005 and delivery-status.md for exact evidence.
+
+- Full dependency audit found a high-severity `braces` chain through development-only Nodemon. Removed Nodemon and retained hot reload using Node 24 native `--watch`; no new runtime package was needed. Production API URLs now require frontend deployment configuration; the localhost fallback is development-only.

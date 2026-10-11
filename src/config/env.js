@@ -8,6 +8,12 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(5000),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
+  AUTH_REQUESTS_PER_WINDOW: z.coerce
+    .number()
+    .int()
+    .min(3)
+    .max(1000)
+    .default(12),
   PUBLIC_READS_PER_MINUTE: z.coerce
     .number()
     .int()

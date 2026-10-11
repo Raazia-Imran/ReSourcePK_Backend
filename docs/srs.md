@@ -120,3 +120,7 @@ FR-CAT-05: up to eight JPEG/PNG/WebP images per listing; 5 MB, 16 megapixels, st
 FR-CAT-06: at most 100 data rows; XLSX first worksheet only, 2 MB input and 8 MB actual ZIP expansion. Reject encrypted/unsupported archives, forged sizes/CRC and duplicate entries; rebuild bounded archive before parsing. Imports create drafts, never publish automatically.
 
 FR-AUTH-03/05/07/08: bind access JWT to a live session; enforce account status/verification every protected request. Logout/reset invalidate access immediately. Cookie mutation requires configured Origin plus custom header. Invitation acceptance rechecks current inviter grant authority and cannot replace an Owner. Password creation rejects more than 72 UTF-8 bytes to prevent bcrypt truncation.
+
+## Week 2 acceptance clarification — 11 October 2026
+
+Seller inventory, platform review and buyer requirement reads must be tenant/role scoped, deterministically ordered, and paginated with consistent counts. Public listing detail has a refreshable route, unavailable/loading/retry states and accessible tiers/metadata. Saved requirements support pause/resume and confirmed terminal close. Seller archive requires explicit confirmation. The mobile workspace drawer must trap focus, close on Escape, return focus and hide inactive controls. Image upload ambiguity must leave durable cleanup work, never silently discard recovery. See ADR 005 for the coordinated collection contract.

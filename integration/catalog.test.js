@@ -358,4 +358,195 @@ test("archiving hides published stock without deleting the audit record", async 
     ).rowCount,
   );
 });
+
+test("paginated seller, reviewer and buyer collections preserve scope and reject unknown queries", async () => {
+  const own = await service.listSeller(owner, org, { page: 1, limit: 1 });
+  assert.equal(own.limit, 1);
+  assert.equal(own.items.length, 1);
+  assert.ok(own.total > own.items.length);
+  assert.ok(own.items.every((item) => item.organization_id === org));
+  const second = await service.listSeller(owner, org, { page: 2, limit: 1 });
+  assert.notEqual(second.items[0].id, own.items[0].id);
+  await assert.rejects(
+    () => service.listSeller(other, org, { page: 1, limit: 1 }),
+    (error) => error.status === 403,
+  );
+  const requirements = await repo.requirements(buyer, { page: 1, limit: 1 });
+  assert.ok(requirements.total >= 3);
+  assert.equal(requirements.items.length, 1);
+  assert.equal(requirements.items[0].buyer_id, buyer);
+  assert.equal(
+    (await repo.requirements(other, { page: 1, limit: 1 })).total,
+    0,
+  );
+  const draft = await service.create(owner, org, input);
+  await service.transition(
+    owner,
+    org,
+    draft.id,
+    "pending_review",
+    draft.version,
+  );
+  const pending = await service.pending(admin, { page: 1, limit: 1 });
+  assert.ok(pending.items.every((item) => item.status === "pending_review"));
+  await assert.rejects(
+    () => service.pending(buyer, { page: 1, limit: 1 }),
+    (error) => error.status === 403,
+  );
+  for (const query of ["page=0", "limit=51", "buyerId=" + other]) {
+    assert.equal(
+      (
+        await request(app)
+          .get(`/api/v1/requirements?${query}`)
+          .set("Authorization", `Bearer ${await bearer(buyer)}`)
+      ).status,
+      422,
+    );
+  }
+});
+test("image metadata, capability access and deferred cleanup follow the listing lifecycle", async (t) => {
+  const images = require("../src/modules/catalog/imageAdapter");
+  const sharp = require("sharp");
+  const buffer = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: "green" },
+  })
+    .png()
+    .toBuffer();
+  const uploaded = [];
+  t.mock.method(images, "upload", async (key, image) => {
+    uploaded.push(key);
+    assert.equal((await sharp(image.buffer).metadata()).format, "webp");
+    assert.equal(
+      (
+        await db.query(
+          "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+          [key],
+        )
+      ).rowCount,
+      1,
+    );
+  });
+  t.mock.method(
+    images,
+    "signedUrl",
+    async () => "https://storage.example.invalid/test-capability",
+  );
+  const draft = await service.create(owner, org, input);
+  const image = await service.addImage(
+    owner,
+    org,
+    draft.id,
+    { buffer },
+    "Synthetic cotton swatch",
+    draft.version,
+  );
+  assert.equal(
+    (
+      await db.query(
+        "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+        [uploaded[0]],
+      )
+    ).rowCount,
+    0,
+  );
+  await assert.rejects(
+    () => service.imageUrl(null, image.id),
+    (error) => error.status === 404,
+  );
+  await assert.rejects(
+    () => service.imageUrl(other, image.id),
+    (error) => error.status === 403,
+  );
+  assert.equal((await service.imageUrl(owner, image.id)).expiresIn, 60);
+  assert.equal((await service.imageUrl(admin, image.id)).expiresIn, 60);
+  const current = (
+    await db.query("SELECT version FROM app.listings WHERE id=$1", [draft.id])
+  ).rows[0];
+  await service.deleteImage(owner, org, draft.id, image.id, current.version);
+  assert.equal(
+    (
+      await db.query(
+        "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+        [uploaded[0]],
+      )
+    ).rowCount,
+    1,
+  );
+  assert.equal(
+    (await db.query("SELECT 1 FROM app.listing_images WHERE id=$1", [image.id]))
+      .rowCount,
+    0,
+  );
+  const cleanup = require("../src/modules/catalog/imageCleanupService");
+  const removals = [];
+  t.mock.method(images, "remove", async (key) => removals.push(key));
+  await cleanup.cleanImageObjects();
+  assert.equal(removals.length, 0, "fresh recovery jobs have a grace period");
+  await db.query(
+    "UPDATE app.image_cleanup_jobs SET created_at=now()-interval '3 minutes' WHERE object_key=$1",
+    [uploaded[0]],
+  );
+  assert.equal((await cleanup.cleanImageObjects()).removed, 1);
+  assert.deepEqual(removals, uploaded);
+});
+test("ambiguous storage timeout preserves recovery without creating image metadata", async (t) => {
+  const images = require("../src/modules/catalog/imageAdapter");
+  const sharp = require("sharp");
+  const buffer = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: "green" },
+  })
+    .png()
+    .toBuffer();
+  let key;
+  t.mock.method(images, "upload", async (objectKey) => {
+    key = objectKey;
+    throw new Error("Provider acknowledgement timeout");
+  });
+  const draft = await service.create(owner, org, input);
+  await assert.rejects(() =>
+    service.addImage(
+      owner,
+      org,
+      draft.id,
+      { buffer },
+      "Synthetic swatch",
+      draft.version,
+    ),
+  );
+  assert.equal(
+    (
+      await db.query(
+        "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+        [key],
+      )
+    ).rowCount,
+    1,
+  );
+  assert.equal(
+    (
+      await db.query("SELECT 1 FROM app.listing_images WHERE listing_id=$1", [
+        draft.id,
+      ])
+    ).rowCount,
+    0,
+  );
+  await db.query(
+    "UPDATE app.image_cleanup_jobs SET created_at=now()-interval '3 minutes' WHERE object_key=$1",
+    [key],
+  );
+  t.mock.method(images, "remove", async () => {
+    throw new Error("Provider unavailable");
+  });
+  const cleanup = require("../src/modules/catalog/imageCleanupService");
+  assert.equal((await cleanup.cleanImageObjects()).failed, 1);
+  assert.equal(
+    (
+      await db.query(
+        "SELECT attempts FROM app.image_cleanup_jobs WHERE object_key=$1",
+        [key],
+      )
+    ).rows[0].attempts,
+    1,
+  );
+});
 test.after(() => db.pool.end());

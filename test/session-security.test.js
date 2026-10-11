@@ -47,17 +47,28 @@ test("revoked, expired, suspended or unverified sessions fail before the protect
 test("valid session reaches protected handler with buyer-scoped identity", async (t) => {
   const calls = [];
   t.mock.method(db, "query", async (sql, args) => {
-    calls.push(args);
-    return sql.includes("app.sessions")
-      ? { rowCount: 1, rows: [{}] }
-      : { rowCount: 0, rows: [] };
+    calls.push({ sql, args });
+    if (sql.includes("app.sessions")) return { rowCount: 1, rows: [{}] };
+    if (sql.includes("count(*)")) return { rowCount: 1, rows: [{ total: 0 }] };
+    return { rowCount: 0, rows: [] };
   });
+  t.mock.method(db, "transaction", async (work) => work(db));
   const response = await request(app)
-    .get("/api/v1/requirements")
+    .get("/api/v1/requirements?page=1&limit=10")
     .set("Authorization", `Bearer ${signAccessToken({ id: user }, session)}`);
   assert.equal(response.status, 200);
-  assert.deepEqual(response.body.data, []);
-  assert.deepEqual(calls[1], [user]);
+  assert.deepEqual(response.body.data, {
+    items: [],
+    total: 0,
+    page: 1,
+    limit: 10,
+  });
+  const scoped = calls.filter(({ sql }) =>
+    sql.includes("app.buyer_requirements"),
+  );
+  assert.equal(scoped.length, 2);
+  for (const call of scoped) assert.equal(call.args[0], user);
+  assert.deepEqual(scoped[1].args, [user, 10, 0]);
 });
 test("cookie mutations reject browser forms, missing origins and untrusted origins", async () => {
   for (const path of ["refresh", "logout"]) {

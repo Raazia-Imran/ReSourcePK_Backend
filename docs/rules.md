@@ -59,3 +59,7 @@
 ## Catalog review clarifications — 11 October 2026
 
 Integer paisa columns are authoritative for financial use; decimal compatibility fields are for exact input/display. Never calculate transaction totals in React. Keep fixture data in the explicit demo seed, never in runtime catalog fallbacks; passwords must come from the user environment, with no seeded default. Preserve applied SQL files and use new numbered migrations for advisor fixes. Every status/image/import mutation is scoped and audited. CI uses isolated local PostgreSQL and must not target project credentials; database tests refuse nonlocal/non-test database URLs. No hosted, device, antivirus, load or backup-restore gate is inferred from lint or build results.
+
+## Week 2 verification rules — 11 October 2026
+
+Pin cross-repository browser-test inputs to a reviewed revision (an explicit CI variable may select another reviewed revision). Test authentication through real API sessions and isolate fixtures in a local `resourcepk_test_*` database. Capture synthetic screenshots without auth traces. Treat vendor failures injected in tests as simulated evidence only. Keep runtime business data, credentials and URLs configuration-driven; constants defining reviewed validation bounds and test fixture data are allowed. New collection contracts require synchronized OpenAPI/UI deployment.

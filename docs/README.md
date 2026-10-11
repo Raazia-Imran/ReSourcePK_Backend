@@ -15,3 +15,5 @@ These files form one baseline. A change to scope, behavior or architecture must 
 The analytics specification is in analytics.md and is part of the required product baseline.
 
 Current implementation evidence: [delivery status](delivery-status.md), [Week 2 verification guide](verification-week-2.md), and [catalog ADR 004](adr/004-catalog-completion.md).
+
+Latest implementation decision: [Week 2 acceptance ADR 005](adr/005-week-2-acceptance.md).

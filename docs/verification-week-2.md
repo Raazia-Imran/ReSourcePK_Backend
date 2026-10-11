@@ -11,7 +11,7 @@ git clone https://github.com/Raazia-Imran/ReSourcePK_Backend.git ReSourcePK_Back
 git clone https://github.com/Raazia-Imran/ReSourcePK_Frontend.git ReSourcePK_Frontend_preview
 ```
 
-If this slice is still an open PR, use `git switch feature/phase-2-catalog-completion` inside each clone. Once merged, fresh clones use `main`.
+If this slice is still an open PR, use `git switch feature/week-2-acceptance` inside each clone. Once merged, fresh clones use `main`.
 
 Open both folders in VS Code. Install Node.js 24. Open two terminal windows: one for backend, one for frontend. Do not paste a password into a GitHub commit or public issue.
 
@@ -47,7 +47,7 @@ Copy the printed value into your private backend `.env`. Do not post it in chat 
 
 ```bash
 cd ReSourcePK_Backend_preview
-npm ci
+npm ci --ignore-scripts
 npm run db:migrate
 npm run lint
 npm test
@@ -64,7 +64,7 @@ In the second terminal:
 
 ```bash
 cd ReSourcePK_Frontend_preview
-npm ci
+npm ci --ignore-scripts
 ```
 
 Create frontend `.env` from `.env.example`. Its API setting is:
@@ -112,7 +112,7 @@ Images are optional configuration; text catalog works without storage. Unconfigu
 2. Run `npm run storage:setup`. It creates a private bucket restricted to WebP and 5 MB, or checks an existing compatible bucket. Do not make it public or add browser upload/read policies.
 3. Restart the backend. Owner/Manager → seller draft card → **Manage listing images** → choose JPEG/PNG/WebP and write an image description → **Upload image**.
 4. Expect up to eight images per listing, 5 MB per file and 16 megapixels. SVG, animated/corrupt images and oversize input must fail. Stored output is resized WebP without metadata.
-5. Image removal queues the object for cleanup. Run `npm run storage:cleanup` to process up to twenty queued objects; failed jobs remain retryable. Schedule this command on your hosting worker before production.
+5. Image removal queues the object for cleanup. Run `npm run storage:cleanup` to process up to twenty jobs older than two minutes; failed jobs remain retryable. Pre-upload recovery survives provider timeouts; locked jobs prevent cleanup racing a live upload. Schedule this command on your hosting worker before production.
 
 ## 7. Verify the features in the browser
 
@@ -133,10 +133,37 @@ Use separate browser profiles for Buyer, Seller and Reviewer. Check 360, 390, 76
 
 ## 8. Check CI, security and remaining work
 
-GitHub → Actions → latest **CI**. Backend runs formatting/lint, 23 regression tests, 9 real isolated PostgreSQL integration scenarios, demo seed replay and production dependency audit. Both repositories run secret scans; frontend runs lint/build/audit. Passing CI does not verify hosted Gmail, private storage or mobile browsing.
+GitHub → Actions → latest **CI**. Backend runs formatting/lint, 23 regression tests, 12 real isolated PostgreSQL integration scenarios, demo seed replay and production dependency audit. Both repositories run secret scans; frontend runs lint/format/build/audit. The backend browser job uses real sessions/PostgreSQL and Chromium at six required widths, with automated accessibility/focus/overflow checks. Passing CI does not verify hosted Gmail, private storage or hosted mobile browsing.
 
 Database integration tests require a separate local `resourcepk_test_*` PostgreSQL database and `TEST_DATABASE_URL`. They refuse project URLs. Run `node scripts/prepare-test-db.js`, then `npm run test:integration`. Never replace the safety check to point at staging/production.
 
 GitHub main protection still requires repository admin settings: require PRs and the named CI/secret jobs before merge; disallow force pushes/deletion. The connector cannot administer that setting. For a sole owner, choose a review rule you can actually satisfy; do not merge someone else's branch to satisfy a count.
 
 Before Week 3: hosted signup/invite tests, real image roundtrip, seller→reviewer→buyer journey on mobile/desktop, scheduled cleanup and documented platform provisioning. Later: pools/payments/ledger (Week 3), fulfilment/passports/analytics/reports (Week 4), and load/accessibility/recovery/release checks (Week 5). See `delivery-status.md` for task-by-task evidence.
+
+## 9. Run isolated browser acceptance
+
+The backend CI `week2-browser` job checks out a pinned, reviewed frontend revision. `E2E_FRONTEND_REF` may explicitly select another reviewed commit; update the pin when coordinating a later frontend change. It creates only synthetic accounts in its disposable `resourcepk_test_e2e` database. It does not use project credentials or real Gmail/storage.
+
+Locally, clone both repos side by side, create a dedicated local `resourcepk_test_e2e` PostgreSQL database, and set `TEST_DATABASE_URL`, `DATABASE_URL`, `JWT_ACCESS_SECRET`, `E2E_PASSWORD`, `DEMO_PASSWORD` (same chosen password), `ALLOW_DEMO_SEED=true`, `NODE_ENV=test`. Then:
+
+```bash
+# Backend terminal
+npm ci --ignore-scripts
+node scripts/prepare-test-db.js
+npm run db:seed:demo
+npm exec playwright install -- --with-deps chromium
+# Frontend terminal: set VITE_API_URL=http://localhost:5000/api/v1
+npm ci --ignore-scripts
+npm run build
+# Backend terminal
+npm run test:e2e
+```
+
+Use `E2E_FRONTEND_DIR` when the frontend is not the sibling `frontend` folder. The test starts/stops both servers and refuses a nonlocal/non-test database. Screenshots use synthetic data; auth traces are disabled. The six widths exercise draft creation with price tiers, review, public detail/reload, buyer matches, pause/resume/close and archive. A separate test injects a clearly simulated transport outage to verify retry and empty states. Automated axe checks do not establish a complete accessibility audit or hosted-storage readiness.
+
+## Hosted boundary still awaiting acceptance
+
+The connected staging `listing-images` bucket is private, limited to WebP and 5 MB. Configure the three storage variables in the backend host directly, restore Vercel team access (the connector returned 403), deploy the coordinated branches after review, then perform the real upload/signed read/delete and schedule/monitor cleanup. Configure Gmail for clean-account signup/invitation verification. Never place service credentials in frontend variables or commit them.
+
+For the repeated local browser suite set `AUTH_REQUESTS_PER_WINDOW=100`; normal application use retains the default 12 requests per 15 minutes. CI uses this isolated test budget without changing production values.

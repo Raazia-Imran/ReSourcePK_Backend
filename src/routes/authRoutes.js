@@ -4,10 +4,11 @@ const rateLimit = require("express-rate-limit");
 const controller = require("../controllers/authController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const { cookieMutation } = require("../middlewares/cookieMutation");
+const { env } = require("../config/env");
 
 const sensitive = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 12,
+  limit: env.AUTH_REQUESTS_PER_WINDOW,
   standardHeaders: "draft-8",
   legacyHeaders: false,
 });

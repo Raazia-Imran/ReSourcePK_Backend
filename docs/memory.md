@@ -45,4 +45,8 @@ This file records durable decisions so team members and coding assistants do not
 
 ## Change protocol
 
+### 11 October 2026 — main consolidation
+
+The onboarding/catalog patch and remaining legacy branch history are consolidated for a clean `main` clone. The incomplete September signup implementations are superseded by the tested API-owned auth and private `app` migrations; the old mandatory phone/city proposal is not restored. See `merge-reconciliation.md` for the resolution, source commits and migration consequence (no additional schema migration). Local preview and credential instructions are in `local-preview-guide.md`. Live acceptance gates remain open.
+
 Add a dated row describing what changed, why, affected requirements and migration consequence. Major architecture, security, data, provider or scope changes require an ADR and updates to PRD/SRS/tasks in the same pull request.

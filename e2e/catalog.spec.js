@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
 const crypto = require("node:crypto");
+const sharp = require("sharp");
 
 async function signIn(page, account, destination) {
   await page.goto(destination);
@@ -38,7 +39,6 @@ async function inspect(page, name, testInfo) {
       })),
     ),
   ).toEqual([]);
-
 }
 async function checkDrawer(page, width) {
   if (width >= 1024) return;
@@ -110,9 +110,25 @@ for (const width of [360, 390, 768, 1024, 1280, 1440]) {
       await seller
         .getByLabel("Tier 1 PKR per unit", { exact: true })
         .fill("90.01");
+      const draftResponse = seller.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          /\/organizations\/[^/]+\/listings$/.test(
+            new URL(response.url()).pathname,
+          ),
+      );
       await seller
         .getByRole("button", { name: "Save draft", exact: true })
         .click();
+      const draft = (await (await draftResponse).json()).data;
+      const detailPath = `/marketplace/listings/${draft.id}`;
+      await buyer.goto(detailPath);
+      await expect(
+        buyer.getByRole("heading", {
+          name: "Listing unavailable",
+          exact: true,
+        }),
+      ).toBeVisible();
       const stock = seller.locator("article.catalog-card").filter({
         has: seller.getByRole("heading", { name: title, exact: true }),
       });
@@ -203,6 +219,13 @@ for (const width of [360, 390, 768, 1024, 1280, 1440]) {
         .getByRole("button", { name: "Confirm archive", exact: true })
         .click();
       await expect(stock).toContainText("archived");
+      await buyer.goto(detailPath);
+      await expect(
+        buyer.getByRole("heading", {
+          name: "Listing unavailable",
+          exact: true,
+        }),
+      ).toBeVisible();
     } finally {
       await Promise.all(contexts.map((context) => context.close()));
     }
@@ -240,4 +263,119 @@ test("public discovery reports a transport failure and recovers on retry", async
   await expect(
     page.getByText("No published materials match yet. Try a broader search."),
   ).toBeVisible();
+});
+
+test("CSV preview, refreshed template download and image failures use the real API", async ({
+  page,
+}) => {
+  await signIn(page, "demo-owner-2", "/org/demo-organization-2/listings");
+  let challenge = true;
+  await page.route("**/import/template", (route) => {
+    if (challenge) {
+      challenge = false;
+      return route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "TEST_EXPIRY",
+            message: "Simulated expired access token",
+          },
+        }),
+      });
+    }
+    return route.continue();
+  });
+  const refreshed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/auth/refresh") && response.status() === 200,
+  );
+  const downloading = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download CSV template", exact: true })
+    .click();
+  await refreshed;
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("resourcepk-listings.csv");
+  const chunks = [];
+  for await (const chunk of await download.createReadStream())
+    chunks.push(chunk);
+  const header = Buffer.concat(chunks).toString().split("\n")[0].trim();
+  expect(header).toContain("pricePerUnit");
+  const title = `Synthetic import ${crypto.randomUUID()}`;
+  const valid = `${title},Synthetic stock sheet acceptance fixture only.,Cotton,Unused,kg,100,10,210.29`;
+  const invalid =
+    "Invalid synthetic stock,Synthetic invalid row acceptance fixture only.,Cotton,Unused,kg,100,10,bad";
+  const input = page.getByLabel("Factory stock sheet", { exact: true });
+  await input.setInputFiles({
+    name: "stock.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(`${header}\n${valid}\n${invalid}\n`),
+  });
+  await page
+    .getByRole("button", { name: "Validate and preview", exact: true })
+    .click();
+  await expect(
+    page.getByText("1 valid rows · 1 rows need correction."),
+  ).toBeVisible();
+  await expect(page.getByText(/Row 3: pricePerUnit:/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Confirm .* draft listings/ }),
+  ).toHaveCount(0);
+  await input.setInputFiles({
+    name: "stock.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(`${header}\n${valid}\n`),
+  });
+  await page
+    .getByRole("button", { name: "Validate and preview", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Confirm 1 draft listings", exact: true })
+    .click();
+  const stock = page
+    .locator("article.catalog-card")
+    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  await expect(stock).toContainText("draft");
+  await stock.getByRole("button", { name: "Edit draft", exact: true }).click();
+  await page.getByLabel("Color (optional)", { exact: true }).fill("Blue");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(stock).toContainText("draft");
+  await stock.getByText("Manage listing images", { exact: true }).click();
+  await stock
+    .getByLabel("Image description", { exact: true })
+    .fill("Synthetic cotton swatch");
+  const image = stock.getByLabel("Listing image", { exact: true });
+  await image.setInputFiles({
+    name: "swatch.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+  });
+  await stock
+    .getByRole("button", { name: "Upload image", exact: true })
+    .click();
+  await expect(stock.getByRole("alert")).toContainText(
+    "Choose a JPEG, PNG or WebP raster image",
+  );
+  const png = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: "blue" },
+  })
+    .png()
+    .toBuffer();
+  await image.setInputFiles({
+    name: "swatch.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
+  const unavailable = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/images") &&
+      response.request().method() === "POST",
+  );
+  await stock
+    .getByRole("button", { name: "Upload image", exact: true })
+    .click();
+  const response = await unavailable;
+  expect(response.status()).toBe(503);
+  expect((await response.json()).error.code).toBe("STORAGE_NOT_CONFIGURED");
 });

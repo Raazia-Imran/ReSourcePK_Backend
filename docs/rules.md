@@ -31,6 +31,7 @@
 
 - JavaScript is permitted for the existing baseline; migrate incrementally to TypeScript only with one agreed plan, not mixed ad hoc.
 - ESLint and Prettier are required. Use clear names, small functions and feature modules.
+- CI dependency installation must use `npm ci --ignore-scripts`. Keep application tests/builds as explicit steps; do not re-enable all dependency lifecycle hooks to fix one package. Any necessary native build must be reviewed and explicitly scoped.
 - Validate API inputs with a schema library and reject unknown security-sensitive fields.
 - Use parameterized SQL/query builder/ORM; add database constraints even when validation exists.
 - Return stable machine error codes. Never expose stack traces in production.
@@ -58,3 +59,11 @@
 ## Catalog review clarifications — 11 October 2026
 
 Integer paisa columns are authoritative for financial use; decimal compatibility fields are for exact input/display. Never calculate transaction totals in React. Keep fixture data in the explicit demo seed, never in runtime catalog fallbacks; passwords must come from the user environment, with no seeded default. Preserve applied SQL files and use new numbered migrations for advisor fixes. Every status/image/import mutation is scoped and audited. CI uses isolated local PostgreSQL and must not target project credentials; database tests refuse nonlocal/non-test database URLs. No hosted, device, antivirus, load or backup-restore gate is inferred from lint or build results.
+
+## Week 2 verification rules — 11 October 2026
+
+Pin cross-repository browser-test inputs to a reviewed revision (an explicit CI variable may select another reviewed revision). Test authentication through real API sessions and isolate fixtures in a local `resourcepk_test_*` database. Capture synthetic screenshots without auth traces. Treat vendor failures injected in tests as simulated evidence only. Keep runtime business data, credentials and URLs configuration-driven; constants defining reviewed validation bounds and test fixture data are allowed. New collection contracts require synchronized OpenAPI/UI deployment.
+
+## Scheduler boundary — 11 October 2026
+
+Use backend-only `CRON_SECRET` for image maintenance, separate from account JWTs. Never authenticate by user-agent, query-string token or UI role. Keep scheduler responses uncached and reject HEAD/POST before work. Route code reuses the existing cleanup service; no SQL or provider deletion belongs in the route. Synthetic scheduler tests are explicitly isolated from provider credentials. Cron configuration is versioned; hosted schedule activation/logs and provider checks remain required before release sign-off.

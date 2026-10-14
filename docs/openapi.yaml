@@ -1,11 +1,26 @@
 openapi: 3.1.0
 info:
   title: ReSource PK API
-  version: 1.0.0
+  version: 1.1.0
   description: Authentication, organization access, and catalog contract.
 servers:
   - url: /api/v1
 paths:
+  /internal/storage-cleanup:
+    get:
+      summary: Process one bounded batch of private image cleanup jobs
+      description: Scheduler-only endpoint. CRON_SECRET is separate from user JWTs. Not cached. Failed objects remain queued for the next invocation.
+      security:
+        - cronAuth: []
+      responses:
+        "200":
+          description: Batch completed; data contains queued, removed and failed counts (maximum 20 jobs).
+        "401":
+          description: CRON_SECRET is absent or scheduler authorization is invalid.
+        "503":
+          description: Storage is not configured or one or more objects could not be cleaned.
+        "500":
+          description: Cleanup could not complete; inspect the correlation ID in backend logs.
   /auth/register:
     post:
       summary: Register a buyer or seller owner
@@ -191,15 +206,13 @@ paths:
           description: Invitation email mismatch
   /listings:
     get:
-      summary:
-        Search published listings with q, material, unit, page, limit, and
-        sort
+      summary: Search published listings with q, material, unit, page, limit, and sort
       responses:
         "200":
           description: Paginated public listings
       description:
-        Only published stock from active organizations; keyword/material/unit/sort,
-        page 1–200, limit 1–50; consistent count and rows.
+        Only published stock from active organizations; keyword/material/unit/sort, page
+        1–200, limit 1–50; consistent count and rows.
   /listings/{listingId}:
     get:
       summary: Get a published listing by ID
@@ -222,8 +235,20 @@ paths:
       responses:
         "200":
           description: Own organization listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionResponse"
         "403":
           description: Owner or Manager access required
+        "422":
+          $ref: "#/components/responses/Validation"
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      description:
+        Returns data {items,total,page,limit}; page 1–200, limit 1–50 (default 20). Unknown
+        query fields are rejected. Count and rows share one database snapshot; access is server-scoped.
     post:
       security: *id001
       summary: Create a draft listing
@@ -318,9 +343,7 @@ paths:
   /organizations/{organizationId}/listings/import/preview:
     post:
       security: *id001
-      summary:
-        Validate a CSV or XLSX upload with row-level errors, without saving
-        it
+      summary: Validate a CSV or XLSX upload with row-level errors, without saving it
       requestBody:
         required: true
         content:
@@ -368,6 +391,18 @@ paths:
       responses:
         "200":
           description: Pending listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionResponse"
+        "422":
+          $ref: "#/components/responses/Validation"
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      description:
+        Returns data {items,total,page,limit}; page 1–200, limit 1–50 (default 20). Unknown
+        query fields are rejected. Count and rows share one database snapshot; access is server-scoped.
   /platform/listings/{listingId}/review:
     post:
       security: *id001
@@ -397,6 +432,18 @@ paths:
       responses:
         "200":
           description: Requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionResponse"
+        "422":
+          $ref: "#/components/responses/Validation"
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      description:
+        Returns data {items,total,page,limit}; page 1–200, limit 1–50 (default 20). Unknown
+        query fields are rejected. Count and rows share one database snapshot; access is server-scoped.
     post:
       security: *id001
       summary: Create a buyer requirement
@@ -539,8 +586,8 @@ paths:
   /listing-images/{imageId}:
     get:
       summary:
-        Request a 60-second private image URL; published active seller images
-        are public, others require seller/reviewer access
+        Request a 60-second private image URL; published active seller images are public,
+        others require seller/reviewer access
       responses:
         "200":
           description: URL and expiresIn; response is not cached
@@ -575,6 +622,10 @@ paths:
           format: uuid
 components:
   securitySchemes:
+    cronAuth:
+      type: http
+      scheme: bearer
+      description: Backend-only CRON_SECRET sent by the scheduler; never a user access token.
     bearerAuth:
       type: http
       scheme: bearer
@@ -623,8 +674,8 @@ components:
               exclusiveMinimum: 0
               maximum: 100000000
           description:
-            Prefer exact decimal text; at most 3 fractional digits. No
-            rounding or exponent text.
+            Prefer exact decimal text; at most 3 fractional digits. No rounding or exponent
+            text.
         minOrderQuantity: &id014
           oneOf:
             - type: string
@@ -633,8 +684,8 @@ components:
               exclusiveMinimum: 0
               maximum: 100000000
           description:
-            Prefer exact decimal text; at most 3 fractional digits. No
-            rounding or exponent text.
+            Prefer exact decimal text; at most 3 fractional digits. No rounding or exponent
+            text.
         pricePerUnit: &id008
           oneOf:
             - type: string
@@ -643,8 +694,8 @@ components:
               exclusiveMinimum: 0
               maximum: 100000000
           description:
-            Prefer exact decimal text; at most 2 fractional digits. No
-            rounding or exponent text.
+            Prefer exact decimal text; at most 2 fractional digits. No rounding or exponent
+            text.
         color: &id015
           type: string
           maxLength: 80
@@ -662,9 +713,7 @@ components:
           maxItems: 10
           items:
             $ref: "#/components/schemas/PriceTier"
-          description:
-            Increasing thresholds from MOQ to available stock; nonincreasing
-            unit prices.
+          description: Increasing thresholds from MOQ to available stock; nonincreasing unit prices.
       additionalProperties: false
     RequirementInput:
       type: object
@@ -730,8 +779,8 @@ components:
               type: string
               minLength: 10
       description:
-        Passwords require 10–72 UTF-8 bytes and uppercase/lowercase/digit;
-        unknown fields rejected. No default credentials.
+        Passwords require 10–72 UTF-8 bytes and uppercase/lowercase/digit; unknown fields
+        rejected. No default credentials.
     Token:
       type: object
       required:
@@ -823,6 +872,33 @@ components:
         version:
           type: integer
           minimum: 1
+    CollectionResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - items
+            - total
+            - page
+            - limit
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+            total:
+              type: integer
+              minimum: 0
+            page:
+              type: integer
+              minimum: 1
+            limit:
+              type: integer
+              minimum: 1
+              maximum: 50
   responses:
     Conflict:
       description: Resource already exists
@@ -832,3 +908,20 @@ components:
       description: Token is invalid
       consumed: null
       or expired: null
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20

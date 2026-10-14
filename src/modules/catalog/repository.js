@@ -39,10 +39,15 @@ async function replaceTiers(runner, id, tiers) {
     "DELETE FROM app.listing_price_tiers WHERE listing_id=$1",
     [id],
   );
-  for (const tier of tiers)
+  if (tiers.length)
     await runner.query(
-      `INSERT INTO app.listing_price_tiers(listing_id,min_quantity,price_per_unit_minor) VALUES($1,$2,$3)`,
-      [id, tier.minQuantity, scaled(tier.pricePerUnit, 2).toString()],
+      `INSERT INTO app.listing_price_tiers(listing_id,min_quantity,price_per_unit_minor)
+       SELECT $1,quantity,price FROM unnest($2::numeric[],$3::bigint[]) AS tier(quantity,price)`,
+      [
+        id,
+        tiers.map((tier) => tier.minQuantity),
+        tiers.map((tier) => scaled(tier.pricePerUnit, 2).toString()),
+      ],
     );
 }
 function fields(input) {
@@ -90,20 +95,37 @@ async function setListingStatus(runner, id, status, reason = null) {
     )
   ).rows[0];
 }
-async function listSeller(org) {
-  return (
-    await db.query(
-      `SELECT l.*,${details} FROM app.listings l WHERE organization_id=$1 ORDER BY created_at DESC,id DESC LIMIT 100`,
-      [org],
-    )
-  ).rows;
+async function paginate(runner, filters, countSql, itemsSql, args = []) {
+  const count = await runner.query(countSql, args);
+  const rows = await runner.query(
+    `${itemsSql} LIMIT $${args.length + 1} OFFSET $${args.length + 2}`,
+    [...args, filters.limit, (filters.page - 1) * filters.limit],
+  );
+  return {
+    items: rows.rows,
+    total: count.rows[0].total,
+    page: filters.page,
+    limit: filters.limit,
+  };
 }
-async function listPending() {
-  return (
-    await db.query(
-      `SELECT l.*,o.name AS organization_name,${details} FROM app.listings l JOIN app.organizations o ON o.id=l.organization_id WHERE l.status='pending_review' AND o.status='active' ORDER BY l.created_at,l.id LIMIT 100`,
-    )
-  ).rows;
+async function listSeller(org, filters, runner) {
+  return paginate(
+    runner,
+    filters,
+    "SELECT count(*)::int AS total FROM app.listings WHERE organization_id=$1",
+    `SELECT l.*,${details} FROM app.listings l WHERE organization_id=$1 ORDER BY created_at DESC,id DESC`,
+    [org],
+  );
+}
+async function listPending(filters, runner) {
+  const from =
+    "FROM app.listings l JOIN app.organizations o ON o.id=l.organization_id WHERE l.status='pending_review' AND o.status='active'";
+  return paginate(
+    runner,
+    filters,
+    `SELECT count(*)::int AS total ${from}`,
+    `SELECT l.*,o.name AS organization_name,${details} ${from} ORDER BY l.created_at,l.id`,
+  );
 }
 async function publicListing(id) {
   return (
@@ -156,13 +178,19 @@ async function search(filters) {
     };
   });
 }
-async function requirements(user) {
-  return (
-    await db.query(
-      "SELECT * FROM app.buyer_requirements WHERE buyer_id=$1 ORDER BY created_at DESC,id DESC LIMIT 100",
+async function requirements(user, filters) {
+  return db.transaction(async (runner) => {
+    await runner.query(
+      "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    );
+    return paginate(
+      runner,
+      filters,
+      "SELECT count(*)::int AS total FROM app.buyer_requirements WHERE buyer_id=$1",
+      "SELECT * FROM app.buyer_requirements WHERE buyer_id=$1 ORDER BY created_at DESC,id DESC",
       [user],
-    )
-  ).rows;
+    );
+  });
 }
 async function createRequirement(runner, user, input) {
   return (
@@ -280,6 +308,46 @@ async function queueImageCleanup(key, runner = db) {
     [key],
   );
 }
+async function lockImageCleanup(runner, key) {
+  const result = await runner.query(
+    "SELECT object_key FROM app.image_cleanup_jobs WHERE object_key=$1 FOR UPDATE",
+    [key],
+  );
+  if (!result.rowCount)
+    throw new AppError(
+      409,
+      "UPLOAD_EXPIRED",
+      "Upload recovery expired. Try the upload again.",
+    );
+}
+async function cleanupCandidates(runner) {
+  return (
+    await runner.query(
+      "SELECT object_key FROM app.image_cleanup_jobs WHERE created_at < now()-interval '2 minutes' ORDER BY created_at LIMIT 20 FOR UPDATE SKIP LOCKED",
+    )
+  ).rows;
+}
+async function imageIsLinked(runner, key) {
+  return (
+    (
+      await runner.query(
+        "SELECT 1 FROM app.listing_images WHERE object_key=$1",
+        [key],
+      )
+    ).rowCount > 0
+  );
+}
+async function retryImageCleanup(runner, key) {
+  await runner.query(
+    "UPDATE app.image_cleanup_jobs SET attempts=attempts+1 WHERE object_key=$1",
+    [key],
+  );
+}
+async function finishImageCleanup(key, runner = db) {
+  await runner.query("DELETE FROM app.image_cleanup_jobs WHERE object_key=$1", [
+    key,
+  ]);
+}
 async function removeImageRecord(runner, id) {
   await runner.query("DELETE FROM app.listing_images WHERE id=$1", [id]);
 }
@@ -307,6 +375,11 @@ module.exports = {
   requirementAudit,
   bumpListing,
   queueImageCleanup,
+  lockImageCleanup,
+  cleanupCandidates,
+  imageIsLinked,
+  retryImageCleanup,
+  finishImageCleanup,
   removeImageRecord,
   insertImportBatch,
   importBatch,

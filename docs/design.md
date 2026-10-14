@@ -68,3 +68,7 @@ Figma or implementation includes every critical screen at mobile and desktop wid
 ## Catalog UI states — 11 October 2026
 
 Render optional listing metadata only when present, display seller tier tables, and show a visible Demo stock badge for `is_demo` records. Discovery has loading/error/empty states and pagination. Draft/rejected cards offer image descriptions/upload, edit and submit; archive uses an explicit inline confirmation. Reviewer cards show images/tiers and require a reason. Requirements show active/paused/closed state, with matching disabled outside active state. Image failures are actionable and never replaced with fabricated supplier photos. Respect reduced-motion settings when scrolling to edit. Full keyboard and six-width browser acceptance remains a Week 2/5 gate.
+
+## Week 2 routed-screen acceptance — 11 October 2026
+
+Browse links open the public marketplace and dedicated listing details. Buyer requirements, seller inventory and moderation retain independent loading, empty, error/retry and pagination states. Workspace switching uses real account context and organization switching uses actual membership names. Below 1024 px, the sidebar becomes a modal drawer with focus trapping, Escape and focus restoration; hidden navigation is inert. Validate no horizontal page overflow at 360/390/768/1024/1280/1440 px. Label form errors, expose asynchronous status and require confirmation for archive/terminal close. Machine accessibility checks supplement keyboard and visual inspection.

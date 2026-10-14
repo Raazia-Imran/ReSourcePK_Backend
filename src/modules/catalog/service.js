@@ -35,9 +35,12 @@ function editable(listing, version) {
       "Stock changed. Reload before saving.",
     );
 }
-async function listSeller(user, org) {
-  await requireSeller(user, org);
-  return repo.listSeller(org);
+async function listSeller(user, org, filters) {
+  return db.transaction(async (runner) => {
+    await runner.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+    await requireSeller(user, org, runner);
+    return repo.listSeller(org, filters, runner);
+  });
 }
 async function create(user, org, input) {
   return db.transaction(async (runner) => {
@@ -78,9 +81,12 @@ async function transition(user, org, id, status, version) {
     return listing;
   });
 }
-async function pending(user) {
-  await requireReviewer(user);
-  return repo.listPending();
+async function pending(user, filters) {
+  return db.transaction(async (runner) => {
+    await runner.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+    await requireReviewer(user, runner);
+    return repo.listPending(filters, runner);
+  });
 }
 async function review(user, id, decision, reason, version) {
   return db.transaction(async (runner) => {
@@ -163,6 +169,9 @@ async function addImage(user, org, id, file, alt, version) {
   await requireSeller(user, org);
   const normalized = await images.normalizeImage(file?.buffer);
   const key = `${org}/${id}/${crypto.randomUUID()}.webp`;
+  // Persist recovery before crossing the provider boundary. A crash or a
+  // timed-out response must not leave an untracked private object behind.
+  await repo.queueImageCleanup(key);
   let uploaded = false;
   try {
     return await db.transaction(async (runner) => {
@@ -174,18 +183,24 @@ async function addImage(user, org, id, file, alt, version) {
           "IMAGE_LIMIT",
           "A listing can have at most eight images",
         );
+      await repo.lockImageCleanup(runner, key);
       await images.upload(key, normalized);
       uploaded = true;
       const image = await repo.insertImage(runner, id, key, alt, normalized);
       await repo.bumpListing(runner, id);
       await repo.audit(runner, user, org, id, "listing.image_added");
+      await repo.finishImageCleanup(key, runner);
       return image;
     });
   } catch (error) {
-    if (uploaded)
-      await images.remove(key).catch(async () => {
-        await repo.queueImageCleanup(key);
-      });
+    if (uploaded) {
+      try {
+        await images.remove(key);
+        await repo.finishImageCleanup(key);
+      } catch {
+        // The already-persisted job is retried by the cleanup worker.
+      }
+    }
     throw error;
   }
 }

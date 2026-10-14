@@ -1,0 +1,4 @@
+node_modules/
+paired-frontend/
+playwright-report/
+test-results/

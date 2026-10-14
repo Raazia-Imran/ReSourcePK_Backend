@@ -25,7 +25,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 - [x] T-101 Listing/image/price-tier migrations and policies.
 - T-102 Listing CRUD, moderation states, secure upload adapter.
-- T-103 Catalog, detail, seller inventory, create/edit flows with all states.
+- [x] T-103 Catalog, detail, seller inventory, create/edit flows with all states.
 - [x] T-104 Indexed keyword/filter/sort API with pagination.
 - [x] T-105 Requirements and explainable rules-based matching.
 - [x] T-106 Seed 4-5 suppliers and 20-25 realistic listings.
@@ -82,4 +82,10 @@ Never cut auth security, tenant isolation, pool concurrency, payment idempotency
 
 ## Evidence snapshot — 11 October 2026
 
-Ten of 37 implementation tasks are checked (27.0%, unweighted checklist completion). Checks reflect implemented scope and automated evidence, not a weekly release sign-off. Backend CI passes 23 regression tests, 9 real PostgreSQL integration scenarios, idempotent synthetic seed verification and secret/dependency checks; frontend CI passes lint/build/audit/secret checks. T-102/T-103 remain partial until real private-storage and hosted mobile/desktop acceptance. Week 1 deployment and Week 2 release gates remain open; later weeks are planned. See `delivery-status.md`.
+All seven Week 2 tasks have implementation in the coordinated PRs; six have scoped automated acceptance evidence. T-102 remains partial for the real private-storage provider roundtrip and hosted configuration. T-103 is now checked after routed detail/inventory/review/requirement screens passed real-session Chromium/PostgreSQL journeys at 360/390/768/1024/1280/1440 px, with keyboard, axe and overflow checks. Eight browser scenarios include CSV validation/import, session-refresh download, private draft/archive visibility and actual unconfigured/unsafe image failures.
+
+Eleven of 37 implementation tasks are checked (29.7%, unweighted checklist completion). Backend CI passes 23 regression tests and 12 real PostgreSQL integration scenarios, seed replay, full dependency audit and secret checks; frontend lint/format/build/full audit/secret checks pass. Backend Sonar reports zero new issues. These are scoped checks, not a weekly release sign-off. Week 1 hosted identity and Week 2 hosted storage/deployment/cleanup gates remain open; see `delivery-status.md`.
+
+## Completion checkpoint — 11 October 2026
+
+T-102 now also includes the authenticated Vercel cleanup endpoint and daily schedule definition; four scheduler regression scenarios supplement the catalog suite. Hosted acceptance is still partial: credentials/team access, actual private upload/read/delete, a hosted seller/reviewer/buyer journey and an observed scheduled run must pass. Do not check the task or start Week 3 merely because the definition and isolated tests exist. Follow the final hosted steps in `verification-week-2.md`.

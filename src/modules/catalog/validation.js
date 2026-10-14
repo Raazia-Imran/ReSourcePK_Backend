@@ -8,7 +8,9 @@ function scaled(value, places) {
   );
 }
 function decimal(places) {
-  const pattern = new RegExp(`^(?:0|[1-9]\\d{0,8})(?:\\.\\d{1,${places}})?$`);
+  const pattern = new RegExp(
+    String.raw`^(?:0|[1-9]\d{0,8})(?:\.\d{1,${places}})?$`,
+  );
   return z
     .union([z.string(), z.number().finite()])
     .transform(String)
@@ -28,6 +30,12 @@ const money = decimal(2);
 const quantity = decimal(3);
 const unit = z.enum(["kg", "meter", "roll", "piece"]);
 const uuid = z.string().uuid();
+const paginationInput = z
+  .object({
+    page: z.coerce.number().int().min(1).max(200).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
 const tier = z.object({ minQuantity: quantity, pricePerUnit: money }).strict();
 const listingInput = z
   .object({
@@ -87,6 +95,7 @@ module.exports = {
   quantity,
   unit,
   uuid,
+  paginationInput,
   listingInput,
   requirementInput,
 };

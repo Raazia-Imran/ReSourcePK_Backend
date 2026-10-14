@@ -100,7 +100,7 @@ Use permission-based RBAC scoped by organization.
 - API: Vercel Node Functions for the MVP; introduce a continuously running worker only when queued jobs require it.
 - Data: managed PostgreSQL; object storage for uploads.
 - Environments: local, preview/staging, production with separate credentials and databases.
-- CI: install from lockfile, lint, unit/integration tests, build, migration check, secret/dependency scan.
+- CI: install from lockfile with `npm ci --ignore-scripts`, lint, unit/integration tests, build, migration check, secret/dependency scan. Dependency lifecycle hooks are disabled; a required native build needs a separately reviewed, explicit command.
 - Deploy: backward-compatible migration, API/worker, smoke tests, then frontend. Production rollback never rewrites migration history.
 
 ## Transactional email
@@ -120,3 +120,13 @@ PostgreSQL remains authoritative. The contract stores `orderId/passportId -> byt
 Catalog routes translate validated HTTP input; `src/modules/catalog/service.js` owns policy/transactions, `repository.js` owns queries, `importService.js` owns bounded import, `zipGuard.js` verifies/rebuilds XLSX ZIP entries, and `imageAdapter.js` owns private Supabase Storage and raster normalization. See ADR 004. Migration 004 adds generated integer price columns, tiers/images, versioned requirements, cleanup jobs and demo markers; migration 005 adds the import actor FK index. Applied migrations are immutable.
 
 Public pagination/count share a read-only repeatable-read snapshot, with deterministic ordering and bounded offsets. Session verification uses the session primary key. Per-instance DB connection limits and trusted proxy hops come from environment configuration. Production requires global rate-limit controls, pooler sizing/load checks, scheduled object cleanup and hosted acceptance; these are not claimed complete. `app` remains private and is not a Supabase browser Data API schema.
+
+## Week 2 implementation alignment — 11 October 2026
+
+The routed SPA exposes `/marketplace`, `/marketplace/listings/:listingId`, `/buyer/*`, `/org/:orgSlug/*` and `/admin/*`. `/workspace` resolves live memberships/platform assignments to a default entry; route visibility does not replace backend authorization. Shared collection state handles paging/reload/retry; shared API requests refresh sessions for JSON and file downloads. Catalog services retain policy/transactions, repositories retain SQL, and the private image adapter retains vendor I/O. A durable pre-upload recovery job and locked cleanup batches handle ambiguous storage acknowledgements. No storage credential or seeded catalog fallback enters the SPA. Browser tests run against isolated local PostgreSQL and the paired frontend revision. See ADR 005.
+
+## Week 2 cleanup scheduling — 11 October 2026
+
+Vercel invokes `GET /api/v1/internal/storage-cleanup` using a separate backend-only `CRON_SECRET`; user JWTs and browser cookies cannot authorize this endpoint. Missing scheduler credentials fail closed; missing storage returns 503. Responses are never cached, HEAD/POST cannot run the worker, and partial provider failure returns 503 with durable jobs retained. The existing service owns the locked batch/linked-object/retry policy; routes only authenticate and translate results.
+
+`vercel.json` declares a daily `0 3 * * *` schedule (UTC), compatible with Vercel Hobby's daily restriction. One invocation handles at most 20 eligible jobs; review backlog and repeat the authenticated job manually or use the CLI when needed. No continuously running process or new dependency is added. A deployed scheduled run and runtime-log inspection remain acceptance requirements, not consequences of committing a cron definition.

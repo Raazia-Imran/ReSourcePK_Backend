@@ -125,3 +125,7 @@ An existing verified Buyer may create a seller organization from the same accoun
 ## Catalog delivery update — 11 October 2026
 
 Week 2 includes optional composition/color/location, quantity tiers, private raster images, audited moderation, terminal archive, and requirement pause/resume/close. Demo inventory is opt-in and visibly synthetic; it is excluded from real metrics. Week 3 pools/payments and Week 4 passports/reports remain planned. Implementation and weekly release acceptance are tracked separately in `delivery-status.md`; mobile/desktop hosted acceptance is still required.
+
+## Week 2 delivery clarification — 11 October 2026
+
+Catalog completion includes refreshable public detail and role-scoped routes, paginated inventories/requirements/review, accessible mobile navigation and durable private-upload recovery. These finish existing Week 2 behavior without expanding into commerce. Synthetic seed data remains explicit and labelled. Real hosted storage and the coordinated seller → reviewer → buyer journey remain release criteria; local/CI evidence cannot sign off those provider/deployment boundaries.

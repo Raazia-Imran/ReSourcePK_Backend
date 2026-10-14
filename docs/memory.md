@@ -61,3 +61,35 @@ Add a dated row describing what changed, why, affected requirements and migratio
 - Hosted API/SMTP/storage, global abuse controls, mobile/desktop acceptance, production provisioning/step-up, load/concurrency scale and backup restore remain gates. Payments/pools/passports/analytics are not implemented. See verification guide and delivery status.
 
 - Final automated evidence: backend 23 regression tests + 9 real PostgreSQL integration scenarios, migration replay, opt-in demo seed twice (4 suppliers/20 labelled listings/6 accounts), secret scan and production audit pass. Frontend lint/build/audit/secret scan pass. Checklist updated to 10/37 (27.0%); zero fully verified weekly release gates.
+
+## 11 October 2026 — recovered handoff and CI quality-gate follow-up
+
+- GitHub confirms backend PR #6 and frontend PR #4 were merged into `main` at 11:03 UTC. Backend friend branches still diverge: their one/two extra commits are not ancestors of the corrected main.
+- The merged PR heads passed application CI and secret scans, but SonarCloud reported a C security rating for dependency installation with lifecycle hooks enabled. Do not describe those heads as having all checks green.
+- Separate `fix/ci-dependency-scripts` branches disable hooks with `npm ci --ignore-scripts`; explicit lint/test/build steps remain. Verify Sharp image regression tests and the Vite production build from clean installs, then require the follow-up PR's CI and SonarCloud result before merge.
+- This correction changes CI policy only. It does not add product scope, alter applied migrations or increase the 10/37 completion count. Hosted SMTP/storage, mobile/desktop journeys, load and recovery acceptance remain open.
+
+## 11 October 2026 — remaining Week 2 implementation
+
+- Restored root README links to the complete baseline and retained the required React/Express/PostgreSQL stack and SQL/service/adapter boundaries. No friend branches or recovery archives were merged.
+- Added routed public detail and buyer/organization/platform workspaces, membership selection, paginated collection states, login deep-link restoration and refresh-aware CSV downloads. Mobile drawer behavior now matches the 1024 px breakpoint.
+- Added durable image upload recovery before the storage boundary and safe cleanup grace/locking/retries. Staging `listing-images` bucket is private, WebP-only, 5 MB; no staging inventory or users were seeded/modified.
+- Added isolated PostgreSQL regressions for pagination, image access/lifecycle and ambiguous storage timeout, plus browser acceptance across six required widths. Provider transport is simulated only inside explicit tests; it is not real Supabase roundtrip evidence.
+- Vercel lookup returned 403 for the configured team. CLI/auth was unavailable. Backend storage/SMTP credentials were not available in this workspace and were not retrieved. Hosted deployment, real storage roundtrip, scheduled cleanup and Week 1 email acceptance remain open. See ADR 005 and delivery-status.md for exact evidence.
+
+- Full dependency audit found a high-severity `braces` chain through development-only Nodemon. Removed Nodemon and retained hot reload using Node 24 native `--watch`; no new runtime package was needed. Production API URLs now require frontend deployment configuration; the localhost fallback is development-only.
+
+## 11 October 2026 — final Week 2 automated acceptance
+
+- Coordinated backend PR #8 and frontend PR #6 retain the user's original scope and exclude friend commits. All Week 2 implementation is present; hosted provider/deployment acceptance remains blocked.
+- Final code evidence: 23 regression tests, 12 real PostgreSQL integration scenarios and eight Chromium browser scenarios passed. All six required widths passed the seller/reviewer/buyer lifecycle with focus/axe/overflow checks. CSV preview/import/edit, refresh-aware download, private drafts/archived detail and unsafe/unconfigured image states are covered. Mobile detail/requirements and desktop review screenshots were inspected.
+- Browser checks caught low contrast in sidebar branding, welcome/metric/header text and decoration over text. Colors/layering were corrected without changing the chosen visual direction. Production endpoint fallback is now development-only.
+- Backend Sonar: zero new issues/hotspots/duplication. Both full dependency audits, lint/format/build/secret scans pass. CI installs keep lifecycle hooks disabled, and the pinned browser CLI runs directly. The new API collections need coordinated frontend/backend deployment.
+- T-103 is checked with scoped automated evidence; checklist is 11/37 (29.7%). T-102 remains partial solely for the real provider/hosted acceptance boundary. Zero fully verified weekly release gates: Vercel access 403, backend credentials/configuration, actual private-storage roundtrip, scheduled cleanup and Week 1 hosted Gmail acceptance remain open.
+
+## 11 October 2026 — resumed in a small completion chunk
+
+- Recovered clean `feature/week-2-acceptance` branches and existing backend PR #8/frontend PR #6. Exact previous heads passed final CI: backend `f0234e8` ([run 38141881887](https://github.com/Raazia-Imran/ReSourcePK_Backend/actions/runs/38141881887)); frontend `2b9d07e` ([run 38141843306](https://github.com/Raazia-Imran/ReSourcePK_Frontend/actions/runs/38141843306)). No completed browser implementation was repeated.
+- Added the remaining host-side preparation: authenticated, uncached Vercel image-cleanup endpoint and daily cron definition using the existing locked/bounded service. Four regression scenarios cover missing/forged credentials, wrong methods/missing storage, successful counts/log redaction and partial/unexpected failure. Existing provider/database/browser evidence stays scoped; scheduler tests mock the worker and do not claim a live run.
+- Rechecked the staging project: healthy, `listing-images` private/WebP-only/5 MB; security advisor returned no findings. No application users/inventory were changed. Vercel still returns 403 for `raazias-projects-142c0b42`, lists no accessible teams, and no authenticated local CLI or provider environment exists. Do not retrieve secrets to work around this.
+- Remaining external action: restore intended-team Vercel access, configure backend database/JWT/Gmail/private storage/cron secrets directly in the host, review/deploy the paired PRs, and record the real provider roundtrip, hosted seller/reviewer/buyer flow and scheduled log. The verification guide provides the exact sequence. T-102 and hosted gates remain open; overall task count stays 11/37.

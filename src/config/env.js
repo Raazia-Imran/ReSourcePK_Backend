@@ -8,6 +8,12 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(5000),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
+  AUTH_REQUESTS_PER_WINDOW: z.coerce
+    .number()
+    .int()
+    .min(3)
+    .max(1000)
+    .default(12),
   PUBLIC_READS_PER_MINUTE: z.coerce
     .number()
     .int()
@@ -16,6 +22,7 @@ const schema = z.object({
     .default(300),
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(32),
+  CRON_SECRET: z.string().min(32).max(256).optional(),
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   APP_URL: z.string().url().default("http://localhost:3000"),

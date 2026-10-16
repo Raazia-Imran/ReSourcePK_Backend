@@ -107,6 +107,14 @@ Use permission-based RBAC scoped by organization.
 
 Phase 1 uses a provider adapter implemented with Nodemailer and Gmail SMTP. Only the backend reads `GMAIL_USER` and `GMAIL_APP_PASSWORD`; the app password is created with Google two-step verification and is never committed, logged, returned to the browser, or stored in PostgreSQL. Verification links expire after 24 hours and password-reset links after one hour. Tokens are random, single-use, and stored only as SHA-256 hashes. Each delivery has an idempotent event key and a status record so a provider change does not affect identity logic. A later production domain can replace Gmail by changing the adapter, without changing auth services or API contracts.
 
+## Google sign-in and account identity
+
+Google Identity Services returns an ID token to the browser. The browser first requests a short-lived, single-use API nonce and passes it into Google Identity Services; the browser then sends that credential and nonce to `POST /api/v1/auth/google`. The API verifies the signature, issuer, expiry, nonce and exact configured web-client audience with Google's Node auth library. Google `sub` is stored as the stable provider identity. Gmail and Google Workspace addresses with a verified hosted-domain claim can create an active baseline Buyer account. For other Google addresses, Google may not provide a current proof of mailbox control, so the account must complete ReSource PK email verification before activation. Google authentication does not grant seller membership, organization approval, Manager/Staff roles, or platform permissions.
+
+An existing password account must first authenticate with its existing method and explicitly link Google through `POST /api/v1/auth/google/link`; the ID token email must match the signed-in account email. This avoids silently merging accounts based on an email claim. A Google-only account has no password hash; password login rejects it, while normal session rotation and revocation still apply. The Google client ID is public configuration and must match between the web client and backend audience check. Client secrets and ID tokens are never stored or logged.
+
+The shared account context can support a Buyer/Seller dashboard switch. The switch is presentation context only: every seller mutation still requires an active organization membership and permission, and platform operations require explicit platform assignments. The current backend does not yet implement reviewer-approved seller onboarding or the frontend dashboard toggle.
+
 ## Observability and recovery
 
 Structured JSON logs include timestamp, level, correlation ID, actor ID (when safe), route, latency and error code. Never log passwords, tokens, payment secrets or private keys. Track auth failures, callback verification failures, job retries, pool conflicts and anchor backlog. Provide `/health` and `/ready`. Managed backups are enabled; restore is rehearsed before final release.

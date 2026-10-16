@@ -1,5 +1,6 @@
 const { z } = require("zod");
 const auth = require("../services/authService");
+const googleAuth = require("../services/googleAuthService");
 const { env } = require("../config/env");
 
 const { strongPassword } = require("../lib/password");
@@ -32,6 +33,12 @@ const loginSchema = z
 const tokenSchema = z.object({ token: z.string().min(32).max(200) }).strict();
 const emailSchema = z.object({ email: z.string().email().max(254) }).strict();
 const resetSchema = tokenSchema.extend({ password: strongPassword });
+const googleCredentialSchema = z
+  .object({
+    credential: z.string().min(100).max(8192),
+    nonce: z.string().min(32).max(200),
+  })
+  .strict();
 
 function requestMeta(req) {
   return {
@@ -76,6 +83,46 @@ async function login(req, res) {
     data: { accessToken: result.accessToken, context: result.context },
   });
 }
+async function googleLogin(req, res) {
+  const input = googleCredentialSchema.parse(req.body);
+  const result = await googleAuth.signIn(
+    input.credential,
+    input.nonce,
+    requestMeta(req),
+  );
+  if (result.verificationRequired)
+    return res.status(202).json({
+      data: {
+        verificationRequired: true,
+        ...(result.emailDelivery ? { emailDelivery: result.emailDelivery } : {}),
+      },
+    });
+  res.cookie("refresh_token", result.refreshToken, cookieOptions());
+  res.json({
+    data: { accessToken: result.accessToken, context: result.context },
+  });
+}
+async function linkGoogle(req, res) {
+  const input = googleCredentialSchema.parse(req.body);
+  res.json({
+    data: await googleAuth.link(
+      req.auth.sub,
+      input.credential,
+      input.nonce,
+      requestMeta(req),
+    ),
+  });
+}
+async function googleNonce(req, res) {
+  res.set("Cache-Control", "no-store");
+  res.json({ data: { nonce: await googleAuth.createNonce("login") } });
+}
+async function googleLinkNonce(req, res) {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    data: { nonce: await googleAuth.createNonce("link", req.auth.sub) },
+  });
+}
 async function refresh(req, res) {
   const result = await auth.refresh(
     req.cookies.refresh_token,
@@ -118,6 +165,10 @@ module.exports = {
   register,
   verifyEmail,
   login,
+  googleLogin,
+  linkGoogle,
+  googleNonce,
+  googleLinkNonce,
   refresh,
   logout,
   forgotPassword,

@@ -38,7 +38,7 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 
 ### Must ship
 
-1. Email verification, login, logout, reset password, session rotation, and role-aware onboarding.
+1. Google Sign-In plus supported password authentication, secure account linking, logout, session rotation, and role-aware onboarding. Google addresses without a current Gmail or Workspace hosted-domain verification also complete ReSource PK email verification before account activation.
 2. Buyer profiles and seller organizations with membership invitations.
 3. RBAC for Platform Admin, Organization Owner, Manager, Staff, Buyer.
 4. Listing CRUD, images, quantity, unit, condition, price tiers, moderation status, and validated bulk CSV/XLSX import with a downloadable template and row-level error report.
@@ -120,7 +120,9 @@ Current working name: **ReSource PK**. The name is intentionally provisional and
 
 ## Account transition and onboarding
 
-An existing verified Buyer may create a seller organization from the same account, becoming its Owner. The Owner invites Managers or Staff. A Manager may invite Staff only when the Owner grants that permission. The browser does not require a second registration with the same email. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+One Google identity supports Buyer Mode and Seller Mode through a dashboard switch; switching modes does not delete either capability. New Google accounts start with Buyer access. A Buyer may apply to create a seller organization from the same account, but Seller Mode becomes available only after the Platform Reviewer approves seller onboarding. The toggle changes presentation context, never backend permissions. The Owner invites Managers and grants their permissions; an authorized Manager may invite Staff. Platform Admins are trusted ReSource PK developers/operators and explicitly grant platform permissions, including reviewer access. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+
+Existing password accounts link Google only after authenticating to that account, and only when the verified Google email matches. Google provider subject is the stable identity key; matching email alone does not silently merge accounts.
 
 ## Catalog delivery update — 11 October 2026
 

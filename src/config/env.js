@@ -22,6 +22,7 @@ const schema = z.object({
     .default(300),
   DATABASE_URL: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(32),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(32).max(256).optional(),
   ACCESS_TOKEN_TTL: z.string().default("15m"),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().min(1).max(90).default(30),

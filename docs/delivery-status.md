@@ -1,5 +1,9 @@
 # Delivery status — 11 October 2026
 
+## Google Sign-In implementation slice — 16 October 2026
+
+Backend work adds Google Identity Services ID-token and single-use nonce verification, baseline Buyer account creation, explicit linking for already authenticated accounts, rotating application sessions, and migration 006 for private Google subjects and optional password hashes. Gmail/Workspace hosted-domain email can activate immediately; other addresses must verify through ReSource PK email before a session is issued. New Google authentication does not grant seller/platform roles. This slice has not been tested or deployed in this work session. The frontend repository is absent from this checkout, so the Google button, session integration, dashboard switch, seller onboarding approval workflow, and reviewer permission UI are still outstanding. Set the same Web OAuth client ID in backend `GOOGLE_CLIENT_ID` and frontend `VITE_GOOGLE_CLIENT_ID`; no client secret is used by this flow.
+
 The current delivery stage is **Week 2, catalog and discovery**. The five-week schedule describes five delivery stages; it is not a claim that five calendar weeks of work or three engineers' effort have been completed. Week 1 hosted identity acceptance remains open, and Week 2 mobile/desktop acceptance is not yet signed off. No weekly release gate is fully verified.
 
 The baseline originally checked 5/37 tasks; the first catalog slice increased that to 10/37. The routed-screen and browser acceptance work now checks T-103: **11/37 = 29.7% unweighted checklist completion**. All seven Week 2 tasks have implementation; T-102 remains partial for real provider/deployment acceptance. Checked means scoped implemented behavior has automated evidence, not a weekly release sign-off or a percentage of engineering effort.

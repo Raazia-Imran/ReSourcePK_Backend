@@ -17,6 +17,15 @@ router.post("/register", sensitive, controller.register);
 router.post("/verify-email", sensitive, controller.verifyEmail);
 router.post("/resend-verification", sensitive, controller.resendVerification);
 router.post("/login", sensitive, controller.login);
+router.get("/google/nonce", sensitive, controller.googleNonce);
+router.post("/google", sensitive, controller.googleLogin);
+router.get(
+  "/google/link/nonce",
+  requireAuth,
+  sensitive,
+  controller.googleLinkNonce,
+);
+router.post("/google/link", requireAuth, sensitive, controller.linkGoogle);
 router.post("/refresh", cookieMutation, sensitive, controller.refresh);
 router.post("/logout", cookieMutation, controller.logout);
 router.post("/forgot-password", sensitive, controller.forgotPassword);

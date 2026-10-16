@@ -13,7 +13,8 @@ Start with [the documentation index](docs/README.md), then read [PRD](docs/prd.m
 1. Copy `.env.example` to `.env` and replace every placeholder.
 2. Use the Supabase transaction-pooler PostgreSQL URL for `DATABASE_URL`.
 3. Enable two-step verification on the Gmail account, create an app password, and set `GMAIL_USER` and `GMAIL_APP_PASSWORD`. Never use the normal Gmail password.
-4. Run `npm ci --ignore-scripts`, `npm run db:migrate`, then `npm run dev`.
+4. To enable Google Sign-In, create a Google OAuth Web client and set its client ID as `GOOGLE_CLIENT_ID` (backend) and `VITE_GOOGLE_CLIENT_ID` (frontend). See [Google auth integration](docs/google-auth-integration.md).
+5. Run `npm ci --ignore-scripts`, `npm run db:migrate`, then `npm run dev`.
 
 ## Checks
 
@@ -25,6 +26,6 @@ The API contract is in `docs/openapi.yaml`. Applied migrations are immutable; ad
 
 ## Current catalog verification
 
-Read [Week 2 setup and verification](docs/verification-week-2.md), [delivery status](docs/delivery-status.md) and [catalog ADR 004](docs/adr/004-catalog-completion.md). This UI/API slice needs migrations 004–005 and coordinated deployment; previous sessions must sign in again. Image storage and synthetic seed are explicit optional configuration, not hardcoded data.
+Read [Week 2 setup and verification](docs/verification-week-2.md), [delivery status](docs/delivery-status.md) and [catalog ADR 004](docs/adr/004-catalog-completion.md). The catalog slice uses migrations 004–005; Google authentication adds migration 006. Coordinated deployment is required; previous sessions must sign in again. Image storage and synthetic seed are explicit optional configuration, not hardcoded data.
 
 Latest scope and API/UI coordination: [Week 2 acceptance ADR 005](docs/adr/005-week-2-acceptance.md).

@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: ReSource PK API
-  version: 1.1.0
-  description: Authentication, organization access, and catalog contract.
+  version: 1.2.0
+  description: Google/password authentication, organization access, and catalog contract.
 servers:
   - url: /api/v1
 paths:
@@ -67,6 +67,66 @@ paths:
           description: Invalid credentials
         "403":
           description: Email or account unavailable
+  /auth/google:
+    post:
+      summary: Sign in or create a baseline Buyer account with Google Identity Services
+      description: The API verifies the Google ID token against GOOGLE_CLIENT_ID. Authentication alone grants no seller or platform role. Refresh token is set in an HttpOnly cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleCredential"
+      responses:
+        "202":
+          description: Additional ReSource PK email verification is required; no session is created
+        "200":
+          description: Access token and current account context; refresh token in HttpOnly cookie
+        "401":
+          description: Invalid, expired, or unverified Google credential
+        "409":
+          description: Existing account must authenticate and explicitly link Google
+        "503":
+          description: Google sign-in is not configured or verification is temporarily unavailable
+  /auth/google/nonce:
+    get:
+      summary: Issue a five-minute, single-use nonce for Google sign-in
+      responses:
+        "200":
+          description: No-store response containing the nonce to pass into Google Identity Services
+        "503":
+          description: Google sign-in is not configured
+  /auth/google/link:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Link a verified Google identity to the authenticated matching account
+      description: Requires a live ReSource PK session and the same verified email on the Google ID token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoogleCredential"
+      responses:
+        "200":
+          description: Google identity linked (or already linked to this account)
+        "401":
+          description: Authentication required or Google credential invalid
+        "403":
+          description: Account is unavailable or verified emails do not match
+        "409":
+          description: Google identity is linked to another account or this account already has another Google identity
+  /auth/google/link/nonce:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Issue a five-minute, single-use nonce bound to the authenticated account for Google linking
+      responses:
+        "200":
+          description: No-store response containing the account-bound nonce
+        "401":
+          description: Authentication required
   /auth/refresh:
     post:
       summary: Rotate the refresh session
@@ -631,6 +691,23 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    GoogleCredential:
+      type: object
+      required:
+        - credential
+        - nonce
+      properties:
+        credential:
+          type: string
+          minLength: 100
+          maxLength: 8192
+          description: Google Identity Services ID token; send only over HTTPS and never persist it.
+        nonce:
+          type: string
+          minLength: 32
+          maxLength: 200
+          description: The matching single-use nonce issued by this API and included in the verified Google ID token.
+      additionalProperties: false
     ListingInput:
       type: object
       required:

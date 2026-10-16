@@ -26,6 +26,7 @@
 18. Prefer small vertical slices. A feature is not done until UI, API, data, policy, tests and error states work together.
 19. Do not claim a feature is real when it is mocked. Label provider simulators and testnets clearly.
 20. Do not add dependencies without checking maintenance, license, vulnerabilities and whether the platform already provides the capability.
+21. Verify third-party identity tokens on the backend against the exact configured audience and trusted issuer. Use the provider's stable subject as its identity key; never trust client-supplied profile claims or grant application roles from authentication alone.
 
 ## Code standards
 
@@ -67,3 +68,7 @@ Pin cross-repository browser-test inputs to a reviewed revision (an explicit CI 
 ## Scheduler boundary — 11 October 2026
 
 Use backend-only `CRON_SECRET` for image maintenance, separate from account JWTs. Never authenticate by user-agent, query-string token or UI role. Keep scheduler responses uncached and reject HEAD/POST before work. Route code reuses the existing cleanup service; no SQL or provider deletion belongs in the route. Synthetic scheduler tests are explicitly isolated from provider credentials. Cron configuration is versioned; hosted schedule activation/logs and provider checks remain required before release sign-off.
+
+## Google identity boundary — 16 October 2026
+
+Use Google Identity Services ID tokens only as proof of Google authentication. Verify them server-side with the official Google auth library and a five-minute single-use nonce issued by the API. New Google users receive Buyer capability only. Explicit account linking requires a live ReSource PK session and matching verified account email. Google `sub` is stored in the private provider identity table. Never store or log raw ID tokens, grant seller/platform roles from a Google claim, or treat the dashboard mode toggle as authorization. Keep `GOOGLE_CLIENT_ID` public configuration aligned between frontend and backend; no Google client secret is needed for this ID-token flow.

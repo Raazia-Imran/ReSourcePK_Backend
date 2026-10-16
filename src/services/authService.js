@@ -214,7 +214,7 @@ async function login(input, meta) {
     input.email.trim().toLowerCase(),
   ]);
   const user = result.rows[0];
-  const valid = user
+  const valid = user?.password_hash
     ? await bcrypt.compare(input.password, user.password_hash)
     : false;
   if (!valid)
@@ -330,6 +330,7 @@ async function resetPassword(token, password, meta) {
     );
     if (
       previous.rowCount &&
+      previous.rows[0].password_hash &&
       (await bcrypt.compare(password, previous.rows[0].password_hash))
     )
       throw new AppError(
@@ -367,4 +368,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   loadContext,
+  createSession,
+  createEmailToken,
 };

@@ -2,6 +2,14 @@
 
 This file records durable decisions so team members and coding assistants do not reopen settled questions without new evidence. It contains no secrets, credentials or personal data.
 
+## Decisions — 16 October 2026
+
+- One Google identity supports Buyer Mode and Seller Mode; switching dashboards does not remove either capability. The switch is UI context, never authorization.
+- New Google accounts start with baseline Buyer access. Seller onboarding requires a separate organization workflow and Platform Reviewer approval. Managers/Staff and platform roles remain invitation/assignment based.
+- Existing password accounts link Google only after authenticating to the account and proving the same verified email. Do not auto-link by email or create duplicate accounts.
+- Google Identity Services ID tokens are verified by the backend against `GOOGLE_CLIENT_ID`; stable Google `sub` is stored in a private identity table. No client secret is needed for the ID-token flow.
+- This checkout contains the backend endpoint and database migration. Frontend Google button/session integration and dashboard switching remain outstanding because the frontend repository is not present here.
+
 ## Current decisions
 
 | ID    | Decision                                                                   | Reason                                                                                 | Status                              |

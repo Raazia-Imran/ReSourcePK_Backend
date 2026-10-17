@@ -73,7 +73,7 @@ Use permission-based RBAC scoped by organization.
 - Organization roles: `owner`, `manager`, `staff` (`org_admin` remains in the applied Phase 1 enum for migration compatibility but is not assignable or privileged in the current product).
 - Buyer is an account capability, not permission to manage an organization.
 - Owners can delegate through expiring email invitations.
-- Managers can delegate only permissions explicitly granted to them and only below their role boundary.
+- Owners and Managers with `can_invite_staff` can grant Staff `listings.view` and/or `listings.manage`. Staff have no organization listing access by default; `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment grants will be added with those workflows.
 - One user may switch between buyer context and multiple organization contexts.
 - Emergency production access is outside normal UI roles, time-bound, approved, and logged.
 

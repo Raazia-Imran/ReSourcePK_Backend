@@ -393,6 +393,49 @@ paths:
       security: &id001
         - BearerAuth: []
       summary: Invite a manager or staff member
+      description: Owners can invite Managers and Staff. A Manager with can_invite_staff can invite Staff. A Staff invitation may include staffPermissions containing listings.view and/or listings.manage; permission changes can also be made through the member permissions endpoint.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              additionalProperties: false
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [manager, staff]
+                canInviteStaff:
+                  type: boolean
+                  default: false
+                  description: Owner-granted Manager permission to invite Staff.
+                staffPermissions:
+                  type: array
+                  items:
+                    type: string
+                    enum: [listings.view, listings.manage]
+                  description: Optional Staff grants; omitted means no organization listing access.
+      responses:
+        "201":
+          description: Single-use invitation sent
+        "403":
+          description: Membership cannot grant requested role
+  /organizations/{organizationId}/members:
+    get:
+      security: *id001
+      summary: List organization members and their effective grants
+      description: Available to the Owner or a Manager with can_invite_staff.
       parameters:
         - in: path
           name: organizationId
@@ -401,17 +444,48 @@ paths:
             type: string
             format: uuid
       responses:
-        "201":
-          description: Single-use invitation sent
+        "200":
+          description: Members with membershipId, role and permissions
         "403":
-          description: Membership cannot grant requested role
-    parameters:
-      - name: organizationId
-        in: path
+          description: Owner or authorized Manager access required
+  /organizations/{organizationId}/members/{membershipId}/permissions:
+    patch:
+      security: *id001
+      summary: Replace permissions granted to an active Staff member
+      description: An Owner or a Manager with can_invite_staff may grant or revoke Staff permissions. listings.manage also allows listing reads.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: membershipId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
         required: true
-        schema:
-          type: string
-          format: uuid
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              additionalProperties: false
+              properties:
+                permissions:
+                  type: array
+                  uniqueItems: true
+                  items:
+                    type: string
+                    enum: [listings.view, listings.manage]
+      responses:
+        "200":
+          description: Staff permissions replaced
+        "403":
+          description: Owner or authorized Manager access required
   /invitations/details:
     get:
       summary: Read non-sensitive invitation context

@@ -24,7 +24,8 @@ async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
 
   const [memberships, platformRoles] = await Promise.all([
     runner.query(
-      `SELECT m.organization_id, o.name AS organization_name, o.slug, m.role, m.can_invite_staff
+      `SELECT m.organization_id, o.name AS organization_name, o.slug, m.role, m.can_invite_staff,
+       COALESCE((SELECT array_agg(p.permission) FROM app.organization_membership_permissions p WHERE p.membership_id=m.id), ARRAY[]::TEXT[]) AS permissions
        FROM app.organization_memberships m
        JOIN app.organizations o ON o.id = m.organization_id
        WHERE m.user_id = $1 AND m.status = 'active' AND o.status = 'active'

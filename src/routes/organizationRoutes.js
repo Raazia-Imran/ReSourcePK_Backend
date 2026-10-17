@@ -13,5 +13,15 @@ router.post(
   requireAuth,
   controller.createInvitation,
 );
+router.get(
+  "/organizations/:organizationId/members",
+  requireAuth,
+  controller.listMembers,
+);
+router.patch(
+  "/organizations/:organizationId/members/:membershipId/permissions",
+  requireAuth,
+  controller.setStaffPermissions,
+);
 
 module.exports = router;

@@ -5,6 +5,38 @@ const { AppError } = require("../lib/errors");
 const { randomToken, hashToken } = require("../lib/tokens");
 const { deliverEmail } = require("../email/deliveryService");
 const { organizationInviteEmail } = require("../email/templates");
+const STAFF_PERMISSIONS = new Set(["listings.view", "listings.manage"]);
+
+function normalizeStaffPermissions(permissions = []) {
+  if (
+    !Array.isArray(permissions) ||
+    permissions.some((permission) => !STAFF_PERMISSIONS.has(permission))
+  )
+    throw new AppError(
+      400,
+      "INVALID_STAFF_PERMISSIONS",
+      "Unsupported Staff permission",
+    );
+  return [...new Set(permissions)];
+}
+
+async function replaceStaffPermissions(
+  client,
+  membershipId,
+  grantedBy,
+  permissions,
+) {
+  await client.query(
+    "DELETE FROM app.organization_membership_permissions WHERE membership_id=$1",
+    [membershipId],
+  );
+  for (const permission of normalizeStaffPermissions(permissions)) {
+    await client.query(
+      `INSERT INTO app.organization_membership_permissions(membership_id,permission,granted_by) VALUES($1,$2,$3)`,
+      [membershipId, permission, grantedBy],
+    );
+  }
+}
 
 async function createOrganization() {
   throw new AppError(
@@ -51,6 +83,19 @@ async function requireInviter(
 async function createInvitation(userId, organizationId, input, meta) {
   let actor;
   const email = input.email.trim().toLowerCase();
+  const staffPermissions = normalizeStaffPermissions(input.staffPermissions);
+  if (input.role !== "staff" && staffPermissions.length)
+    throw new AppError(
+      400,
+      "INVALID_STAFF_PERMISSIONS",
+      "Permissions can only be assigned to Staff",
+    );
+  if (input.role === "staff" && input.canInviteStaff)
+    throw new AppError(
+      400,
+      "INVALID_STAFF_PERMISSIONS",
+      "Staff cannot invite other Staff",
+    );
   const token = randomToken();
   const invitation = await transaction(async (client) => {
     actor = await requireInviter(userId, organizationId, input.role, client);
@@ -59,13 +104,14 @@ async function createInvitation(userId, organizationId, input, meta) {
       [organizationId, email],
     );
     const result = await client.query(
-      `INSERT INTO app.organization_invitations(organization_id,email,role,can_invite_staff,token_hash,invited_by,expires_at)
-       VALUES($1,$2,$3,$4,$5,$6,NOW()+INTERVAL '72 hours') RETURNING id`,
+      `INSERT INTO app.organization_invitations(organization_id,email,role,can_invite_staff,staff_permissions,token_hash,invited_by,expires_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,NOW()+INTERVAL '72 hours') RETURNING id`,
       [
         organizationId,
         email,
         input.role,
         input.canInviteStaff,
+        staffPermissions,
         hashToken(token),
         userId,
       ],
@@ -93,7 +139,7 @@ async function createInvitation(userId, organizationId, input, meta) {
 
 async function invitationDetails(token) {
   const result = await query(
-    `SELECT i.email,i.role,i.expires_at,o.name AS organization_name
+    `SELECT i.email,i.role,i.staff_permissions,i.expires_at,o.name AS organization_name
      FROM app.organization_invitations i JOIN app.organizations o ON o.id=i.organization_id
      WHERE i.token_hash=$1 AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>NOW()`,
     [hashToken(token)],
@@ -111,6 +157,7 @@ async function invitationDetails(token) {
   return {
     organization_name: invitation.organization_name,
     role: invitation.role,
+    permissions: invitation.staff_permissions || [],
     expires_at: invitation.expires_at,
     email: invitation.email,
     account_exists: Boolean(account.rowCount),
@@ -162,9 +209,15 @@ async function acceptNewUser(token, input, meta) {
       [invite.email, input.fullName.trim(), passwordHash],
     );
     const user = users.rows[0];
-    await client.query(
-      `INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,$3,$4)`,
+    const membership = await client.query(
+      `INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,$3,$4) RETURNING id`,
       [invite.organization_id, user.id, invite.role, invite.can_invite_staff],
+    );
+    await replaceStaffPermissions(
+      client,
+      membership.rows[0].id,
+      invite.invited_by,
+      invite.staff_permissions || [],
     );
     await client.query(
       "UPDATE app.organization_invitations SET accepted_at=NOW() WHERE id=$1",
@@ -214,9 +267,15 @@ async function acceptExistingUser(userId, token, meta) {
         "OWNER_ROLE_PROTECTED",
         "An invitation cannot replace an Owner role",
       );
-    await client.query(
-      `INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,user_id) DO UPDATE SET role=EXCLUDED.role,status='active',can_invite_staff=EXCLUDED.can_invite_staff`,
+    const updatedMembership = await client.query(
+      `INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,$3,$4) ON CONFLICT(organization_id,user_id) DO UPDATE SET role=EXCLUDED.role,status='active',can_invite_staff=EXCLUDED.can_invite_staff RETURNING id`,
       [invite.organization_id, userId, invite.role, invite.can_invite_staff],
+    );
+    await replaceStaffPermissions(
+      client,
+      updatedMembership.rows[0].id,
+      invite.invited_by,
+      invite.staff_permissions || [],
     );
     await client.query(
       "UPDATE app.organization_invitations SET accepted_at=NOW() WHERE id=$1",
@@ -230,10 +289,58 @@ async function acceptExistingUser(userId, token, meta) {
   });
 }
 
+async function setStaffPermissions(
+  userId,
+  organizationId,
+  membershipId,
+  permissions,
+  meta,
+) {
+  const normalized = normalizeStaffPermissions(permissions);
+  return transaction(async (client) => {
+    await requireInviter(userId, organizationId, "staff", client);
+    const target = await client.query(
+      `SELECT id,role FROM app.organization_memberships
+       WHERE id=$1 AND organization_id=$2 AND status='active' FOR UPDATE`,
+      [membershipId, organizationId],
+    );
+    if (!target.rowCount || target.rows[0].role !== "staff")
+      throw new AppError(
+        404,
+        "STAFF_MEMBER_NOT_FOUND",
+        "Active Staff membership not found",
+      );
+    await replaceStaffPermissions(client, membershipId, userId, normalized);
+    await client.query(
+      `INSERT INTO app.audit_events(actor_id,organization_id,action,resource_type,resource_id,reason,ip_address)
+       VALUES($1,$2,'organization.staff_permissions_updated','organization_membership',$3,$4,$5)`,
+      [userId, organizationId, membershipId, normalized.join(","), meta.ip],
+    );
+    return { membershipId, permissions: normalized };
+  });
+}
+
+async function listMembers(userId, organizationId) {
+  return transaction(async (client) => {
+    await requireInviter(userId, organizationId, "staff", client);
+    const result = await client.query(
+      `SELECT m.id AS membership_id,m.user_id,u.email,u.full_name,m.role,m.can_invite_staff,
+       COALESCE((SELECT array_agg(p.permission ORDER BY p.permission) FROM app.organization_membership_permissions p WHERE p.membership_id=m.id),ARRAY[]::TEXT[]) AS permissions
+       FROM app.organization_memberships m JOIN app.users u ON u.id=m.user_id
+       WHERE m.organization_id=$1 AND m.status='active' AND u.status='active'
+       ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END,u.full_name`,
+      [organizationId],
+    );
+    return result.rows;
+  });
+}
+
 module.exports = {
   createOrganization,
   createInvitation,
   invitationDetails,
   acceptNewUser,
   acceptExistingUser,
+  setStaffPermissions,
+  listMembers,
 };

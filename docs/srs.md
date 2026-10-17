@@ -107,7 +107,7 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 ## Acceptance scenarios
 
 1. An expired or already-used invitation is rejected without creating membership.
-2. A Manager lacking `members.invite` cannot invite Staff; a Manager cannot create a Platform Admin.
+2. A Manager without `can_invite_staff` cannot invite Staff or change Staff grants; Staff without `listings.view` or `listings.manage` cannot read private organization listings, and Staff cannot invite or grant permissions.
 3. Two concurrent joins cannot overfill a pool or double-reserve stock.
 4. Replaying a payment callback leaves one payment transition and one ledger effect.
 5. A completed order cannot have passport source fields edited; return/refund creates linked events.

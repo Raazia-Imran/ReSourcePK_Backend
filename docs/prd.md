@@ -63,7 +63,7 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 
 ### Seller organization onboarding
 
-The first verified registrant creates or claims an organization and becomes Organization Owner. The owner invites a Manager or Staff member by email. The invite is single-use, hashed at rest, role-scoped, expires, and is accepted only after the invited address is verified. Managers may invite Staff only when granted `members.invite`; they cannot grant permissions they do not hold.
+Platform approval creates the organization and its Owner membership. The Owner invites Managers or Staff by email. Invitations are single-use, hashed at rest, role-scoped, expire, and are accepted only by the invited email. Managers can invite Staff only when granted `can_invite_staff`. Owners and authorized Managers can grant Staff `listings.view` and/or `listings.manage`; Staff receive no organization listing access by default. `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment permissions will be added with those workflows.
 
 ### Group purchase
 

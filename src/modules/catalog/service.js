@@ -4,13 +4,27 @@ const repo = require("./repository");
 const images = require("./imageAdapter");
 const { AppError } = require("../../lib/errors");
 
-async function requireSeller(user, org, runner = db) {
-  const role = await repo.sellerRole(user, org, runner);
-  if (!["owner", "manager"].includes(role))
+async function requireSeller(
+  user,
+  org,
+  runner = db,
+  permission = "listings.manage",
+) {
+  const membership = await repo.sellerRole(user, org, runner);
+  if (
+    !membership ||
+    (!["owner", "manager"].includes(membership.role) &&
+      !(
+        membership.role === "staff" &&
+        (membership.permissions.includes(permission) ||
+          (permission === "listings.view" &&
+            membership.permissions.includes("listings.manage")))
+      ))
+  )
     throw new AppError(
       403,
       "SELLER_ACCESS_DENIED",
-      "Only an active Owner or Manager can manage listings",
+      `Your organization membership does not grant ${permission}`,
     );
 }
 async function requireReviewer(user, runner = db) {
@@ -38,7 +52,7 @@ function editable(listing, version) {
 async function listSeller(user, org, filters) {
   return db.transaction(async (runner) => {
     await runner.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
-    await requireSeller(user, org, runner);
+    await requireSeller(user, org, runner, "listings.view");
     return repo.listSeller(org, filters, runner);
   });
 }
@@ -210,7 +224,7 @@ async function imageUrl(user, id) {
   if (image.status !== "published" || image.organization_status !== "active") {
     if (!user) throw new AppError(404, "IMAGE_NOT_FOUND", "Image unavailable");
     if (!(await repo.isReviewer(user)))
-      await requireSeller(user, image.organization_id);
+      await requireSeller(user, image.organization_id, db, "listings.view");
   }
   return { url: await images.signedUrl(image.object_key), expiresIn: 60 };
 }

@@ -6,11 +6,13 @@ const details = `COALESCE((SELECT json_agg(json_build_object('id',t.id,'minQuant
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'altText',i.alt_text,'width',i.width,'height',i.height) ORDER BY i.created_at,i.id) FROM app.listing_images i WHERE i.listing_id=l.id),'[]') AS images`;
 async function sellerRole(user, org, runner = db) {
   const result = await runner.query(
-    `SELECT m.role FROM app.organization_memberships m JOIN app.organizations o ON o.id=m.organization_id JOIN app.users u ON u.id=m.user_id
+    `SELECT m.role, COALESCE((SELECT array_agg(p.permission) FROM app.organization_membership_permissions p WHERE p.membership_id=m.id), ARRAY[]::TEXT[]) AS permissions
+     FROM app.organization_memberships m JOIN app.organizations o ON o.id=m.organization_id JOIN app.users u ON u.id=m.user_id
     WHERE m.user_id=$1 AND m.organization_id=$2 AND m.status='active' AND o.status='active' AND u.status='active' AND u.email_verified_at IS NOT NULL FOR SHARE OF m,o,u`,
     [user, org],
   );
-  return result.rows[0]?.role;
+  if (!result.rowCount) return null;
+  return result.rows[0];
 }
 async function isReviewer(user, runner = db) {
   const result = await runner.query(

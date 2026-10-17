@@ -7,6 +7,29 @@ const invite = z
     email: z.string().email().max(254),
     role: z.enum(["manager", "staff"]),
     canInviteStaff: z.boolean().default(false),
+    staffPermissions: z
+      .array(z.enum(["listings.view", "listings.manage"]))
+      .max(2)
+      .default([]),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.role !== "staff" && value.staffPermissions.length)
+      context.addIssue({
+        code: "custom",
+        path: ["staffPermissions"],
+        message: "Only Staff can receive Staff permissions",
+      });
+    if (value.role === "staff" && value.canInviteStaff)
+      context.addIssue({
+        code: "custom",
+        path: ["canInviteStaff"],
+        message: "Staff cannot invite other Staff",
+      });
+  });
+const staffPermissions = z
+  .object({
+    permissions: z.array(z.enum(["listings.view", "listings.manage"])).max(2),
   })
   .strict();
 const token = z.string().min(32).max(200);
@@ -19,6 +42,25 @@ async function createInvitation(req, res) {
       z.string().uuid().parse(req.params.organizationId),
       invite.parse(req.body),
       meta(req),
+    ),
+  });
+}
+async function setStaffPermissions(req, res) {
+  res.json({
+    data: await service.setStaffPermissions(
+      req.auth.sub,
+      z.string().uuid().parse(req.params.organizationId),
+      z.string().uuid().parse(req.params.membershipId),
+      staffPermissions.parse(req.body).permissions,
+      meta(req),
+    ),
+  });
+}
+async function listMembers(req, res) {
+  res.json({
+    data: await service.listMembers(
+      req.auth.sub,
+      z.string().uuid().parse(req.params.organizationId),
     ),
   });
 }
@@ -49,6 +91,8 @@ async function acceptExistingUser(req, res) {
 module.exports = {
   createOrganization,
   createInvitation,
+  setStaffPermissions,
+  listMembers,
   invitationDetails,
   acceptNewUser,
   acceptExistingUser,

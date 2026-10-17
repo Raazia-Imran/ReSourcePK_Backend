@@ -117,7 +117,7 @@ async function consumeNonce(runner, nonce, purpose, userId = null) {
 
 async function findGoogleUser(runner, subject) {
   const identity = await runner.query(
-    `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at,g.account_type
+    `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at
      FROM app.google_identities g JOIN app.users u ON u.id=g.user_id
      WHERE g.google_subject=$1 FOR UPDATE OF u`,
     [subject],
@@ -125,28 +125,7 @@ async function findGoogleUser(runner, subject) {
   return identity.rows[0] || null;
 }
 
-function assertIdentityType(user, accountType) {
-  if (user && user.account_type !== accountType)
-    throw new AppError(
-      403,
-      "GOOGLE_ACCOUNT_TYPE_MISMATCH",
-      `This Google account is registered for ${user.account_type} sign-in`,
-    );
-}
-
-async function createGoogleUser(
-  runner,
-  profile,
-  accountType,
-  organizationName,
-  meta,
-) {
-  if (accountType === "seller" && !organizationName)
-    throw new AppError(
-      400,
-      "ORGANIZATION_NAME_REQUIRED",
-      "Organization name is required for first-time Seller sign-in",
-    );
+async function createGoogleUser(runner, profile, meta) {
   const existing = await runner.query(
     `SELECT id FROM app.users WHERE email=$1 FOR UPDATE`,
     [profile.email],
@@ -171,20 +150,13 @@ async function createGoogleUser(
   );
   const user = created.rows[0];
   await runner.query(
-    `INSERT INTO app.google_identities(user_id,google_subject,account_type)
-     VALUES($1,$2,$3)`,
-    [user.id, profile.subject, accountType],
+    `INSERT INTO app.google_identities(user_id,google_subject) VALUES($1,$2)`,
+    [user.id, profile.subject],
   );
   await runner.query(
     `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
-     VALUES($1,$3,'user',$1,$2)`,
-    [
-      user.id,
-      meta.ip,
-      accountType === "seller"
-        ? "account.google_seller_registered"
-        : "account.google_registered",
-    ],
+     VALUES($1,'account.google_registered','user',$1,$2)`,
+    [user.id, meta.ip],
   );
   const verification = profile.emailAuthoritative
     ? null
@@ -198,7 +170,6 @@ async function createGoogleUser(
 }
 
 async function submitSellerRequest(runner, userId, organizationName, meta) {
-  if (!organizationName) return;
   const membership = await runner.query(
     `SELECT 1 FROM app.organization_memberships
      WHERE user_id=$1 AND role='owner' LIMIT 1`,
@@ -207,12 +178,17 @@ async function submitSellerRequest(runner, userId, organizationName, meta) {
   if (membership.rowCount) return;
   const currentRequest = await runner.query(
     `SELECT status FROM app.seller_requests
-     WHERE user_id=$1 AND status IN ('pending','approved')
-     ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+     WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
     [userId],
   );
   if (currentRequest.rowCount && currentRequest.rows[0].status !== "rejected")
     return;
+  if (!organizationName)
+    throw new AppError(
+      400,
+      "ORGANIZATION_NAME_REQUIRED",
+      "Organization name is required to request Seller access",
+    );
   const request = await runner.query(
     `INSERT INTO app.seller_requests(user_id,organization_name)
      VALUES($1,$2) RETURNING id`,
@@ -241,8 +217,7 @@ async function deliverVerification(user, verification) {
 }
 
 async function signIn(credential, nonce, meta, options = {}) {
-  const sellerSignup = options.accountType === "seller";
-  const accountType = sellerSignup ? "seller" : "buyer";
+  const sellerSignup = options.entryPoint === "seller";
   const noncePurpose = sellerSignup ? "seller_login" : "login";
   const organizationName = options.organizationName?.trim();
   const profile = await verifiedProfile(credential, nonce);
@@ -255,16 +230,9 @@ async function signIn(credential, nonce, meta, options = {}) {
     );
     await consumeNonce(runner, nonce, noncePurpose);
     let user = await findGoogleUser(runner, profile.subject);
-    assertIdentityType(user, accountType);
     let verification = null;
     if (!user)
-      ({ user, verification } = await createGoogleUser(
-        runner,
-        profile,
-        accountType,
-        organizationName,
-        meta,
-      ));
+      ({ user, verification } = await createGoogleUser(runner, profile, meta));
     if (sellerSignup)
       await submitSellerRequest(runner, user.id, organizationName, meta);
     if (verification) return { verificationRequired: true, verification, user };

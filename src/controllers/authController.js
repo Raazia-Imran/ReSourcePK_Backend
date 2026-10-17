@@ -113,7 +113,7 @@ async function googleSellerLogin(req, res) {
     input.credential,
     input.nonce,
     requestMeta(req),
-    { accountType: "seller", organizationName: input.organizationName },
+    { entryPoint: "seller", organizationName: input.organizationName },
   );
   if (result.verificationRequired)
     return res.status(202).json({

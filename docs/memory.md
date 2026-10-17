@@ -4,8 +4,8 @@ This file records durable decisions so team members and coding assistants do not
 
 ## Decisions — 16 October 2026
 
-- Buyer and Seller use distinct Google sign-in entry points and identities. Seller Google sign-in submits an organization request for platform review; approval is required before seller permissions are granted.
-- New Google accounts start with baseline Buyer access. Seller onboarding requires a separate organization workflow and Platform Reviewer approval. Managers/Staff and platform roles remain invitation/assignment based.
+- Buyer and Seller use distinct Google sign-in entry points but share one canonical user and Google identity. A Buyer can request Seller access and keeps Buyer access; reviewer approval adds Seller organization membership to the same user.
+- New Google accounts start with Buyer access. Seller permissions require an approved organization request. Managers/Staff and platform roles remain invitation/assignment based.
 - Existing password accounts link Google only after authenticating to the account and proving the same verified email. Do not auto-link by email or create duplicate accounts.
 - Google Identity Services ID tokens are verified by the backend against `GOOGLE_CLIENT_ID`; stable Google `sub` is stored in a private identity table. No client secret is needed for the ID-token flow.
 - This checkout contains the backend endpoint and database migration. Frontend Google button/session integration and dashboard switching remain outstanding because the frontend repository is not present here.

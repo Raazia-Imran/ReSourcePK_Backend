@@ -15,10 +15,8 @@ function refreshExpiry() {
 
 async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
   const userResult = await runner.query(
-    `SELECT u.id, u.email, u.full_name, u.status, u.email_verified_at, u.created_at,
-            COALESCE(g.account_type, 'buyer') AS account_type
-     FROM app.users u LEFT JOIN app.google_identities g ON g.user_id=u.id
-     WHERE u.id = $1`,
+    `SELECT id, email, full_name, status, email_verified_at, created_at
+     FROM app.users WHERE id = $1`,
     [userId],
   );
   if (!userResult.rowCount)

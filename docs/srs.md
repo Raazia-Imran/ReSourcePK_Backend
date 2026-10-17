@@ -116,7 +116,7 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 
 ## Account transition and onboarding
 
-Buyer and Seller sign in through separate Google entry points using separate Google identities. The Seller entry point must use a Seller-specific nonce, require an organization name on first registration, and create a pending Seller request without granting Seller permissions. A Platform Reviewer or Platform Admin must approve the request before the organization and Owner membership are created. The backend continues to enforce active organization membership and platform assignments on every request. Owners invite Managers and grant their permissions; authorized Managers can invite Staff. Platform Admins are trusted developers/operators and can explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+Buyer and Seller use separate Google entry points that resolve to the same canonical user and Google identity. A Buyer can request Seller access with an organization name and retains Buyer access while the request is reviewed. A Platform Reviewer or Platform Admin must approve the request before an organization and Owner membership are added to that same user. The backend continues to enforce active organization membership and platform assignments on every request. Owners invite Managers and grant their permissions; authorized Managers can invite Staff. Platform Admins are trusted developers/operators and can explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
 
 ## Catalog acceptance details — 11 October 2026
 

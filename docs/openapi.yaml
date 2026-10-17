@@ -72,7 +72,7 @@ paths:
   /auth/google:
     post:
       summary: Sign in or create a baseline Buyer account with Google Identity Services
-      description: The API verifies the Google ID token against GOOGLE_CLIENT_ID. Authentication alone grants no seller or platform role. Refresh token is set in an HttpOnly cookie.
+      description: The API verifies the Google ID token against GOOGLE_CLIENT_ID. It creates or reuses the person's canonical account; seller organization membership still requires approval. Refresh token is set in an HttpOnly cookie.
       requestBody:
         required: true
         content:
@@ -100,8 +100,8 @@ paths:
           description: Google sign-in is not configured
   /auth/google/seller:
     post:
-      summary: Sign in or create a Seller applicant with a separate Google identity
-      description: First-time Seller entry requires organizationName and automatically queues an approval request. Google authentication alone does not grant Seller membership; approval creates the organization and Owner membership.
+      summary: Sign in through the Seller entry point and request seller access
+      description: Reuses the same canonical user and Google identity as Buyer sign-in. If the user has no pending Seller request or approved organization, organizationName is required and a request is queued. Approval adds Owner membership without removing Buyer access.
       requestBody:
         required: true
         content:
@@ -110,18 +110,18 @@ paths:
               $ref: "#/components/schemas/SellerGoogleCredential"
       responses:
         "200":
-          description: Seller account session and current review context
+          description: Canonical account session with current memberships and request context available through the request history endpoint
         "202":
           description: Additional ReSource PK email verification is required
+        "400":
+          description: Organization name is required when submitting a new Seller request
         "401":
           description: Invalid, expired, or unverified Google credential
-        "403":
-          description: Google identity is registered for the other account type
         "409":
           description: Existing account must authenticate and explicitly link Google
   /auth/google/seller/nonce:
     get:
-      summary: Issue a five-minute nonce dedicated to Seller Google sign-in
+      summary: Issue a five-minute, single-use nonce for the Seller entry point
       responses:
         "200":
           description: No-store response containing the Seller sign-in nonce

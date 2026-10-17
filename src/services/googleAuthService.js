@@ -115,8 +115,134 @@ async function consumeNonce(runner, nonce, purpose, userId = null) {
   );
 }
 
+async function findGoogleUser(runner, subject) {
+  const identity = await runner.query(
+    `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at,g.account_type
+     FROM app.google_identities g JOIN app.users u ON u.id=g.user_id
+     WHERE g.google_subject=$1 FOR UPDATE OF u`,
+    [subject],
+  );
+  return identity.rows[0] || null;
+}
+
+function assertIdentityType(user, accountType) {
+  if (user && user.account_type !== accountType)
+    throw new AppError(
+      403,
+      "GOOGLE_ACCOUNT_TYPE_MISMATCH",
+      `This Google account is registered for ${user.account_type} sign-in`,
+    );
+}
+
+async function createGoogleUser(
+  runner,
+  profile,
+  accountType,
+  organizationName,
+  meta,
+) {
+  if (accountType === "seller" && !organizationName)
+    throw new AppError(
+      400,
+      "ORGANIZATION_NAME_REQUIRED",
+      "Organization name is required for first-time Seller sign-in",
+    );
+  const existing = await runner.query(
+    `SELECT id FROM app.users WHERE email=$1 FOR UPDATE`,
+    [profile.email],
+  );
+  if (existing.rowCount)
+    throw new AppError(
+      409,
+      "GOOGLE_LINK_REQUIRED",
+      "This email already has an account. Sign in to it first, then link Google from account settings.",
+    );
+
+  const created = await runner.query(
+    `INSERT INTO app.users(email,full_name,password_hash,status,email_verified_at)
+     VALUES($1,$2,NULL,$3,$4)
+     RETURNING id,email,full_name,status,email_verified_at`,
+    [
+      profile.email,
+      profile.fullName,
+      profile.emailAuthoritative ? "active" : "pending",
+      profile.emailAuthoritative ? new Date() : null,
+    ],
+  );
+  const user = created.rows[0];
+  await runner.query(
+    `INSERT INTO app.google_identities(user_id,google_subject,account_type)
+     VALUES($1,$2,$3)`,
+    [user.id, profile.subject, accountType],
+  );
+  await runner.query(
+    `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
+     VALUES($1,$3,'user',$1,$2)`,
+    [
+      user.id,
+      meta.ip,
+      accountType === "seller"
+        ? "account.google_seller_registered"
+        : "account.google_registered",
+    ],
+  );
+  const verification = profile.emailAuthoritative
+    ? null
+    : await auth.createEmailToken(
+        user.id,
+        "verify_email",
+        24 * 60 * 60 * 1000,
+        runner,
+      );
+  return { user, verification };
+}
+
+async function submitSellerRequest(runner, userId, organizationName, meta) {
+  if (!organizationName) return;
+  const membership = await runner.query(
+    `SELECT 1 FROM app.organization_memberships
+     WHERE user_id=$1 AND role='owner' LIMIT 1`,
+    [userId],
+  );
+  if (membership.rowCount) return;
+  const currentRequest = await runner.query(
+    `SELECT status FROM app.seller_requests
+     WHERE user_id=$1 AND status IN ('pending','approved')
+     ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+    [userId],
+  );
+  if (currentRequest.rowCount && currentRequest.rows[0].status !== "rejected")
+    return;
+  const request = await runner.query(
+    `INSERT INTO app.seller_requests(user_id,organization_name)
+     VALUES($1,$2) RETURNING id`,
+    [userId, organizationName],
+  );
+  await runner.query(
+    `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
+     VALUES($1,'seller_request.submitted','seller_request',$2,$3)`,
+    [userId, request.rows[0].id, meta.ip],
+  );
+}
+
+async function deliverVerification(user, verification) {
+  const url = `${env.APP_URL}/verify-email?token=${encodeURIComponent(verification.token)}`;
+  try {
+    await deliverEmail({
+      eventKey: `verify-email:${verification.id}`,
+      recipient: user.email,
+      template: "verify_email",
+      message: verificationEmail({ name: user.full_name, url }),
+    });
+    return { verificationRequired: true, emailDelivery: "sent" };
+  } catch {
+    return { verificationRequired: true, emailDelivery: "pending" };
+  }
+}
+
 async function signIn(credential, nonce, meta, options = {}) {
   const sellerSignup = options.accountType === "seller";
+  const accountType = sellerSignup ? "seller" : "buyer";
   const noncePurpose = sellerSignup ? "seller_login" : "login";
   const organizationName = options.organizationName?.trim();
   const profile = await verifiedProfile(credential, nonce);
@@ -128,109 +254,20 @@ async function signIn(credential, nonce, meta, options = {}) {
       [profile.email],
     );
     await consumeNonce(runner, nonce, noncePurpose);
-    const identity = await runner.query(
-      `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at,g.account_type
-       FROM app.google_identities g JOIN app.users u ON u.id=g.user_id
-       WHERE g.google_subject=$1 FOR UPDATE OF u`,
-      [profile.subject],
-    );
-    let user = identity.rows[0];
-
-    if (user && user.account_type !== (sellerSignup ? "seller" : "buyer"))
-      throw new AppError(
-        403,
-        "GOOGLE_ACCOUNT_TYPE_MISMATCH",
-        `This Google account is registered for ${user.account_type} sign-in`,
-      );
-
-    if (!user) {
-      if (sellerSignup && !organizationName)
-        throw new AppError(
-          400,
-          "ORGANIZATION_NAME_REQUIRED",
-          "Organization name is required for first-time Seller sign-in",
-        );
-      const existing = await runner.query(
-        `SELECT id,email,full_name,status,email_verified_at
-         FROM app.users WHERE email=$1 FOR UPDATE`,
-        [profile.email],
-      );
-      if (existing.rowCount) {
-        throw new AppError(
-          409,
-          "GOOGLE_LINK_REQUIRED",
-          "This email already has an account. Sign in to it first, then link Google from account settings.",
-        );
-      }
-      const created = await runner.query(
-        `INSERT INTO app.users(email,full_name,password_hash,status,email_verified_at)
-         VALUES($1,$2,NULL,$3,$4)
-         RETURNING id,email,full_name,status,email_verified_at`,
-        [
-          profile.email,
-          profile.fullName,
-          profile.emailAuthoritative ? "active" : "pending",
-          profile.emailAuthoritative ? new Date() : null,
-        ],
-      );
-      user = created.rows[0];
-      await runner.query(
-        `INSERT INTO app.google_identities(user_id,google_subject,account_type)
-         VALUES($1,$2,$3)`,
-        [user.id, profile.subject, sellerSignup ? "seller" : "buyer"],
-      );
-      await runner.query(
-        `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
-         VALUES($1,$3,'user',$1,$2)`,
-        [
-          user.id,
-          meta.ip,
-          sellerSignup
-            ? "account.google_seller_registered"
-            : "account.google_registered",
-        ],
-      );
-      if (!profile.emailAuthoritative) {
-        const verification = await auth.createEmailToken(
-          user.id,
-          "verify_email",
-          24 * 60 * 60 * 1000,
-          runner,
-        );
-        return { verificationRequired: true, verification, user };
-      }
-    }
-
-    if (sellerSignup && organizationName) {
-      const membership = await runner.query(
-        `SELECT 1 FROM app.organization_memberships
-         WHERE user_id=$1 AND role='owner' LIMIT 1`,
-        [user.id],
-      );
-      if (!membership.rowCount) {
-        const currentRequest = await runner.query(
-          `SELECT status FROM app.seller_requests
-           WHERE user_id=$1 AND status IN ('pending','approved')
-           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-          [user.id],
-        );
-        if (
-          !currentRequest.rowCount ||
-          currentRequest.rows[0].status === "rejected"
-        ) {
-          const request = await runner.query(
-            `INSERT INTO app.seller_requests(user_id,organization_name)
-             VALUES($1,$2) RETURNING id`,
-            [user.id, organizationName],
-          );
-          await runner.query(
-            `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
-             VALUES($1,'seller_request.submitted','seller_request',$2,$3)`,
-            [user.id, request.rows[0].id, meta.ip],
-          );
-        }
-      }
-    }
+    let user = await findGoogleUser(runner, profile.subject);
+    assertIdentityType(user, accountType);
+    let verification = null;
+    if (!user)
+      ({ user, verification } = await createGoogleUser(
+        runner,
+        profile,
+        accountType,
+        organizationName,
+        meta,
+      ));
+    if (sellerSignup)
+      await submitSellerRequest(runner, user.id, organizationName, meta);
+    if (verification) return { verificationRequired: true, verification, user };
 
     if (user.status !== "active" || !user.email_verified_at) {
       if (user.status === "pending") return { verificationRequired: true };
@@ -246,22 +283,9 @@ async function signIn(credential, nonce, meta, options = {}) {
     return { ...session, context };
   });
 
-  if (!outcome.verificationRequired) return outcome;
-  if (!outcome.verification) return outcome;
-
-  const url = `${env.APP_URL}/verify-email?token=${encodeURIComponent(outcome.verification.token)}`;
-  let emailDelivery = "sent";
-  try {
-    await deliverEmail({
-      eventKey: `verify-email:${outcome.verification.id}`,
-      recipient: outcome.user.email,
-      template: "verify_email",
-      message: verificationEmail({ name: outcome.user.full_name, url }),
-    });
-  } catch {
-    emailDelivery = "pending";
-  }
-  return { verificationRequired: true, emailDelivery };
+  if (outcome.verification)
+    return deliverVerification(outcome.user, outcome.verification);
+  return outcome;
 }
 
 async function link(userId, credential, nonce, meta) {

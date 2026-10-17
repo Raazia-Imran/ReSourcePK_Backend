@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: ReSource PK API
-  version: 1.3.0
-  description: Google/password authentication, seller approval, organization access, and catalog contract.
+  version: 1.4.0
+  description: Auth, seller approval, organization permissions, catalog, and direct/group purchase lifecycle contract.
 servers:
   - url: /api/v1
 paths:
@@ -21,6 +21,17 @@ paths:
           description: Storage is not configured or one or more objects could not be cleaned.
         "500":
           description: Cleanup could not complete; inspect the correlation ID in backend logs.
+  /internal/purchase-expiry:
+    get:
+      summary: Expire overdue direct orders and unpaid group contributions
+      description: Scheduler-only, CRON_SECRET protected, bounded to 100 orders per invocation. Under-target groups are left for the Seller's expire-or-confirm decision.
+      security:
+        - cronAuth: []
+      responses:
+        "200":
+          description: Counts of direct Seller timeouts and Buyer payment timeouts.
+        "401":
+          description: CRON_SECRET is absent or scheduler authorization is invalid.
   /auth/register:
     post:
       summary: Register a Buyer account
@@ -576,6 +587,41 @@ paths:
           description: Staff permissions replaced
         "403":
           description: Owner or authorized Manager access required
+  /organizations/{organizationId}/managers/{membershipId}/permissions:
+    patch:
+      security: *id001
+      summary: Grant or revoke a Manager's order-confirmation permission
+      description: Only the organization Owner may set the Manager's orders.confirm grant. Staff cannot receive this permission.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: membershipId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              additionalProperties: false
+              properties:
+                permissions:
+                  type: array
+                  uniqueItems: true
+                  maxItems: 1
+                  items: { type: string, enum: [orders.confirm] }
+      responses:
+        "200":
+          description: Manager permission set replaced and audited.
+        "403":
+          description: Active Owner access required.
+        "404":
+          description: Active Manager membership not found.
   /invitations/details:
     get:
       summary: Read non-sensitive invitation context
@@ -602,6 +648,236 @@ paths:
           description: Invitation accepted
         "403":
           description: Invitation email mismatch
+  /orders:
+    post:
+      security: *id001
+      summary: Place a direct purchase order
+      description: Reserves stock immediately, snapshots the server-selected quantity tier, and waits up to 72 hours for Seller confirmation. Payment is not initiated by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listingId, quantity, requestKey]
+              additionalProperties: false
+              properties:
+                listingId: { type: string, format: uuid }
+                quantity: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
+                requestKey: { type: string, format: uuid }
+      responses:
+        "201": { description: Order created and inventory reserved. }
+        "400": { description: Quantity, MOQ, or request body is invalid. }
+        "401": { description: Authentication required. }
+        "409":
+          {
+            description: Listing unavailable,
+            stock changed,
+            or idempotency key was reused with different data.,
+          }
+  /orders/mine:
+    get:
+      security: *id001
+      summary: List the authenticated Buyer's orders
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, maximum: 200, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          { description: Paginated orders belonging to the signed-in user. }
+        "401": { description: Authentication required. }
+  /organizations/{organizationId}/orders:
+    get:
+      security: *id001
+      summary: List Seller orders
+      description: Available to the Owner and Managers granted orders.confirm; Staff have no order access.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Paginated organization orders. }
+        "403": { description: Seller order access permission required. }
+  /organizations/{organizationId}/orders/{orderId}/decision:
+    post:
+      security: *id001
+      summary: Confirm or reject a direct order
+      description: Confirmation starts the Buyer's 72-hour payment deadline; rejection releases reserved stock. Orders past the 72-hour Seller response deadline expire and release stock.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              additionalProperties: false
+              properties:
+                decision: { type: string, enum: [confirm, reject] }
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        "200": { description: Order decision recorded. }
+        "403":
+          {
+            description: Owner access or Manager orders.confirm permission required.,
+          }
+        "409": { description: Order is no longer awaiting Seller decision. }
+  /organizations/{organizationId}/purchase-groups:
+    get:
+      security: *id001
+      summary: List groups managed by the Seller organization
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Paginated groups and joined quantity. }
+        "403": { description: Active Owner or Manager access required. }
+    post:
+      security: *id001
+      summary: Create a group offer for a listing
+      description: Owner or Manager creates a group target and deadline. The target must fit current available stock; shares reserve stock only as Buyers join.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listingId, targetQuantity, closesAt, requestKey]
+              additionalProperties: false
+              properties:
+                listingId: { type: string, format: uuid }
+                targetQuantity:
+                  { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
+                closesAt: { type: string, format: date-time }
+                requestKey: { type: string, format: uuid }
+      responses:
+        "201": { description: Group created. }
+        "403": { description: Active Owner or Manager access required. }
+        "409":
+          {
+            description: Listing does not allow groups or target exceeds current stock.,
+          }
+  /organizations/{organizationId}/purchase-groups/{groupId}/decision:
+    post:
+      security: *id001
+      summary: Confirm or expire a group
+      description: Owner or Manager with orders.confirm may confirm when target is met. At deadline, confirm accepts all current shares unchanged; expire releases all unpaid shares.
+      parameters:
+        - in: path
+          name: organizationId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              additionalProperties: false
+              properties:
+                decision: { type: string, enum: [confirm, expire] }
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        "200": { description: Group decision recorded. }
+        "403":
+          {
+            description: Owner access or Manager orders.confirm permission required.,
+          }
+        "409":
+          { description: Target/deadline/state does not permit this decision. }
+  /listings/{listingId}/purchase-groups:
+    get:
+      summary: Browse joinable groups for a published listing
+      parameters:
+        - in: path
+          name: listingId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          { description: Paginated joinable groups with contribution totals. }
+  /purchase-groups/{groupId}:
+    get:
+      security: *id001
+      summary: Read a joinable group and the signed-in Buyer's contributions
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Group details and own contribution history. }
+        "404": { description: Group is unavailable. }
+  /purchase-groups/{groupId}/contributions:
+    post:
+      security: *id001
+      summary: Join a group with a quantity share
+      description: Reserves stock immediately, selects the price tier using this Buyer's share, and does not request payment before Seller confirmation.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity, requestKey]
+              additionalProperties: false
+              properties:
+                quantity: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
+                requestKey: { type: string, format: uuid }
+      responses:
+        "201": { description: Contribution created and inventory reserved. }
+        "409":
+          { description: Group closed, target exceeded, or stock unavailable. }
+  /purchase-groups/{groupId}/contributions/{orderId}/leave:
+    post:
+      security: *id001
+      summary: Withdraw the Buyer's share before Seller confirmation
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Contribution withdrawn and reservation released. }
+        "404": { description: The contribution does not belong to this Buyer. }
+        "409":
+          {
+            description: Seller has confirmed the group or contribution is no longer open.,
+          }
   /listings:
     get:
       summary: Search published listings with q, material, unit, page, limit, and sort
@@ -1131,6 +1407,10 @@ components:
           description:
             Prefer exact decimal text; at most 2 fractional digits. No rounding or exponent
             text.
+        purchaseMode:
+          type: string
+          enum: [direct, group, both]
+          description: Purchase modes enabled for this listing; omitted on create defaults to direct and omitted on edit preserves the current mode.
         color: &id015
           type: string
           maxLength: 80
@@ -1213,6 +1493,9 @@ components:
       properties:
         minQuantity: *id007
         pricePerUnit: *id008
+        purchaseMode:
+          type: string
+          enum: [direct, group, both]
     Version:
       type: object
       additionalProperties: false

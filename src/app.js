@@ -11,6 +11,7 @@ const organizationRoutes = require("./routes/organizationRoutes");
 const catalogRoutes = require("./routes/catalogRoutes");
 const maintenanceRoutes = require("./routes/maintenanceRoutes");
 const sellerRequestRoutes = require("./routes/sellerRequestRoutes");
+const purchaseRoutes = require("./routes/purchaseRoutes");
 const { AppError } = require("./lib/errors");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
 
@@ -46,6 +47,7 @@ app.use("/api/v1", organizationRoutes);
 app.use("/api/v1", catalogRoutes);
 app.use("/api/v1", maintenanceRoutes);
 app.use("/api/v1", sellerRequestRoutes);
+app.use("/api/v1", purchaseRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

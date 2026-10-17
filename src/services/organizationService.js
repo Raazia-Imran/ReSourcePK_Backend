@@ -320,6 +320,59 @@ async function setStaffPermissions(
   });
 }
 
+async function setManagerPermissions(
+  userId,
+  organizationId,
+  membershipId,
+  permissions,
+  meta,
+) {
+  if (
+    !Array.isArray(permissions) ||
+    permissions.some((p) => p !== "orders.confirm")
+  )
+    throw new AppError(
+      400,
+      "INVALID_MANAGER_PERMISSIONS",
+      "Managers may only receive the orders.confirm permission here",
+    );
+  const normalized = [...new Set(permissions)];
+  return transaction(async (client) => {
+    await requireInviter(userId, organizationId, "manager", client);
+    const target = await client.query(
+      `SELECT id,role FROM app.organization_memberships
+       WHERE id=$1 AND organization_id=$2 AND status='active' FOR UPDATE`,
+      [membershipId, organizationId],
+    );
+    if (!target.rowCount || target.rows[0].role !== "manager")
+      throw new AppError(
+        404,
+        "MANAGER_MEMBER_NOT_FOUND",
+        "Active Manager membership not found",
+      );
+    if (normalized.includes("orders.confirm")) {
+      await client.query(
+        `INSERT INTO app.organization_membership_permissions(membership_id,permission,granted_by)
+         VALUES($1,'orders.confirm',$2)
+         ON CONFLICT(membership_id,permission) DO UPDATE SET granted_by=EXCLUDED.granted_by`,
+        [membershipId, userId],
+      );
+    } else {
+      await client.query(
+        `DELETE FROM app.organization_membership_permissions
+         WHERE membership_id=$1 AND permission='orders.confirm'`,
+        [membershipId],
+      );
+    }
+    await client.query(
+      `INSERT INTO app.audit_events(actor_id,organization_id,action,resource_type,resource_id,reason,ip_address)
+       VALUES($1,$2,'organization.manager_permissions_updated','organization_membership',$3,$4,$5)`,
+      [userId, organizationId, membershipId, normalized.join(","), meta.ip],
+    );
+    return { membershipId, permissions: normalized };
+  });
+}
+
 async function listMembers(userId, organizationId) {
   return transaction(async (client) => {
     await requireInviter(userId, organizationId, "staff", client);
@@ -342,5 +395,6 @@ module.exports = {
   acceptNewUser,
   acceptExistingUser,
   setStaffPermissions,
+  setManagerPermissions,
   listMembers,
 };

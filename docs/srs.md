@@ -45,9 +45,9 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 
 ### Pools, orders and inventory
 
-The following are planned workflow requirements. Migration 013 now provides the initial purchase/group/order/reservation schema; checkout APIs and lifecycle services are not implemented. The detailed working design is in [Purchase Module](purchase-module.md).
+The following requirements describe the purchase workflow. Migrations 013/014 and the initial backend lifecycle APIs are implemented: direct order placement, group creation/join/leave and Seller decisions, reservations, pricing snapshots, idempotency, and deadline processing. Payment collection and the complete user-facing purchase journey remain unimplemented. See [Purchase Module](purchase-module.md).
 
-- **FR-PUR-01:** A listing supports `direct`, `group`, or `both` purchase modes. The API enforces the mode, MOQ, available stock, seller-approved smaller direct lot, target, and price-tier rules on every request.
+- **FR-PUR-01:** A listing supports `direct`, `group`, or `both` purchase modes. The API enforces mode, MOQ (with an all-remaining-stock exception), available stock, group target, and price-tier rules on every request.
 - **FR-PUR-02:** A direct order is reserved at placement and enters `pending_seller_confirmation`. Seller confirmation starts a 72-hour Buyer payment deadline; rejection or expiry releases the reservation.
 - **FR-PUR-03:** Joining an open group reserves the Buyer quantity immediately. Contribution and inventory changes are atomic, idempotent, and concurrency safe. Buyers can leave only before Seller confirmation.
 - **FR-PUR-04:** Group target cannot exceed available stock. Reaching the target makes the group ready for Seller confirmation. At the deadline, the Owner or Manager with `orders.confirm` chooses to expire it or confirm the full current contribution total as a smaller group; all current shares remain unchanged and included.

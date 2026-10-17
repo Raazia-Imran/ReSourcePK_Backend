@@ -51,6 +51,7 @@ const listingInput = z
     minOrderQuantity: quantity,
     pricePerUnit: money,
     priceTiers: z.array(tier).max(10).default([]),
+    purchaseMode: z.enum(["direct", "group", "both"]).optional(),
   })
   .strict()
   .superRefine((data, context) => {

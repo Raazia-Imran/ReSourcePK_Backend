@@ -23,5 +23,10 @@ router.patch(
   requireAuth,
   controller.setStaffPermissions,
 );
+router.patch(
+  "/organizations/:organizationId/managers/:membershipId/permissions",
+  requireAuth,
+  controller.setManagerPermissions,
+);
 
 module.exports = router;

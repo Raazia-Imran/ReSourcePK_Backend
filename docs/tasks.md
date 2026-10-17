@@ -1,6 +1,6 @@
 # Five Week Delivery Plan
 
-> This is the original delivery plan, not a live feature checklist. See [Current Features and Scope](current-features.md), [Delivery Status](delivery-status.md), and [Purchase Module](purchase-module.md) for current behavior and Phase 3 decisions. Direct/group purchases and payments are future backend work; delivery is outside platform scope.
+> This is the original delivery plan, not a live feature checklist. See [Current Features and Scope](current-features.md), [Delivery Status](delivery-status.md), and [Purchase Module](purchase-module.md) for current behavior and Phase 3 decisions. Direct/group backend order workflows are partially implemented; payment collection remains future work. Delivery is outside platform scope.
 
 ## Working model
 
@@ -39,9 +39,9 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 **Outcome:** Buyers can complete direct purchases or safely join group orders, with Seller confirmation before payment and sandbox payment contributions.
 
-- T-201 Direct/group purchase, reservation, order, and payment event foundation migration. Listings choose direct, group, or both; payments follow Seller confirmation. Migration 013 covers the initial schema; runtime flows and settlement ledger remain future work.
-- T-202 Versioned pricing and immutable order snapshots for direct orders and group contributions; group tiers use each Buyer's share quantity.
-- T-203 Atomic/idempotent direct order and group join flows with inventory concurrency, confirmation, 72-hour expiry, and release tests.
+- T-201 Direct/group purchase, reservation, order, and payment event foundation migration. Migrations 013/014 cover the initial schema and workflow support; payment settlement ledger remains future work.
+- T-202 Versioned pricing and immutable order snapshots for direct orders and group contributions; per-Buyer share tier selection is implemented with server-side half-up paisa totals (confirm rounding before live payments).
+- T-203 Direct order and group join/leave/decision APIs include idempotency, inventory reservations, Seller confirmation, and deadline expiry; automated concurrency/expiry acceptance evidence remains to be added.
 - T-204 Buyer/Seller purchase UI with MOQ eligibility, target/deadline, per-Buyer locked prices, order confirmations, payment countdown and honest status states.
 - T-205 Payment adapter, signed request/callback validation, replay protection, ledger reconciliation and sandbox fallback. Do not enable live payments before provider/settlement approval.
 - T-206 Group lifecycle: target and deadline decisions; remove non-payers and reopen shares; require Seller reconfirmation before replacement participants pay. Escrow and delivery management are out of scope.

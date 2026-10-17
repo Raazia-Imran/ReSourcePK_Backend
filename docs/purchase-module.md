@@ -1,6 +1,6 @@
 # Phase 3, Chunk 1: Purchase rules and data model
 
-Updated: 17 October 2026. This document is the working source of truth for Phase 3 purchase behavior. It defines the rules to use before purchase code and migrations are implemented. Nothing in this design means orders, reservations, or payments are already implemented.
+Updated: 17 October 2026. This document is the working source of truth for Phase 3 purchase behavior. Chunks 1 and 2 cover the initial schema and backend order lifecycle. Payment collection, provider callbacks, refunds, settlement accounting, and the frontend purchase journey remain future work.
 
 ## Product decisions accepted by the user
 
@@ -25,7 +25,7 @@ These rules fill in lifecycle and data-integrity details implied by the accepted
 ### Listing eligibility and direct purchase
 
 - Every published listing selects one purchase mode: `direct`, `group`, or `both`. Disabled modes cannot be used by the API even if a client calls the endpoint directly.
-- A direct order must satisfy the listing MOQ, unless the Buyer purchases the entire remaining permitted lot or the Seller has enabled a smaller direct-buy lot.
+- A direct order must satisfy the listing MOQ unless the Buyer purchases all currently available stock. There is no separate smaller-lot override on listings in this implementation.
 - The Buyer submits a quantity and sees the exact unit price, tier, total, unit, and currency before placing the order. The server revalidates stock, MOQ, mode, and tier inside the transaction that creates the order.
 - A direct order enters `pending_seller_confirmation`. The Seller confirms or rejects it. Confirmation fixes the terms and starts the 72-hour payment window. Rejection releases its stock reservation.
 
@@ -52,7 +52,7 @@ These rules fill in lifecycle and data-integrity details implied by the accepted
 
 - Direct purchase price is calculated from the direct order quantity and the listing's active tier schedule when the Buyer submits it. The Seller sees and confirms those terms; listing edits later do not rewrite an existing order.
 - A group participant receives a price snapshot at join time. The snapshot includes the listing/tier version and the unit price then applicable. Seller confirmation, later joins, a deadline decision, or listing price edits never rewrite that participant's snapshot.
-- The server calculates the line total from quantity and snapshot unit price. Ignore client-supplied totals. Store money in integer paisa and quantity in fixed-precision numeric columns with an explicit unit.
+- The server calculates the line total from quantity and snapshot unit price. Ignore client-supplied totals. Store money in integer paisa and quantity in fixed-precision numeric columns with an explicit unit. The initial API uses round-half-up to the nearest paisa; confirm this rule before enabling real payments.
 - Payment is requested only after Seller confirmation, and the amount must equal the immutable order total. A browser redirect or client claim is not proof of payment; only a verified provider result/callback may mark an order paid.
 
 ### State model
@@ -81,11 +81,11 @@ Payment attempts have their own states (for example `created`, `pending`, `succe
 
 ## Proposed database model
 
-Migration `013_purchase_foundation.sql` creates the initial purchase schema in the existing `app` schema. The service layer and APIs that enforce these records are subsequent work.
+Migrations `013_purchase_foundation.sql` and `014_purchase_workflow_support.sql` create the purchase schema and its workflow support in the existing `app` schema.
 
 | Entity                                                | Purpose and key data                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `listings` additions                                  | `purchase_mode`; direct/group enablement; optional smaller-direct-lot setting; existing physical quantity, MOQ, unit, tier schedule, and version remain seller-controlled.                                                                                                                                                                                  |
+| `listings` additions                                  | `purchase_mode`; direct/group enablement; existing physical quantity, MOQ, unit, tier schedule, and version remain seller-controlled.                                                                                                                                                                                                                       |
 | `purchase_groups`                                     | One group per listing/offer: `listing_id`, `organization_id`, `target_quantity`, `closes_at`, `status`, optimistic `version`, and confirmation/decision timestamps and actor.                                                                                                                                                                               |
 | `orders`                                              | One Buyer purchase per listing contribution (direct orders have no group; group contributions reference a group): Buyer, listing/organization/group IDs, idempotency key, quantity/unit, listing version, per-Buyer tier and price snapshot, immutable total in paisa, state, seller-response deadline, confirmation time, payment deadline, and paid time. |
 | `order_price_snapshots` or immutable snapshot columns | The initial schema stores listing/tier version, threshold, unit price in paisa, currency, quantity, and total directly on the order and blocks edits to those terms.                                                                                                                                                                                        |
@@ -124,11 +124,13 @@ These do not block documenting the initial model, but must be confirmed before t
 
 1. **Payment provider and settlement:** confirm the gateway's exact name (the user called it “Raod”) and that its sandbox account/API supports JazzCash, Easypaisa, Raast, cards, and bank transfers. Confirm settlement route before live payments. “No escrow” does not itself define the provider's settlement route.
 2. **Post-confirmation and paid-order cancellation/refunds:** open-group withdrawal before Seller confirmation is allowed. Still confirm whether a Buyer may cancel after Seller confirmation or payment, who can authorize refunds, and whether paid quantity can return to stock. Do not assume shipping/returns are managed by the platform.
-3. **Money rounding:** confirm the rule when decimal quantity multiplied by paisa-per-unit does not result in a whole paisa. Recommended default is deterministic round-half-up to the nearest paisa, calculated server-side.
+3. **Money rounding:** the API currently uses round-half-up to the nearest paisa when decimal quantity multiplied by paisa-per-unit is fractional. Confirm this before enabling real payments.
 
 ## Implementation status
 
-Migration `013_purchase_foundation.sql` adds listing purchase modes, groups, orders with immutable terms, inventory reservations, order history, and generic payment-attempt/event records. It does not implement purchase endpoints, reservation transitions, payment processing, refunds, or gateway integration. Those are subsequent Phase 3 chunks.
+Implemented routes include direct order placement, Buyer order history, Seller order lists and decisions, group create/browse/join/leave/decision, Owner-controlled Manager `orders.confirm`, and a CRON_SECRET-protected deadline worker. These services reserve and release stock, snapshot per-share pricing, enforce state transitions, and require Seller reconfirmation after a group nonpayer.
+
+Payment is still a later chunk: there is no checkout, provider adapter/callback, refund, settlement, or ledger workflow. The API uses round-half-up for fractional paisa totals; confirm this before enabling real payments. See [OpenAPI](openapi.yaml) for endpoint contracts.
 
 ## Related docs
 

@@ -3,6 +3,7 @@ const { requireCron } = require("../middlewares/cronAuth");
 const { env } = require("../config/env");
 const { AppError } = require("../lib/errors");
 const cleanup = require("../modules/catalog/imageCleanupService");
+const purchases = require("../modules/purchases/service");
 
 const router = express.Router();
 router.all("/internal/storage-cleanup", requireCron, async (req, res) => {
@@ -35,6 +36,27 @@ router.all("/internal/storage-cleanup", requireCron, async (req, res) => {
       "IMAGE_CLEANUP_INCOMPLETE",
       "Image cleanup will need another run",
     );
+  res.json({ data: result });
+});
+
+router.all("/internal/purchase-expiry", requireCron, async (req, res) => {
+  if (req.method !== "GET") {
+    res.set("Allow", "GET");
+    throw new AppError(
+      405,
+      "METHOD_NOT_ALLOWED",
+      "Use GET for the scheduled job",
+    );
+  }
+  const result = await purchases.expireDueOrders();
+  console.info(
+    JSON.stringify({
+      level: "info",
+      event: "purchase_expiry",
+      correlationId: req.correlationId,
+      ...result,
+    }),
+  );
   res.json({ data: result });
 });
 

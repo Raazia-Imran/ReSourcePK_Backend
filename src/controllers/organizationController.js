@@ -32,6 +32,9 @@ const staffPermissions = z
     permissions: z.array(z.enum(["listings.view", "listings.manage"])).max(2),
   })
   .strict();
+const managerPermissions = z
+  .object({ permissions: z.array(z.literal("orders.confirm")).max(1) })
+  .strict();
 const token = z.string().min(32).max(200);
 const meta = (req) => ({ ip: req.ip });
 
@@ -52,6 +55,17 @@ async function setStaffPermissions(req, res) {
       z.string().uuid().parse(req.params.organizationId),
       z.string().uuid().parse(req.params.membershipId),
       staffPermissions.parse(req.body).permissions,
+      meta(req),
+    ),
+  });
+}
+async function setManagerPermissions(req, res) {
+  res.json({
+    data: await service.setManagerPermissions(
+      req.auth.sub,
+      z.string().uuid().parse(req.params.organizationId),
+      z.string().uuid().parse(req.params.membershipId),
+      managerPermissions.parse(req.body).permissions,
       meta(req),
     ),
   });
@@ -92,6 +106,7 @@ module.exports = {
   createOrganization,
   createInvitation,
   setStaffPermissions,
+  setManagerPermissions,
   listMembers,
   invitationDetails,
   acceptNewUser,

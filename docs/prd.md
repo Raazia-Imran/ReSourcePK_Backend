@@ -13,7 +13,7 @@
 
 ## Product decision
 
-ReSource PK connects textile mills directly with small and home-based businesses seeking usable leftover material. Today, large textile firms often send leftover stock to physical wholesale markets such as Shershah, which can make suitable stock difficult for smaller businesses to access. ReSource PK's goal is to make this supply discoverable and purchasable directly. Group orders are a planned way to pool buyer demand; they are not implemented in the current backend.
+ReSource PK connects textile mills directly with small and home-based businesses seeking usable leftover material. Today, large textile firms often send leftover stock to physical wholesale markets such as Shershah, which can make suitable stock difficult for smaller businesses to access. ReSource PK's goal is to make this supply discoverable and purchasable directly. The backend now has initial group order APIs and inventory reservations; the complete frontend journey and payment flow remain unimplemented.
 
 ## Users and value
 
@@ -69,7 +69,7 @@ Platform approval creates the organization and its Owner membership. The Owner i
 
 ### Planned direct and group purchase
 
-Phase 3 includes both direct orders and group orders. The Seller confirms either type before the Buyer is asked to pay; confirmed Buyers have 72 hours to pay. Direct orders reserve listing stock while awaiting Seller confirmation. Group contributions reserve quantity when the Buyer joins. Each group participant's price is locked at join time using their own share quantity to select the price tier. If a confirmed participant does not pay, their contribution is removed and the share reopens; a replacement group requires Seller reconfirmation. At the group deadline, the Seller Owner or an authorized Manager chooses to expire the group or confirm its smaller current total; confirmation includes all existing shares unchanged. Escrow is not part of the initial flow. Migration 013 adds the initial data foundation, while purchase workflows remain unimplemented. Detailed lifecycle, inventory, pricing, and data-model decisions are in [Purchase Module](purchase-module.md).
+Phase 3 includes both direct orders and group orders. The Seller confirms either type before the Buyer is asked to pay; confirmed Buyers have 72 hours to pay. Direct orders reserve listing stock while awaiting Seller confirmation. Group contributions reserve quantity when the Buyer joins. Each group participant's price is locked at join time using their own share quantity to select the price tier. If a confirmed participant does not pay, their contribution is removed and the share reopens; a replacement group requires Seller reconfirmation. At the group deadline, the Seller Owner or an authorized Manager chooses to expire the group or confirm its smaller current total; confirmation includes all existing shares unchanged. Escrow is not part of the initial flow. Purchase workflow APIs are partially implemented; payment collection and settlement remain future work. Detailed lifecycle, inventory, pricing, and data-model decisions are in [Purchase Module](purchase-module.md).
 
 ### Planned payment
 

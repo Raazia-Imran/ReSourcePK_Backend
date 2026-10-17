@@ -6,54 +6,12 @@ const { randomToken, hashToken } = require("../lib/tokens");
 const { deliverEmail } = require("../email/deliveryService");
 const { organizationInviteEmail } = require("../email/templates");
 
-async function createOrganization(userId, name, meta) {
-  return transaction(async (client) => {
-    const user = await client.query(
-      "SELECT status,email_verified_at FROM app.users WHERE id=$1 FOR UPDATE",
-      [userId],
-    );
-    if (
-      !user.rowCount ||
-      user.rows[0].status !== "active" ||
-      !user.rows[0].email_verified_at
-    )
-      throw new AppError(
-        403,
-        "ACCOUNT_UNAVAILABLE",
-        "Verify your active account before opening a seller organization",
-      );
-    const existing = await client.query(
-      "SELECT 1 FROM app.organizations WHERE created_by=$1",
-      [userId],
-    );
-    if (existing.rowCount)
-      throw new AppError(
-        409,
-        "ORGANIZATION_EXISTS",
-        "This account already owns a seller organization",
-      );
-    const slug = `${
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
-        .slice(0, 75) || "organization"
-    }-${userId.slice(0, 6)}`;
-    const organization = await client.query(
-      `INSERT INTO app.organizations(name,slug,created_by) VALUES($1,$2,$3) RETURNING id,name`,
-      [name, slug, userId],
-    );
-    await client.query(
-      "INSERT INTO app.organization_memberships(organization_id,user_id,role,can_invite_staff) VALUES($1,$2,'owner',true)",
-      [organization.rows[0].id, userId],
-    );
-    await client.query(
-      `INSERT INTO app.audit_events(actor_id,organization_id,action,resource_type,resource_id,ip_address) VALUES($1,$2,'organization.created','organization',$2,$3)`,
-      [userId, organization.rows[0].id, meta.ip],
-    );
-    return organization.rows[0];
-  });
+async function createOrganization() {
+  throw new AppError(
+    403,
+    "SELLER_REVIEW_REQUIRED",
+    "Submit a Seller access request and wait for platform approval before creating an organization",
+  );
 }
 
 async function requireInviter(

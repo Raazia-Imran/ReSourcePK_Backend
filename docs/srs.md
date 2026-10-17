@@ -19,6 +19,13 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 - **FR-AUTH-09:** Support Google Identity Services using a server-verified ID token (signature, issuer, expiry, single-use nonce, audience, stable `sub`, and verified email). Gmail and Google Workspace emails with a verified hosted-domain claim may activate immediately; other addresses require ReSource PK email verification. New Google accounts receive baseline Buyer access only; Google identity alone never grants seller or platform permissions.
 - **FR-AUTH-10:** Store Google provider identity separately from user email. Existing accounts link Google only while authenticated to that account and only when verified emails match; do not silently merge accounts by email. Google-only accounts may have no password hash and must not authenticate through password login.
 
+### Seller onboarding review
+
+- **FR-SELLER-01:** An active verified Buyer can submit a Seller access request with an organization name and view their own request history. A pending request grants no organization membership or Seller permissions.
+- **FR-SELLER-02:** Only active, verified Platform Reviewers and Platform Admins can list requests and approve or reject pending requests. Rejection requires a review note; decisions are audited and cannot be applied twice.
+- **FR-SELLER-03:** Approval atomically creates the requested organization and Owner membership for the applicant while preserving Buyer capability. Direct seller registration and direct organization creation must not bypass approval.
+- **FR-SELLER-04:** Platform Admins can grant and revoke Platform Reviewer access for an active, verified account. Admins can review requests themselves.
+
 ### Organizations and users
 
 - **FR-ORG-01:** Create seller organization with legal/display name, contact, location and verification status.
@@ -109,7 +116,7 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 
 ## Account transition and onboarding
 
-One Google identity may use Buyer Mode and, after creating an organization and receiving the required reviewer approval, Seller Mode. Switching dashboards does not remove Buyer access and does not grant authorization by itself. The backend continues to enforce active organization membership and platform assignments on every request. Owners invite Managers and grant their permissions; authorized Managers can invite Staff. Platform Admins are trusted developers/operators and can explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+Buyer and Seller sign in through separate Google entry points using separate Google identities. The Seller entry point must use a Seller-specific nonce, require an organization name on first registration, and create a pending Seller request without granting Seller permissions. A Platform Reviewer or Platform Admin must approve the request before the organization and Owner membership are created. The backend continues to enforce active organization membership and platform assignments on every request. Owners invite Managers and grant their permissions; authorized Managers can invite Staff. Platform Admins are trusted developers/operators and can explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
 
 ## Catalog acceptance details — 11 October 2026
 

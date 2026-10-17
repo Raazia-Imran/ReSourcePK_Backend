@@ -19,6 +19,8 @@ router.post("/resend-verification", sensitive, controller.resendVerification);
 router.post("/login", sensitive, controller.login);
 router.get("/google/nonce", sensitive, controller.googleNonce);
 router.post("/google", sensitive, controller.googleLogin);
+router.get("/google/seller/nonce", sensitive, controller.googleSellerNonce);
+router.post("/google/seller", sensitive, controller.googleSellerLogin);
 router.get(
   "/google/link/nonce",
   requireAuth,

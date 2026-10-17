@@ -9,23 +9,16 @@ const { deliverEmail } = require("../email/deliveryService");
 const BCRYPT_ROUNDS = 12;
 const DEFAULT_QUERY_RUNNER = Object.freeze({ query });
 
-function slugify(value) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 80);
-}
-
 function refreshExpiry() {
   return new Date(Date.now() + env.REFRESH_TOKEN_DAYS * 86_400_000);
 }
 
 async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
   const userResult = await runner.query(
-    `SELECT id, email, full_name, status, email_verified_at, created_at
-     FROM app.users WHERE id = $1`,
+    `SELECT u.id, u.email, u.full_name, u.status, u.email_verified_at, u.created_at,
+            COALESCE(g.account_type, 'buyer') AS account_type
+     FROM app.users u LEFT JOIN app.google_identities g ON g.user_id=u.id
+     WHERE u.id = $1`,
     [userId],
   );
   if (!userResult.rowCount)
@@ -88,6 +81,12 @@ async function createEmailToken(
 }
 
 async function register(input, meta) {
+  if (input.accountType === "seller")
+    throw new AppError(
+      403,
+      "SELLER_REVIEW_REQUIRED",
+      "Create a Buyer account, then submit a Seller access request for platform review",
+    );
   const email = input.email.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
   let verification;
@@ -100,20 +99,6 @@ async function register(input, meta) {
         [email, input.fullName.trim(), passwordHash],
       );
       const user = users.rows[0];
-      if (input.accountType === "seller") {
-        const baseSlug = slugify(input.organizationName);
-        const slug = `${baseSlug}-${user.id.slice(0, 6)}`;
-        const organizations = await client.query(
-          `INSERT INTO app.organizations(name, slug, created_by)
-           VALUES ($1, $2, $3) RETURNING id, name, slug`,
-          [input.organizationName.trim(), slug, user.id],
-        );
-        await client.query(
-          `INSERT INTO app.organization_memberships(organization_id, user_id, role, can_invite_staff)
-           VALUES ($1, $2, 'owner', TRUE)`,
-          [organizations.rows[0].id, user.id],
-        );
-      }
       verification = await createEmailToken(
         user.id,
         "verify_email",

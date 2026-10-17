@@ -22,14 +22,8 @@ async function createInvitation(req, res) {
     ),
   });
 }
-async function createOrganization(req, res) {
-  const input = z
-    .object({ name: z.string().trim().min(2).max(180) })
-    .strict()
-    .parse(req.body);
-  res.status(201).json({
-    data: await service.createOrganization(req.auth.sub, input.name, meta(req)),
-  });
+async function createOrganization() {
+  await service.createOrganization();
 }
 async function invitationDetails(req, res) {
   res.json({

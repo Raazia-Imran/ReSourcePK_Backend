@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: ReSource PK API
-  version: 1.2.0
-  description: Google/password authentication, organization access, and catalog contract.
+  version: 1.3.0
+  description: Google/password authentication, seller approval, organization access, and catalog contract.
 servers:
   - url: /api/v1
 paths:
@@ -23,7 +23,7 @@ paths:
           description: Cleanup could not complete; inspect the correlation ID in backend logs.
   /auth/register:
     post:
-      summary: Register a buyer or seller owner
+      summary: Register a Buyer account
       requestBody:
         required: true
         content:
@@ -35,6 +35,8 @@ paths:
           description: Account created; email verification required
         "409":
           $ref: "#/components/responses/Conflict"
+        "403":
+          description: Seller registration is disabled; use a Buyer account to request Seller access for platform review
         "422":
           $ref: "#/components/responses/Validation"
   /auth/verify-email:
@@ -94,6 +96,35 @@ paths:
       responses:
         "200":
           description: No-store response containing the nonce to pass into Google Identity Services
+        "503":
+          description: Google sign-in is not configured
+  /auth/google/seller:
+    post:
+      summary: Sign in or create a Seller applicant with a separate Google identity
+      description: First-time Seller entry requires organizationName and automatically queues an approval request. Google authentication alone does not grant Seller membership; approval creates the organization and Owner membership.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellerGoogleCredential"
+      responses:
+        "200":
+          description: Seller account session and current review context
+        "202":
+          description: Additional ReSource PK email verification is required
+        "401":
+          description: Invalid, expired, or unverified Google credential
+        "403":
+          description: Google identity is registered for the other account type
+        "409":
+          description: Existing account must authenticate and explicitly link Google
+  /auth/google/seller/nonce:
+    get:
+      summary: Issue a five-minute nonce dedicated to Seller Google sign-in
+      responses:
+        "200":
+          description: No-store response containing the Seller sign-in nonce
         "503":
           description: Google sign-in is not configured
   /auth/google/link:
@@ -191,11 +222,156 @@ paths:
           description: Current access context
         "401":
           description: Authentication required
+  /seller/requests:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Request Seller access for an existing verified Buyer account
+      description: Submitting a request does not grant organization membership or Seller permissions. A Platform Reviewer or Platform Admin must approve it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organizationName]
+              properties:
+                organizationName:
+                  type: string
+                  minLength: 2
+                  maxLength: 180
+              additionalProperties: false
+      responses:
+        "201":
+          description: Request queued for platform review
+        "401":
+          description: Authentication required
+        "403":
+          description: Active verified account required
+        "409":
+          description: Request already pending or Seller access already granted
+  /seller/requests/mine:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List the authenticated user's Seller access requests
+      responses:
+        "200":
+          description: Request history, including decision and reviewer note
+  /platform/seller-requests:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List Seller access requests for a Platform Reviewer or Platform Admin
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Request queue and review history
+        "403":
+          description: Platform Reviewer or Platform Admin access required
+  /platform/seller-requests/{requestId}/decision:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Approve or reject a pending Seller access request
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [approved, rejected]
+                reviewNote:
+                  type: string
+                  maxLength: 1000
+              additionalProperties: false
+      responses:
+        "200":
+          description: Request decided; approval creates an organization and Owner membership
+        "403":
+          description: Platform Reviewer or Platform Admin access required
+        "404":
+          description: Request not found
+        "409":
+          description: Request already reviewed or applicant unavailable
+  /platform/reviewers:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Grant Platform Reviewer role to an active verified account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+              additionalProperties: false
+      responses:
+        "201":
+          description: Reviewer role granted by a Platform Admin
+        "403":
+          description: Platform Admin access required
+        "404":
+          description: Active verified user not found
+  /platform/reviewers/{userId}:
+    delete:
+      security:
+        - bearerAuth: []
+      summary: Revoke Platform Reviewer role
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Reviewer role revoked by a Platform Admin
+        "403":
+          description: Platform Admin access required
+        "404":
+          description: Platform Reviewer not found
   /organizations:
     post:
       security:
         - bearerAuth: []
-      summary: Create a seller organization from an existing verified buyer account
+      summary: Retired direct organization creation endpoint
       requestBody:
         required: true
         content:
@@ -210,10 +386,8 @@ paths:
                   minLength: 2
                   maxLength: 180
       responses:
-        "201":
-          description: Organization created with current user as Owner
-        "409":
-          description: Account already owns a seller organization
+        "403":
+          description: Submit a Seller access request and wait for platform approval
   /organizations/{organizationId}/invitations:
     post:
       security: &id001
@@ -708,6 +882,26 @@ components:
           maxLength: 200
           description: The matching single-use nonce issued by this API and included in the verified Google ID token.
       additionalProperties: false
+    SellerGoogleCredential:
+      type: object
+      required: [credential, nonce]
+      properties:
+        credential:
+          type: string
+          minLength: 100
+          maxLength: 8192
+          description: Google Identity Services ID token; send only over HTTPS and never persist it.
+        nonce:
+          type: string
+          minLength: 32
+          maxLength: 200
+          description: The matching Seller-specific single-use nonce issued by this API.
+        organizationName:
+          type: string
+          minLength: 2
+          maxLength: 180
+          description: Required for first-time Seller registration; omitted for subsequent sign-ins.
+      additionalProperties: false
     ListingInput:
       type: object
       required:
@@ -828,26 +1022,6 @@ components:
             accountType:
               const: buyer
             fullName:
-              type: string
-            email:
-              type: string
-              format: email
-            password:
-              type: string
-              minLength: 10
-        - type: object
-          required:
-            - accountType
-            - fullName
-            - organizationName
-            - email
-            - password
-          properties:
-            accountType:
-              const: seller
-            fullName:
-              type: string
-            organizationName:
               type: string
             email:
               type: string

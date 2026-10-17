@@ -39,6 +39,9 @@ const googleCredentialSchema = z
     nonce: z.string().min(32).max(200),
   })
   .strict();
+const sellerGoogleCredentialSchema = googleCredentialSchema.extend({
+  organizationName: z.string().trim().min(2).max(180).optional(),
+});
 
 function requestMeta(req) {
   return {
@@ -94,7 +97,31 @@ async function googleLogin(req, res) {
     return res.status(202).json({
       data: {
         verificationRequired: true,
-        ...(result.emailDelivery ? { emailDelivery: result.emailDelivery } : {}),
+        ...(result.emailDelivery
+          ? { emailDelivery: result.emailDelivery }
+          : {}),
+      },
+    });
+  res.cookie("refresh_token", result.refreshToken, cookieOptions());
+  res.json({
+    data: { accessToken: result.accessToken, context: result.context },
+  });
+}
+async function googleSellerLogin(req, res) {
+  const input = sellerGoogleCredentialSchema.parse(req.body);
+  const result = await googleAuth.signIn(
+    input.credential,
+    input.nonce,
+    requestMeta(req),
+    { accountType: "seller", organizationName: input.organizationName },
+  );
+  if (result.verificationRequired)
+    return res.status(202).json({
+      data: {
+        verificationRequired: true,
+        ...(result.emailDelivery
+          ? { emailDelivery: result.emailDelivery }
+          : {}),
       },
     });
   res.cookie("refresh_token", result.refreshToken, cookieOptions());
@@ -116,6 +143,10 @@ async function linkGoogle(req, res) {
 async function googleNonce(req, res) {
   res.set("Cache-Control", "no-store");
   res.json({ data: { nonce: await googleAuth.createNonce("login") } });
+}
+async function googleSellerNonce(req, res) {
+  res.set("Cache-Control", "no-store");
+  res.json({ data: { nonce: await googleAuth.createNonce("seller_login") } });
 }
 async function googleLinkNonce(req, res) {
   res.set("Cache-Control", "no-store");
@@ -166,8 +197,10 @@ module.exports = {
   verifyEmail,
   login,
   googleLogin,
+  googleSellerLogin,
   linkGoogle,
   googleNonce,
+  googleSellerNonce,
   googleLinkNonce,
   refresh,
   logout,

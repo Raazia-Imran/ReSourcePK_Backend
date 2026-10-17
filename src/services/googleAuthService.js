@@ -70,8 +70,7 @@ async function verifiedProfile(credential, nonce) {
     subject: payload.sub,
     email,
     fullName,
-    emailAuthoritative:
-      email.endsWith("@gmail.com") || Boolean(payload.hd),
+    emailAuthoritative: email.endsWith("@gmail.com") || Boolean(payload.hd),
   };
 }
 
@@ -116,7 +115,10 @@ async function consumeNonce(runner, nonce, purpose, userId = null) {
   );
 }
 
-async function signIn(credential, nonce, meta) {
+async function signIn(credential, nonce, meta, options = {}) {
+  const sellerSignup = options.accountType === "seller";
+  const noncePurpose = sellerSignup ? "seller_login" : "login";
+  const organizationName = options.organizationName?.trim();
   const profile = await verifiedProfile(credential, nonce);
   const outcome = await transaction(async (runner) => {
     // Serialize first-time sign-ins for the same email so parallel callbacks
@@ -125,16 +127,29 @@ async function signIn(credential, nonce, meta) {
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
       [profile.email],
     );
-    await consumeNonce(runner, nonce, "login");
+    await consumeNonce(runner, nonce, noncePurpose);
     const identity = await runner.query(
-      `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at
+      `SELECT u.id,u.email,u.full_name,u.status,u.email_verified_at,g.account_type
        FROM app.google_identities g JOIN app.users u ON u.id=g.user_id
        WHERE g.google_subject=$1 FOR UPDATE OF u`,
       [profile.subject],
     );
     let user = identity.rows[0];
 
+    if (user && user.account_type !== (sellerSignup ? "seller" : "buyer"))
+      throw new AppError(
+        403,
+        "GOOGLE_ACCOUNT_TYPE_MISMATCH",
+        `This Google account is registered for ${user.account_type} sign-in`,
+      );
+
     if (!user) {
+      if (sellerSignup && !organizationName)
+        throw new AppError(
+          400,
+          "ORGANIZATION_NAME_REQUIRED",
+          "Organization name is required for first-time Seller sign-in",
+        );
       const existing = await runner.query(
         `SELECT id,email,full_name,status,email_verified_at
          FROM app.users WHERE email=$1 FOR UPDATE`,
@@ -160,13 +175,20 @@ async function signIn(credential, nonce, meta) {
       );
       user = created.rows[0];
       await runner.query(
-        "INSERT INTO app.google_identities(user_id,google_subject) VALUES($1,$2)",
-        [user.id, profile.subject],
+        `INSERT INTO app.google_identities(user_id,google_subject,account_type)
+         VALUES($1,$2,$3)`,
+        [user.id, profile.subject, sellerSignup ? "seller" : "buyer"],
       );
       await runner.query(
         `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
-         VALUES($1,'account.google_registered','user',$1,$2)`,
-        [user.id, meta.ip],
+         VALUES($1,$3,'user',$1,$2)`,
+        [
+          user.id,
+          meta.ip,
+          sellerSignup
+            ? "account.google_seller_registered"
+            : "account.google_registered",
+        ],
       );
       if (!profile.emailAuthoritative) {
         const verification = await auth.createEmailToken(
@@ -176,6 +198,37 @@ async function signIn(credential, nonce, meta) {
           runner,
         );
         return { verificationRequired: true, verification, user };
+      }
+    }
+
+    if (sellerSignup && organizationName) {
+      const membership = await runner.query(
+        `SELECT 1 FROM app.organization_memberships
+         WHERE user_id=$1 AND role='owner' LIMIT 1`,
+        [user.id],
+      );
+      if (!membership.rowCount) {
+        const currentRequest = await runner.query(
+          `SELECT status FROM app.seller_requests
+           WHERE user_id=$1 AND status IN ('pending','approved')
+           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+          [user.id],
+        );
+        if (
+          !currentRequest.rowCount ||
+          currentRequest.rows[0].status === "rejected"
+        ) {
+          const request = await runner.query(
+            `INSERT INTO app.seller_requests(user_id,organization_name)
+             VALUES($1,$2) RETURNING id`,
+            [user.id, organizationName],
+          );
+          await runner.query(
+            `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
+             VALUES($1,'seller_request.submitted','seller_request',$2,$3)`,
+            [user.id, request.rows[0].id, meta.ip],
+          );
+        }
       }
     }
 

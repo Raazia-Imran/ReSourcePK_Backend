@@ -22,25 +22,31 @@ async function loadContext(userId, runner = DEFAULT_QUERY_RUNNER) {
   if (!userResult.rowCount)
     throw new AppError(401, "UNAUTHORIZED", "Account not found");
 
-  const [memberships, platformRoles] = await Promise.all([
-    runner.query(
-      `SELECT m.organization_id, o.name AS organization_name, o.slug, m.role, m.can_invite_staff,
+  const [memberships, platformAssignments, platformPermissions] =
+    await Promise.all([
+      runner.query(
+        `SELECT m.organization_id, o.name AS organization_name, o.slug, m.role, m.can_invite_staff,
        COALESCE((SELECT array_agg(p.permission) FROM app.organization_membership_permissions p WHERE p.membership_id=m.id), ARRAY[]::TEXT[]) AS permissions
        FROM app.organization_memberships m
        JOIN app.organizations o ON o.id = m.organization_id
        WHERE m.user_id = $1 AND m.status = 'active' AND o.status = 'active'
        ORDER BY o.name`,
-      [userId],
-    ),
-    runner.query(
-      "SELECT role FROM app.platform_assignments WHERE user_id = $1",
-      [userId],
-    ),
-  ]);
+        [userId],
+      ),
+      runner.query(
+        "SELECT role FROM app.platform_assignments WHERE user_id = $1",
+        [userId],
+      ),
+      runner.query(
+        "SELECT permission FROM app.platform_reviewer_permissions WHERE user_id = $1 ORDER BY permission",
+        [userId],
+      ),
+    ]);
   return {
     user: userResult.rows[0],
     memberships: memberships.rows,
-    platformRoles: platformRoles.rows.map((row) => row.role),
+    platformRoles: platformAssignments.rows.map((row) => row.role),
+    platformPermissions: platformPermissions.rows.map((row) => row.permission),
   };
 }
 

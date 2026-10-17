@@ -21,11 +21,33 @@ router.post(
   limiter,
   controller.decide,
 );
+router.get(
+  "/platform/reviewer-invitations/details",
+  limiter,
+  controller.reviewerInvitationDetails,
+);
+router.post(
+  "/platform/reviewer-invitations/accept-new",
+  limiter,
+  controller.acceptReviewerInvitationNew,
+);
+router.post(
+  "/platform/reviewer-invitations/accept",
+  requireAuth,
+  limiter,
+  controller.acceptReviewerInvitationExisting,
+);
+router.put(
+  "/platform/reviewers/:userId/permissions",
+  requireAuth,
+  limiter,
+  controller.setReviewerPermissions,
+);
 router.post(
   "/platform/reviewers",
   requireAuth,
   limiter,
-  controller.assignReviewer,
+  controller.inviteReviewer,
 );
 router.delete(
   "/platform/reviewers/:userId",

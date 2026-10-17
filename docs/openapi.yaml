@@ -262,7 +262,7 @@ paths:
     get:
       security:
         - bearerAuth: []
-      summary: List Seller access requests for a Platform Reviewer or Platform Admin
+      summary: List Seller access requests for a Reviewer with seller_requests.review or a Platform Admin
       parameters:
         - in: query
           name: status
@@ -287,7 +287,7 @@ paths:
         "200":
           description: Request queue and review history
         "403":
-          description: Platform Reviewer or Platform Admin access required
+          description: seller_requests.review permission or Platform Admin access required
   /platform/seller-requests/{requestId}/decision:
     post:
       security:
@@ -319,7 +319,7 @@ paths:
         "200":
           description: Request decided; approval creates an organization and Owner membership
         "403":
-          description: Platform Reviewer or Platform Admin access required
+          description: seller_requests.review permission or Platform Admin access required
         "404":
           description: Request not found
         "409":
@@ -328,7 +328,7 @@ paths:
     post:
       security:
         - bearerAuth: []
-      summary: Grant Platform Reviewer role to an active verified account
+      summary: Invite a Platform Reviewer and grant selected permissions
       requestBody:
         required: true
         content:
@@ -340,14 +340,104 @@ paths:
                 email:
                   type: string
                   format: email
+                permissions:
+                  type: array
+                  uniqueItems: true
+                  default: []
+                  items:
+                    type: string
+                    enum: [seller_requests.review, listings.review]
               additionalProperties: false
       responses:
         "201":
-          description: Reviewer role granted by a Platform Admin
+          description: Invitation emailed by a Platform Admin; permissions take effect after acceptance
+        "403":
+          description: Platform Admin access required
+  /platform/reviewer-invitations/accept-new:
+    post:
+      summary: Create an account and accept a Platform Reviewer invitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, fullName, password]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 200 }
+                fullName: { type: string, minLength: 2, maxLength: 120 }
+                password: { type: string, minLength: 10, maxLength: 72 }
+              additionalProperties: false
+      responses:
+        "201":
+          description: Reviewer account created and invited permissions activated
+        "400":
+          description: Invitation is invalid or expired
+  /platform/reviewer-invitations/details:
+    get:
+      summary: Read the email and permissions attached to a Reviewer invitation
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 32, maxLength: 200 }
+      responses:
+        "200":
+          description: Invitation details
+        "400":
+          description: Invitation is invalid or expired
+  /platform/reviewer-invitations/accept:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Accept a Platform Reviewer invitation for the signed-in verified email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 200 }
+              additionalProperties: false
+      responses:
+        "200":
+          description: Reviewer assignment and invited permissions activated
+        "403":
+          description: Signed-in verified email does not match the invitation
+  /platform/reviewers/{userId}/permissions:
+    put:
+      security:
+        - bearerAuth: []
+      summary: Replace a Reviewer's platform permissions
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              properties:
+                permissions:
+                  type: array
+                  uniqueItems: true
+                  items:
+                    type: string
+                    enum: [seller_requests.review, listings.review]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Permissions replaced by a Platform Admin
         "403":
           description: Platform Admin access required
         "404":
-          description: Active verified user not found
+          description: Platform Reviewer not found
   /platform/reviewers/{userId}:
     delete:
       security:

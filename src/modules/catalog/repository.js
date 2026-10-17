@@ -16,7 +16,12 @@ async function sellerRole(user, org, runner = db) {
 }
 async function isReviewer(user, runner = db) {
   const result = await runner.query(
-    `SELECT 1 FROM app.platform_assignments p JOIN app.users u ON u.id=p.user_id WHERE p.user_id=$1 AND p.role='platform_admin' AND u.status='active' AND u.email_verified_at IS NOT NULL FOR SHARE OF p,u`,
+    `SELECT 1 FROM app.platform_assignments p JOIN app.users u ON u.id=p.user_id
+     WHERE p.user_id=$1 AND p.role='platform_admin' AND u.status='active' AND u.email_verified_at IS NOT NULL
+     UNION ALL
+     SELECT 1 FROM app.platform_assignments p JOIN app.platform_reviewer_permissions rp ON rp.user_id=p.user_id
+     JOIN app.users u ON u.id=p.user_id WHERE p.user_id=$1 AND p.role='platform_reviewer'
+       AND rp.permission='listings.review' AND u.status='active' AND u.email_verified_at IS NOT NULL LIMIT 1`,
     [user],
   );
   return result.rowCount > 0;

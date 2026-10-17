@@ -1,5 +1,29 @@
 const { query, transaction } = require("../db");
 const { AppError } = require("../lib/errors");
+const bcrypt = require("bcryptjs");
+const { env } = require("../config/env");
+const { randomToken, hashToken } = require("../lib/tokens");
+const { deliverEmail } = require("../email/deliveryService");
+const { organizationInviteEmail } = require("../email/templates");
+const { requirePlatformPermission } = require("./platformAccessService");
+
+const PLATFORM_PERMISSIONS = new Set([
+  "seller_requests.review",
+  "listings.review",
+]);
+
+function normalizePlatformPermissions(permissions = []) {
+  if (
+    !Array.isArray(permissions) ||
+    permissions.some((permission) => !PLATFORM_PERMISSIONS.has(permission))
+  )
+    throw new AppError(
+      400,
+      "INVALID_PLATFORM_PERMISSIONS",
+      "Unsupported Reviewer permission",
+    );
+  return [...new Set(permissions)];
+}
 
 function slugify(value) {
   return (
@@ -83,26 +107,19 @@ async function mine(userId) {
   return result.rows;
 }
 
-async function requireReviewer(userId, runner = { query }) {
-  const result = await runner.query(
-    `SELECT 1 FROM app.platform_assignments p
-     JOIN app.users u ON u.id=p.user_id
-     WHERE p.user_id=$1 AND p.role IN ('platform_admin','platform_reviewer')
-       AND u.status='active' AND u.email_verified_at IS NOT NULL`,
-    [userId],
-  );
-  if (!result.rowCount)
-    throw new AppError(
-      403,
-      "PLATFORM_REVIEW_ACCESS_REQUIRED",
-      "Platform Reviewer or Platform Admin access is required",
-    );
+async function requireReviewer(
+  userId,
+  runner = { query },
+  permission = "seller_requests.review",
+) {
+  await requirePlatformPermission(userId, permission, runner);
 }
 
 async function list(userId, { status = "pending", limit = 50, offset = 0 }) {
-  await requireReviewer(userId);
-  const result = await query(
-    `SELECT r.id,r.user_id,u.full_name AS applicant_name,u.email AS applicant_email,
+  return transaction(async (runner) => {
+    await requireReviewer(userId, runner);
+    const result = await runner.query(
+      `SELECT r.id,r.user_id,u.full_name AS applicant_name,u.email AS applicant_email,
             r.organization_name,r.status,r.reviewed_by,reviewer.full_name AS reviewer_name,
             r.review_note,r.organization_id,r.created_at,r.reviewed_at
      FROM app.seller_requests r
@@ -111,9 +128,10 @@ async function list(userId, { status = "pending", limit = 50, offset = 0 }) {
      WHERE ($1::text='all' OR r.status=$1::varchar)
      ORDER BY CASE WHEN r.status='pending' THEN 0 ELSE 1 END,r.created_at DESC,r.id DESC
      LIMIT $2 OFFSET $3`,
-    [status, limit, offset],
-  );
-  return result.rows;
+      [status, limit, offset],
+    );
+    return result.rows;
+  });
 }
 
 async function decide(reviewerId, requestId, decision, reviewNote, meta) {
@@ -198,8 +216,11 @@ async function decide(reviewerId, requestId, decision, reviewNote, meta) {
   });
 }
 
-async function assignReviewer(adminId, email) {
-  return transaction(async (runner) => {
+async function inviteReviewer(adminId, email, permissions) {
+  const grants = normalizePlatformPermissions(permissions);
+  const normalizedEmail = email.trim().toLowerCase();
+  const token = randomToken();
+  const invitation = await transaction(async (runner) => {
     const admin = await runner.query(
       `SELECT 1 FROM app.platform_assignments p JOIN app.users u ON u.id=p.user_id
        WHERE p.user_id=$1 AND p.role='platform_admin' AND u.status='active'
@@ -210,30 +231,222 @@ async function assignReviewer(adminId, email) {
       throw new AppError(
         403,
         "PLATFORM_ADMIN_REQUIRED",
-        "Platform Admin access is required to assign reviewers",
+        "Platform Admin access is required to invite reviewers",
       );
-    const user = await runner.query(
-      `SELECT id FROM app.users WHERE email=$1 AND status='active' AND email_verified_at IS NOT NULL FOR UPDATE`,
-      [email.trim().toLowerCase()],
+    const existing = await runner.query(
+      "SELECT id FROM app.users WHERE email=$1",
+      [normalizedEmail],
     );
-    if (!user.rowCount)
+    if (existing.rowCount) {
+      const assigned = await runner.query(
+        "SELECT 1 FROM app.platform_assignments WHERE user_id=$1 AND role='platform_reviewer'",
+        [existing.rows[0].id],
+      );
+      if (assigned.rowCount)
+        throw new AppError(
+          409,
+          "PLATFORM_REVIEWER_EXISTS",
+          "This account is already a Platform Reviewer; update its permissions instead",
+        );
+    }
+    await runner.query(
+      `UPDATE app.platform_reviewer_invitations SET revoked_at=NOW()
+       WHERE email=$1 AND accepted_at IS NULL AND revoked_at IS NULL`,
+      [normalizedEmail],
+    );
+    const created = await runner.query(
+      `INSERT INTO app.platform_reviewer_invitations(email,permissions,token_hash,invited_by,expires_at)
+       VALUES($1,$2,$3,$4,NOW()+INTERVAL '72 hours') RETURNING id`,
+      [normalizedEmail, grants, hashToken(token), adminId],
+    );
+    await runner.query(
+      `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,reason)
+       VALUES($1,'platform_reviewer.invited','platform_reviewer_invitation',$2,$3)`,
+      [adminId, created.rows[0].id, grants.join(",")],
+    );
+    return created.rows[0];
+  });
+  const url = `${env.APP_URL}/accept-platform-invitation?token=${encodeURIComponent(token)}`;
+  await deliverEmail({
+    eventKey: `platform-reviewer-invite:${invitation.id}`,
+    recipient: normalizedEmail,
+    template: "platform_reviewer_invite",
+    message: organizationInviteEmail({
+      organizationName: "ReSource PK Platform",
+      inviterName: "A ReSource PK Platform Admin",
+      role: `Platform Reviewer (${grants.join(", ") || "no permissions yet"})`,
+      url,
+    }),
+  });
+  return {
+    id: invitation.id,
+    email: normalizedEmail,
+    permissions: grants,
+    expiresInHours: 72,
+  };
+}
+
+async function acceptReviewerInvitationNew(token, fullName, password) {
+  const passwordHash = await bcrypt.hash(password, 12);
+  return transaction(async (runner) => {
+    const result = await runner.query(
+      `SELECT * FROM app.platform_reviewer_invitations
+       WHERE token_hash=$1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>NOW() FOR UPDATE`,
+      [hashToken(token)],
+    );
+    if (!result.rowCount)
+      throw new AppError(
+        400,
+        "INVALID_OR_EXPIRED_INVITATION",
+        "Invitation is invalid or expired",
+      );
+    const invite = result.rows[0];
+    const existing = await runner.query(
+      "SELECT id FROM app.users WHERE email=$1",
+      [invite.email],
+    );
+    if (existing.rowCount)
+      throw new AppError(
+        409,
+        "ACCOUNT_EXISTS",
+        "Sign in with the invited email and accept this invitation",
+      );
+    const users = await runner.query(
+      "INSERT INTO app.users(email,full_name,password_hash,status,email_verified_at) VALUES($1,$2,$3,'active',NOW()) RETURNING id",
+      [invite.email, fullName.trim(), passwordHash],
+    );
+    await grantReviewer(
+      runner,
+      users.rows[0].id,
+      invite.invited_by,
+      invite.permissions,
+    );
+    await runner.query(
+      "UPDATE app.platform_reviewer_invitations SET accepted_at=NOW() WHERE id=$1",
+      [invite.id],
+    );
+    await runner.query(
+      "INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,reason) VALUES($1,'platform_reviewer.invitation_accepted','platform_reviewer_invitation',$2,$3)",
+      [users.rows[0].id, invite.id, invite.permissions.join(",")],
+    );
+    return {
+      accepted: true,
+      email: invite.email,
+      permissions: invite.permissions,
+    };
+  });
+}
+
+async function reviewerInvitationDetails(token) {
+  const result = await query(
+    `SELECT email,permissions,expires_at FROM app.platform_reviewer_invitations
+     WHERE token_hash=$1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>NOW()`,
+    [hashToken(token)],
+  );
+  if (!result.rowCount)
+    throw new AppError(
+      400,
+      "INVALID_OR_EXPIRED_INVITATION",
+      "Invitation is invalid or expired",
+    );
+  return result.rows[0];
+}
+
+async function acceptReviewerInvitationExisting(userId, token) {
+  return transaction(async (runner) => {
+    const result = await runner.query(
+      `SELECT * FROM app.platform_reviewer_invitations
+       WHERE token_hash=$1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at>NOW() FOR UPDATE`,
+      [hashToken(token)],
+    );
+    if (!result.rowCount)
+      throw new AppError(
+        400,
+        "INVALID_OR_EXPIRED_INVITATION",
+        "Invitation is invalid or expired",
+      );
+    const invite = result.rows[0];
+    const user = await runner.query(
+      "SELECT email,status,email_verified_at FROM app.users WHERE id=$1 FOR UPDATE",
+      [userId],
+    );
+    if (
+      !user.rowCount ||
+      user.rows[0].email.toLowerCase() !== invite.email.toLowerCase() ||
+      user.rows[0].status !== "active" ||
+      !user.rows[0].email_verified_at
+    )
+      throw new AppError(
+        403,
+        "INVITATION_EMAIL_MISMATCH",
+        "Sign in with the invited, verified email address",
+      );
+    await grantReviewer(runner, userId, invite.invited_by, invite.permissions);
+    await runner.query(
+      "UPDATE app.platform_reviewer_invitations SET accepted_at=NOW() WHERE id=$1",
+      [invite.id],
+    );
+    await runner.query(
+      "INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,reason) VALUES($1,'platform_reviewer.invitation_accepted','platform_reviewer_invitation',$2,$3)",
+      [userId, invite.id, invite.permissions.join(",")],
+    );
+    return { accepted: true, permissions: invite.permissions };
+  });
+}
+
+async function grantReviewer(runner, userId, grantedBy, permissions) {
+  await runner.query(
+    "INSERT INTO app.platform_assignments(user_id,role,granted_by) VALUES($1,'platform_reviewer',$2) ON CONFLICT(user_id,role) DO NOTHING",
+    [userId, grantedBy],
+  );
+  await runner.query(
+    "DELETE FROM app.platform_reviewer_permissions WHERE user_id=$1",
+    [userId],
+  );
+  for (const permission of normalizePlatformPermissions(permissions))
+    await runner.query(
+      "INSERT INTO app.platform_reviewer_permissions(user_id,permission,granted_by) VALUES($1,$2,$3)",
+      [userId, permission, grantedBy],
+    );
+}
+
+async function setReviewerPermissions(adminId, userId, permissions) {
+  const grants = normalizePlatformPermissions(permissions);
+  return transaction(async (runner) => {
+    const admin = await runner.query(
+      "SELECT 1 FROM app.platform_assignments p JOIN app.users u ON u.id=p.user_id WHERE p.user_id=$1 AND p.role='platform_admin' AND u.status='active' AND u.email_verified_at IS NOT NULL FOR SHARE OF p,u",
+      [adminId],
+    );
+    if (!admin.rowCount)
+      throw new AppError(
+        403,
+        "PLATFORM_ADMIN_REQUIRED",
+        "Platform Admin access is required",
+      );
+    const reviewer = await runner.query(
+      "SELECT 1 FROM app.platform_assignments WHERE user_id=$1 AND role='platform_reviewer' FOR UPDATE",
+      [userId],
+    );
+    if (!reviewer.rowCount)
       throw new AppError(
         404,
-        "ACTIVE_USER_NOT_FOUND",
-        "An active verified account with that email was not found",
+        "PLATFORM_REVIEWER_NOT_FOUND",
+        "That account does not have Platform Reviewer access",
       );
     await runner.query(
-      `INSERT INTO app.platform_assignments(user_id,role,granted_by)
-       VALUES($1,'platform_reviewer',$2)
-       ON CONFLICT(user_id,role) DO NOTHING`,
-      [user.rows[0].id, adminId],
+      "DELETE FROM app.platform_reviewer_permissions WHERE user_id=$1",
+      [userId],
     );
+    for (const permission of grants)
+      await runner.query(
+        "INSERT INTO app.platform_reviewer_permissions(user_id,permission,granted_by) VALUES($1,$2,$3)",
+        [userId, permission, adminId],
+      );
     await runner.query(
-      `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id)
-       VALUES($1,'platform_reviewer.assigned','user',$2)`,
-      [adminId, user.rows[0].id],
+      "INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,reason) VALUES($1,'platform_reviewer.permissions_updated','user',$2,$3)",
+      [adminId, userId, grants.join(",")],
     );
-    return { userId: user.rows[0].id, role: "platform_reviewer" };
+    return { userId, role: "platform_reviewer", permissions: grants };
   });
 }
 
@@ -276,6 +489,10 @@ module.exports = {
   mine,
   list,
   decide,
-  assignReviewer,
   revokeReviewer,
+  inviteReviewer,
+  acceptReviewerInvitationNew,
+  reviewerInvitationDetails,
+  acceptReviewerInvitationExisting,
+  setReviewerPermissions,
 };

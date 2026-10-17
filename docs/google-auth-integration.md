@@ -6,7 +6,7 @@
 - A first-time Google sign-in creates the person's account. The Seller entry point requires an organization name when the user has no pending request or approved Seller membership, and creates a pending request. Gmail addresses and Google Workspace addresses with a verified hosted-domain claim can use Google's verified email status; other addresses must also complete ReSource PK email verification before a session is issued.
 - Google sign-in never grants organization membership, seller approval, Manager/Staff access, Platform Reviewer access, or Platform Admin access.
 - Seller Google sign-in does not grant Seller access. A Platform Reviewer or Platform Admin must approve the request, which creates the organization and Owner membership on the same user while retaining Buyer access. Existing authenticated accounts may also submit through `POST /api/v1/seller/requests`.
-- Platform Admins can list all requests, approve/reject requests, and grant/revoke Platform Reviewer role through the `/api/v1/platform/...` endpoints.
+- Platform Admins can review seller requests and listings, invite Reviewers, assign or replace the `seller_requests.review` and `listings.review` grants, and revoke Reviewer assignments through the `/api/v1/platform/...` endpoints.
 - Existing password accounts must sign in first and explicitly link Google. Email equality alone never merges accounts.
 
 ## Google Cloud and environment setup

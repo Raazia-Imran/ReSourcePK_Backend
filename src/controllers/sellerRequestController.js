@@ -1,5 +1,6 @@
 const { z } = require("zod");
 const service = require("../services/sellerRequestService");
+const { strongPassword } = require("../lib/password");
 
 const requestBody = z
   .object({ organizationName: z.string().trim().min(2).max(180) })
@@ -17,6 +18,29 @@ const decisionBody = z
   );
 const uuid = z.string().uuid();
 const emailBody = z.object({ email: z.string().email().max(254) }).strict();
+const reviewerPermissions = z
+  .object({
+    permissions: z
+      .array(z.enum(["seller_requests.review", "listings.review"]))
+      .max(2),
+  })
+  .strict();
+const reviewerInviteBody = emailBody.extend({
+  permissions: z
+    .array(z.enum(["seller_requests.review", "listings.review"]))
+    .max(2)
+    .default([]),
+});
+const reviewerAcceptNewBody = z
+  .object({
+    token: z.string().min(32).max(200),
+    fullName: z.string().trim().min(2).max(120),
+    password: strongPassword,
+  })
+  .strict();
+const invitationToken = z
+  .object({ token: z.string().min(32).max(200) })
+  .strict();
 const querySchema = z
   .object({
     status: z
@@ -62,11 +86,50 @@ async function decide(req, res) {
   });
 }
 
-async function assignReviewer(req, res) {
+async function inviteReviewer(req, res) {
+  const body = reviewerInviteBody.parse(req.body);
   res.status(201).json({
-    data: await service.assignReviewer(
+    data: await service.inviteReviewer(
       req.auth.sub,
-      emailBody.parse(req.body).email,
+      body.email,
+      body.permissions,
+    ),
+  });
+}
+
+async function acceptReviewerInvitationNew(req, res) {
+  const body = reviewerAcceptNewBody.parse(req.body);
+  res.status(201).json({
+    data: await service.acceptReviewerInvitationNew(
+      body.token,
+      body.fullName,
+      body.password,
+    ),
+  });
+}
+
+async function reviewerInvitationDetails(req, res) {
+  const token = z.string().min(32).max(200).parse(req.query.token);
+  res.json({ data: await service.reviewerInvitationDetails(token) });
+}
+
+async function acceptReviewerInvitationExisting(req, res) {
+  const body = invitationToken.parse(req.body);
+  res.json({
+    data: await service.acceptReviewerInvitationExisting(
+      req.auth.sub,
+      body.token,
+    ),
+  });
+}
+
+async function setReviewerPermissions(req, res) {
+  const body = reviewerPermissions.parse(req.body);
+  res.json({
+    data: await service.setReviewerPermissions(
+      req.auth.sub,
+      uuid.parse(req.params.userId),
+      body.permissions,
     ),
   });
 }
@@ -80,4 +143,15 @@ async function revokeReviewer(req, res) {
   });
 }
 
-module.exports = { submit, mine, list, decide, assignReviewer, revokeReviewer };
+module.exports = {
+  submit,
+  mine,
+  list,
+  decide,
+  revokeReviewer,
+  inviteReviewer,
+  acceptReviewerInvitationNew,
+  reviewerInvitationDetails,
+  acceptReviewerInvitationExisting,
+  setReviewerPermissions,
+};

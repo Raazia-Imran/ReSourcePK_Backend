@@ -22,9 +22,9 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 ### Seller onboarding review
 
 - **FR-SELLER-01:** An active verified Buyer can submit a Seller access request with an organization name and view their own request history. A pending request grants no organization membership or Seller permissions.
-- **FR-SELLER-02:** Only active, verified Platform Reviewers and Platform Admins can list requests and approve or reject pending requests. Rejection requires a review note; decisions are audited and cannot be applied twice.
+- **FR-SELLER-02:** Only active, verified Platform Admins and Reviewers granted `seller_requests.review` can list requests and approve or reject pending requests. Rejection requires a review note; decisions are audited and cannot be applied twice.
 - **FR-SELLER-03:** Approval atomically creates the requested organization and Owner membership for the applicant while preserving Buyer capability. Direct seller registration and direct organization creation must not bypass approval.
-- **FR-SELLER-04:** Platform Admins can grant and revoke Platform Reviewer access for an active, verified account. Admins can review requests themselves.
+- **FR-SELLER-04:** Platform Admins invite Reviewers by email and assign or replace their `seller_requests.review` and/or `listings.review` grants. Invites are one-time, email-bound and expire after 72 hours. Admins can review requests and listings themselves; Reviewer management remains Admin-only.
 
 ### Organizations and users
 

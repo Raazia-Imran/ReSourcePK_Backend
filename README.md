@@ -24,8 +24,10 @@ Start with [the documentation index](docs/README.md), then read [PRD](docs/prd.m
 
 The API contract is in `docs/openapi.yaml`. Applied migrations are immutable; add a new numbered migration for every schema change.
 
+For a concise implemented-versus-planned feature list, see [Current Features and Scope](docs/current-features.md).
+
 ## Current catalog verification
 
-Read [Week 2 setup and verification](docs/verification-week-2.md), [delivery status](docs/delivery-status.md) and [catalog ADR 004](docs/adr/004-catalog-completion.md). The catalog slice uses migrations 004–005; Google authentication adds migration 006. Coordinated deployment is required; previous sessions must sign in again. Image storage and synthetic seed are explicit optional configuration, not hardcoded data.
+Read [Week 2 setup and verification](docs/verification-week-2.md), [delivery status](docs/delivery-status.md) and [catalog ADR 004](docs/adr/004-catalog-completion.md). Numbered migrations 004–012 add catalog, auth, Staff grants, and Reviewer invitations/permissions. Run `npm run db:migrate` to apply pending migrations. Coordinated deployment is required; previous sessions may need to sign in again after auth changes. Image storage and synthetic seed are explicit optional configuration, not hardcoded data.
 
 Latest scope and API/UI coordination: [Week 2 acceptance ADR 005](docs/adr/005-week-2-acceptance.md).

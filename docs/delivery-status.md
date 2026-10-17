@@ -1,4 +1,12 @@
-# Delivery status — 11 October 2026
+# Delivery status — 17 October 2026
+
+## Latest feature boundary — 17 October 2026
+
+The backend now has separate Buyer/Seller Google sign-in entry points for one canonical account, Seller request and approval, organization invitations, Staff listing grants, and invited Platform Reviewers with configurable `seller_requests.review`/`listings.review` permissions. Platform Admins retain both review capabilities. See [Current Features and Scope](current-features.md) for behavior and agreed decisions.
+
+Migrations 011 and 012 implement the Staff and Reviewer permission models. CI recently exposed a PostgreSQL migration failure at the Reviewer invitation email type; migration 012 was corrected to use normalized `TEXT`. Local lint, formatting and diff checks pass, but the migration has not yet been rerun against the isolated CI database after that correction. Apply pending migrations with `npm run db:migrate` and confirm CI before treating this slice as verified.
+
+Group orders, reservations, checkout/payment, order-linked reviews, and platform traffic/organization/staff analytics are not implemented. The agreed group payment timing and deadline decision are recorded in [Current Features and Scope](current-features.md). Delivery management is outside ReSource PK's current scope.
 
 ## Google Sign-In implementation slice — 16 October 2026
 

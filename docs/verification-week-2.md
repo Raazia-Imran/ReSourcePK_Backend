@@ -110,24 +110,24 @@ Images are optional configuration; text catalog works without storage. Unconfigu
 
 1. In backend `.env`, set all three: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LISTING_IMAGE_BUCKET` (for example, `listing-images`).
 2. Run `npm run storage:setup`. It creates a private bucket restricted to WebP and 5 MB, or checks an existing compatible bucket. Do not make it public or add browser upload/read policies.
-3. Restart the backend. Owner/Manager → seller draft card → **Manage listing images** → choose JPEG/PNG/WebP and write an image description → **Upload image**.
+3. Restart the backend. Owner/Manager, or Staff granted `listings.manage` → seller draft card → **Manage listing images** → choose JPEG/PNG/WebP and write an image description → **Upload image**.
 4. Expect up to eight images per listing, 5 MB per file and 16 megapixels. SVG, animated/corrupt images and oversize input must fail. Stored output is resized WebP without metadata.
 5. Image removal queues the object for cleanup. Run `npm run storage:cleanup` to process up to twenty jobs older than two minutes; failed jobs remain retryable. Pre-upload recovery survives provider timeouts; locked jobs prevent cleanup racing a live upload. Schedule this command on your hosting worker before production.
 
 ## 7. Verify the features in the browser
 
-| Journey       | Steps                                                                                                             | Expected result                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Seller draft  | Sign in as Owner; create a draft, fill optional metadata, add increasing tier thresholds and nonincreasing prices | Draft appears only in seller inventory                                                          |
-| Edit conflict | Open the same draft in two tabs; save in one, then save stale version in the other                                | Second save receives 409; reload and edit current stock                                         |
-| Images        | Upload allowed raster with description; try SVG and corrupt file                                                  | Real image appears; unsafe files are rejected                                                   |
-| Moderation    | Submit draft; sign in as demo reviewer or provisioned Platform Admin; write reason; publish or reject             | Pending stock is private; published stock enters discovery; rejection note is visible to seller |
-| Discovery     | Search keyword/material, sort price, move between pages                                                           | Only published stock from active organizations; metadata and tier table come from API           |
-| Requirement   | Buyer posts matching material/unit/quantity; view matches; pause; resume; close                                   | Tier-aware price explanation; pause hides matching; closed cannot reopen                        |
-| Archive       | Seller card → archive section → confirm archive                                                                   | Stock disappears from public search/detail/matches; audit/history remains                       |
-| Factory sheet | Download template; put data on first worksheet; upload CSV/XLSX; fix row errors; confirm import                   | Drafts only; up to 100 rows/2 MB; reusing same key does not duplicate stock                     |
-| Role boundary | Use Staff or another organization's account to attempt seller operation                                           | 403; changing organization IDs does not grant access                                            |
-| Logout/reset  | Keep a protected page open, logout or reset password, retry old session                                           | Old access is rejected; sign in again                                                           |
+| Journey       | Steps                                                                                                             | Expected result                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Seller draft  | Sign in as Owner; create a draft, fill optional metadata, add increasing tier thresholds and nonincreasing prices | Draft appears only in seller inventory                                                             |
+| Edit conflict | Open the same draft in two tabs; save in one, then save stale version in the other                                | Second save receives 409; reload and edit current stock                                            |
+| Images        | Upload allowed raster with description; try SVG and corrupt file                                                  | Real image appears; unsafe files are rejected                                                      |
+| Moderation    | Submit draft; sign in as Platform Admin or Reviewer granted `listings.review`; write reason; publish or reject    | Pending stock is private; published stock enters discovery; rejection note is visible to seller    |
+| Discovery     | Search keyword/material, sort price, move between pages                                                           | Only published stock from active organizations; metadata and tier table come from API              |
+| Requirement   | Buyer posts matching material/unit/quantity; view matches; pause; resume; close                                   | Tier-aware price explanation; pause hides matching; closed cannot reopen                           |
+| Archive       | Seller card → archive section → confirm archive                                                                   | Stock disappears from public search/detail/matches; audit/history remains                          |
+| Factory sheet | Download template; put data on first worksheet; upload CSV/XLSX; fix row errors; confirm import                   | Drafts only; up to 100 rows/2 MB; reusing same key does not duplicate stock                        |
+| Role boundary | Try Staff with no grants, `listings.view` only, and `listings.manage`; then try another organization              | Staff can perform only granted listing operations; changing organization IDs does not grant access |
+| Logout/reset  | Keep a protected page open, logout or reset password, retry old session                                           | Old access is rejected; sign in again                                                              |
 
 Use separate browser profiles for Buyer, Seller and Reviewer. Check 360, 390, 768, 1024, 1280 and 1440 px; keyboard focus, image descriptions, zoom, errors and reduced motion. Record failures instead of considering a build proof of visual acceptance.
 
@@ -139,7 +139,7 @@ Database integration tests require a separate local `resourcepk_test_*` PostgreS
 
 GitHub main protection still requires repository admin settings: require PRs and the named CI/secret jobs before merge; disallow force pushes/deletion. The connector cannot administer that setting. For a sole owner, choose a review rule you can actually satisfy; do not merge someone else's branch to satisfy a count.
 
-Before Week 3: hosted signup/invite tests, real image roundtrip, seller→reviewer→buyer journey on mobile/desktop, scheduled cleanup and documented platform provisioning. Later: pools/payments/ledger (Week 3), fulfilment/passports/analytics/reports (Week 4), and load/accessibility/recovery/release checks (Week 5). See `delivery-status.md` for task-by-task evidence.
+Remaining: hosted signup/invite tests, real image roundtrip, seller→reviewer→buyer journey on mobile/desktop, scheduled cleanup and documented platform provisioning. Group orders, post-confirmation payments and the seller's deadline choice are planned; order delivery remains outside platform scope. Passports and platform activity analytics are not implemented. See `current-features.md` and `delivery-status.md` for the current feature boundary.
 
 ## 9. Run isolated browser acceptance
 

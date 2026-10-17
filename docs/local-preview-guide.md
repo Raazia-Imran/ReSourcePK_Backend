@@ -69,7 +69,7 @@ npm run format:check
 npm run dev
 ```
 
-Migration files 001, 002 and 003 create the identity, organization and catalog model. The runner records applied filenames in `app.schema_migrations`; running it again skips recorded migrations. Do not run the old `src/db/schema.sql` from a legacy branch.
+The numbered migrations create and extend the identity, organization, catalog, authentication, Staff-permission, and Reviewer-permission models. The runner records applied filenames in `app.schema_migrations`; running it again skips recorded migrations. Do not run the old `src/db/schema.sql` from a legacy branch. Migrations 011 and 012 add the latest Staff and Reviewer permissions; apply them with `npm run db:migrate` before exercising those flows.
 
 Visit `http://localhost:5000/health`: expect `{"status":"ok"}`. Visit `http://localhost:5000/ready`: expect a successful database readiness response. A working health check alone does not confirm database access.
 
@@ -109,11 +109,11 @@ The frontend `.env` should contain `VITE_API_URL=http://localhost:5000/api/v1`. 
 1. **Public page:** inspect hero, story, navigation and catalog. Resize to phone, tablet and desktop widths. Empty catalog is valid until a listing is published.
 2. **Validation:** try registration with a short password. Expect a useful error; no account should be created for invalid input. Password visibility controls should work.
 3. **Buyer registration:** register using an email inbox you control. Open its verification email, verify, then sign in and enter the workspace. Reusing a consumed verification link must not verify another account.
-4. **Seller onboarding:** sign in with the existing Buyer Google account, submit an organization name through the Seller entry point/request endpoint, and confirm the request is pending. After a Reviewer/Admin approves it, the same account should have its original Buyer access plus the Seller organization workspace. A different Google account is not required for the same person to hold both contexts.
+4. **Seller onboarding:** use the Seller Google entry point and submit an organization name. Confirm the request is pending and no organization membership exists yet. A Platform Admin or Reviewer granted `seller_requests.review` can approve it. After approval, the same canonical account retains Buyer access and gains the Seller organization workspace; the Buyer and Seller entry points do not create duplicate accounts.
 5. **Team invitations:** as owner, invite a Manager and a Staff member. Test acceptance both while signed out and while signed in as the intended recipient. An unrelated account must not accept an invitation. Confirm Staff have no organization listing access by default; grant `listings.view` and then `listings.manage`, and verify each changes only the allowed listing operations. Confirm the Manager can update Staff grants only when the Owner granted `can_invite_staff`.
 6. **Catalog drafts:** as seller owner/manager, create a listing with valid title, description, material, condition, unit, quantity, MOQ and price. Expect a draft in your seller workspace, not the public catalog. MOQ above available quantity must fail.
 7. **Import:** download the CSV template, fill one valid row, preview, then import. Correct invalid rows before committing. CSV/XLSX files are limited to 2 MB and 100 data rows. Imports create drafts; they do not publish directly.
-8. **Moderation:** submit a draft for review. Publishing needs a verified active account assigned the narrow `platform_admin` role. Ordinary seller and buyer accounts must be denied moderation. No platform admin is automatically seeded; arrange authorized test-account provisioning before this check.
+8. **Moderation:** submit a draft for review. Publishing/rejection requires a verified active Platform Admin or Reviewer granted `listings.review`. A Reviewer without this grant and ordinary Seller/Buyer accounts must be denied. Platform Admins invite Reviewers through `POST /api/v1/platform/reviewers`; the invitation selects `seller_requests.review` and/or `listings.review`. No Platform Admin is automatically seeded; arrange authorized test-account provisioning before this check.
 9. **Discovery:** after authorized publication, find the listing through public search/filter/sort and open its details. Draft/rejected listings must remain hidden from public discovery.
 10. **Buyer requirements:** create a requirement with matching material/unit, quantity and optional price limit. Inspect matching published stock and the direct-purchase/MOQ explanation. This is matching only; checkout and group pools are future work.
 11. **Password reset/logout:** request reset, open the email, choose a new password, then sign in with it. The reset token must be single-use. Log out and check protected pages no longer display account data.
@@ -129,11 +129,11 @@ For each failed check, record the page, account role, steps, expected result, ac
 | Relation does not exist               | Run migrations against the same database used by the API                                                    |
 | Verification email missing            | Gmail app-password setup, sender account, spam folder and backend delivery logs; do not bypass verification |
 | Frontend cannot reach API             | Backend is running; frontend API URL ends in `/api/v1`; frontend origin matches CORS                        |
-| Moderation returns 403                | A seller owner is not a platform admin; authorized platform assignment is required                          |
+| Moderation returns 403                | Confirm the account is a Platform Admin or has the `listings.review` Reviewer grant                         |
 | Catalog is empty                      | Create, submit and approve a listing; drafts/imports are private                                            |
 
 ## 8. What is ready and what remains
 
-The code includes Phase 1 identity/organizations and the first Phase 2 catalog slice: drafts, import, review, discovery and requirement matching. Backend automated tests, lint/format and frontend lint/build are checks of this slice, not proof of full production readiness.
+The backend includes email/password and Google auth, Seller request/review, organization invitations and scoped Staff grants, configurable Reviewer invitations/grants, and the catalog slice: drafts, import, moderation, discovery and requirement matching. See [Current Features and Scope](current-features.md) for the full implemented/future split. Backend checks and frontend build checks are not proof of full production readiness.
 
-Live email, real database journeys, browser responsiveness, tenant isolation and moderation must still be verified with configured accounts. Image storage, price tiers, pools, checkout/payments, fulfilment, passports and complete analytics are not implemented by these patches. See `phase-2-progress.md` and `tasks.md` for the remaining scope.
+Live email, real database journeys, browser responsiveness, tenant isolation and moderation must still be verified with configured accounts. Pools, checkout/payments, orders, reviews, fulfilment, passports and platform analytics are not implemented. Delivery is outside the current product scope. See `current-features.md` and `delivery-status.md` for the current scope and remaining work.

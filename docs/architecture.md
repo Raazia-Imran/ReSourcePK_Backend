@@ -1,5 +1,7 @@
 # System Architecture
 
+> This architecture includes the target system, including planned modules. The current backend implementation boundary is listed in [Current Features and Scope](current-features.md).
+
 ## Architecture decision
 
 Use a **modular monolith** with a React SPA and one Node.js/Express API backed by PostgreSQL. This is the first backend framework to configure and the only application backend for MVP. It matches the existing repository and reduces five-week integration risk. Do not add FastAPI merely for AI; introduce a Python worker later only through an ADR when a measured workload requires it.
@@ -69,12 +71,12 @@ Analytics is generated from transactionally consistent operational tables plus r
 
 Use permission-based RBAC scoped by organization.
 
-- Platform roles: `platform_admin`, `platform_support`, `platform_auditor`.
+- Platform roles: `platform_admin` and `platform_reviewer` are used by the current API; support/auditor roles remain reserved. Admins bypass the two implemented review permissions. Reviewers need explicit `seller_requests.review` and/or `listings.review` grants. Reviewer invitations and grant editing are Admin-only.
 - Organization roles: `owner`, `manager`, `staff` (`org_admin` remains in the applied Phase 1 enum for migration compatibility but is not assignable or privileged in the current product).
 - Buyer is an account capability, not permission to manage an organization.
 - Owners can delegate through expiring email invitations.
 - Owners and Managers with `can_invite_staff` can grant Staff `listings.view` and/or `listings.manage`. Staff have no organization listing access by default; `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment grants will be added with those workflows.
-- One user may switch between buyer context and multiple organization contexts.
+- One canonical user may use Buyer context and, after Seller approval, one or more organization contexts. Separate Buyer/Seller Google entry points resolve to that same user. The current backend returns memberships and permissions; frontend dashboard switching is outside this checkout and must be verified in the paired frontend.
 - Emergency production access is outside normal UI roles, time-bound, approved, and logged.
 
 ## State and consistency
@@ -109,7 +111,7 @@ Phase 1 uses a provider adapter implemented with Nodemailer and Gmail SMTP. Only
 
 ## Google sign-in and account identity
 
-Google Identity Services returns an ID token to the browser. The browser first requests a short-lived, single-use API nonce and passes it into Google Identity Services; the browser then sends that credential and nonce to `POST /api/v1/auth/google`. The API verifies the signature, issuer, expiry, nonce and exact configured web-client audience with Google's Node auth library. Google `sub` is stored as the stable provider identity. Gmail and Google Workspace addresses with a verified hosted-domain claim can create an active baseline Buyer account. For other Google addresses, Google may not provide a current proof of mailbox control, so the account must complete ReSource PK email verification before activation. Google authentication does not grant seller membership, organization approval, Manager/Staff roles, or platform permissions.
+Google Identity Services returns an ID token to the browser. The browser first requests a short-lived, single-use API nonce and passes it into Google Identity Services; the browser then sends that credential and nonce to a role-specific Google endpoint. The API verifies the signature, issuer, expiry, nonce and exact configured web-client audience with Google's Node auth library. Google `sub` is stored as the stable provider identity. Buyer and Seller entry points resolve to the same canonical user. Google authentication does not grant seller membership, organization approval, Manager/Staff roles, or platform permissions; Seller access requires an approved request. Email activation requirements are described in the identity implementation and current feature documentation.
 
 An existing password account must first authenticate with its existing method and explicitly link Google through `POST /api/v1/auth/google/link`; the ID token email must match the signed-in account email. This avoids silently merging accounts based on an email claim. A Google-only account has no password hash; password login rejects it, while normal session rotation and revocation still apply. The Google client ID is public configuration and must match between the web client and backend audience check. Client secrets and ID tokens are never stored or logged.
 

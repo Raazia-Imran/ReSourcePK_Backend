@@ -1,4 +1,4 @@
-> Superseded for current status on 11 October 2026 by [delivery status](delivery-status.md) and [Week 2 verification](verification-week-2.md). The section below records the earlier September slice.
+> **Historical snapshot:** The section below records the earlier September slice and contains implementation gaps that were later closed or changed. It is not current feature status. Use [Current Features and Scope](current-features.md), [Delivery Status](delivery-status.md), and [Week 2 verification](verification-week-2.md) for the latest behavior. In particular, later decisions added same-account Buyer/Seller access, Staff listing grants, and permission-scoped Reviewer invitations; group ordering and payments remain unimplemented.
 
 # Phase 2 catalog progress and handoff
 

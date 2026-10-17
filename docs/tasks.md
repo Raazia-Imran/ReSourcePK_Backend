@@ -1,5 +1,7 @@
 # Five Week Delivery Plan
 
+> This is the original delivery plan, not a live feature checklist. See [Current Features and Scope](current-features.md) and [Delivery Status](delivery-status.md) for implemented behavior. Group ordering and payments are still future backend work; delivery is outside platform scope.
+
 ## Working model
 
 Three engineers own vertical feature slices. A rotating integration lead merges only reviewed, passing PRs. `main` stays deployable. Daily work starts from acceptance criteria and ends with an integrated demonstration, not isolated screenshots.
@@ -37,12 +39,12 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 **Outcome:** multiple buyers safely join a pool and complete sandbox contributions.
 
-- T-201 Pool, contribution, reservation, order, payment event and ledger migrations.
+- T-201 Group-order, contribution, reservation, order, payment event and ledger migrations. Only explicitly group-enabled listings may be joined; payment follows Seller confirmation.
 - T-202 Versioned pricing engine with boundary/unit tests.
 - T-203 Atomic/idempotent join flow with concurrency and expiry tests.
 - T-204 Pool UI with target, tiers, countdown, reservation/payment states.
 - T-205 Payment adapter, signed request/callback validation, replay protection and simulator fallback.
-- T-206 Direct checkout eligibility based on MOQ/full-lot/seller rules, group contribution UI, separate payment lifecycles, refund/cancel paths and reconciliation job.
+- T-206 Group contribution UI and lifecycle: target reached then Seller confirmation/payment; remove non-paying members and reopen their shares; at deadline let Seller Owner/authorized Manager expire or confirm a smaller total. Escrow is not required for the initial flow.
 - T-207 Security review of amounts, callbacks, secrets and authorization.
 
 **Gate:** parallel test cannot overfill; callback replay has one financial effect; ledger reconciles.
@@ -53,7 +55,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 - T-301 Order state machine, fulfilment confirmation, cancellation/refund/dispute events.
 - T-302 Verified-transaction ratings and minimal order-linked messaging if capacity remains.
-- T-303 Platform moderation queues and permission-scoped admin tools.
+- T-303 Partial: Reviewer invitations and `seller_requests.review`/`listings.review` grants are implemented; broader permission-scoped platform user, organization and activity tools remain planned.
 - T-304 Canonical passport serializer, hash vectors and immutable snapshot.
 - T-305 Outbox/worker, Polygon Amoy contract with first-write protection, retry/verification API.
 - T-306 Public verification UI with accurate claim wording.

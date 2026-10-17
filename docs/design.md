@@ -1,5 +1,7 @@
 # Product and Interface Design System
 
+> This document describes intended product screens and visual behavior. It does not indicate that every screen exists in the frontend or backend. See [Current Features and Scope](current-features.md) for the current implementation boundary.
+
 ## Experience principles
 
 1. Industrial credibility before decoration.

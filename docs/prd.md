@@ -1,5 +1,7 @@
 # Product Requirements Document
 
+> **Scope note (17 October 2026):** This is the target product specification, not a list of completed code. The backend's implemented features and agreed future work are tracked in [Current Features and Scope](current-features.md) and [Delivery Status](delivery-status.md).
+
 ## Document control
 
 - Product: **ReSource PK** (working name; repository names remain unchanged until brand clearance)
@@ -11,7 +13,7 @@
 
 ## Product decision
 
-ReSource PK enables textile suppliers to sell usable deadstock to small buyers who cannot meet industrial minimum-order quantities. Buyers may purchase directly or pool demand until a seller's minimum is reached. The MVP is a real, deployed, responsive web application, not a static demonstration.
+ReSource PK connects textile mills directly with small and home-based businesses seeking usable leftover material. Today, large textile firms often send leftover stock to physical wholesale markets such as Shershah, which can make suitable stock difficult for smaller businesses to access. ReSource PK's goal is to make this supply discoverable and purchasable directly. Group orders are a planned way to pool buyer demand; they are not implemented in the current backend.
 
 ## Users and value
 
@@ -54,7 +56,7 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 ### Explicitly deferred
 
 - Native mobile apps; the responsive PWA-ready web app is sufficient.
-- Real-money settlement, escrow, payouts, tax invoicing, shipping-carrier integration, crypto payments.
+- Escrow, payouts, tax invoicing, shipping-carrier integration, and crypto payments. The planned initial group flow requires payment after seller confirmation but does not use escrow; checkout/payment implementation remains future work.
 - Custom-trained AI; use deterministic rules first and optional assisted tagging behind a feature flag.
 - Microservices, multi-region infrastructure, and on-chain personal/commercial data.
 - Super Admin as an unrestricted everyday account. Emergency access is a separately controlled break-glass procedure.
@@ -65,13 +67,19 @@ ReSource PK enables textile suppliers to sell usable deadstock to small buyers w
 
 Platform approval creates the organization and its Owner membership. The Owner invites Managers or Staff by email. Invitations are single-use, hashed at rest, role-scoped, expire, and are accepted only by the invited email. Managers can invite Staff only when granted `can_invite_staff`. Owners and authorized Managers can grant Staff `listings.view` and/or `listings.manage`; Staff receive no organization listing access by default. `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment permissions will be added with those workflows.
 
-### Group purchase
+### Planned group purchase
 
 A buyer joins an open pool for a specific quantity. The server locks the pool row, validates availability and tier rules, records a reservation and contribution, then recalculates totals in one database transaction. Repeated requests with the same idempotency key return the original result. Expired reservations release inventory.
 
-### Payment
+### Planned payment
 
 The backend creates a payment attempt from server-priced order data. Browser redirects are never proof of payment. Only a verified, idempotent provider callback may advance payment state. Every transition is recorded in an append-only payment event log.
+
+For the first agreed group-order flow, payment is due after the seller confirms a group that reaches its target, or elects to confirm a smaller total after the deadline. A non-paying member is removed and their share returns to the available quantity. Escrow is not part of the initial flow. These rules remain future work until checkout and group ordering are implemented.
+
+### Delivery boundary
+
+Delivery is outside ReSource PK's current scope. Buyers and Sellers coordinate delivery themselves; the platform does not arrange or track shipping.
 
 ### Material Passport
 
@@ -120,7 +128,7 @@ Current working name: **ReSource PK**. The name is intentionally provisional and
 
 ## Account transition and onboarding
 
-Buyer and Seller use separate Google sign-in entry points that resolve to the same person/account. A Buyer can request Seller access with an organization name and keeps Buyer access throughout. A Reviewer granted `seller_requests.review` or a Platform Admin reviews the request; approval adds the seller organization and Owner membership to that account, while rejection records a reason. Platform Admins invite Reviewers and assign their `seller_requests.review` and/or `listings.review` permissions. Direct organization creation cannot bypass review. The Owner invites Managers and grants their permissions; an authorized Manager may invite Staff. Platform Admins are trusted ReSource PK developers/operators and explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+Buyer and Seller have separate Google sign-in entry points that resolve to the same canonical person/account. A Buyer can request Seller access with an organization name and retains Buyer access while the request is reviewed; after approval, the person can use both Buyer and Seller workspaces. A Reviewer granted `seller_requests.review` or a Platform Admin reviews the request; approval adds the seller organization and Owner membership to that account. Platform Admins are trusted ReSource PK developers/operators. They invite Reviewers and assign the implemented `seller_requests.review` and/or `listings.review` permissions. Broader Reviewer permissions for platform activity, user, and organization management remain future work. Direct organization creation cannot bypass review. The Owner invites Managers and grants their permissions; an authorized Manager may invite Staff and grant listing capabilities. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
 
 Existing password accounts link Google only after authenticating to that account, and only when the verified Google email matches. Google provider subject is the stable identity key; matching email alone does not silently merge accounts.
 

@@ -1,5 +1,7 @@
 # Software Requirements Specification
 
+> **Scope note (17 October 2026):** Requirements below describe the intended product. They are not proof of implementation. See [Current Features and Scope](current-features.md) for implemented backend behavior and agreed work that remains.
+
 ## Purpose and system boundary
 
 This specification defines the MVP behavior of the ReSource PK responsive web platform. PostgreSQL is the system of record. External providers (email, storage, payments, optional tagging, Polygon) are adapters and must not own core business state.
@@ -16,7 +18,7 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 - **FR-AUTH-06:** Platform roles and organization roles are separate. A user may hold memberships in multiple organizations.
 - **FR-AUTH-07:** Invitations contain organization, email, role, inviter, expiry and nonce; store only a token hash; accept once.
 - **FR-AUTH-08:** A member cannot grant a role or permission above their own grant boundary.
-- **FR-AUTH-09:** Support Google Identity Services using a server-verified ID token (signature, issuer, expiry, single-use nonce, audience, stable `sub`, and verified email). Gmail and Google Workspace emails with a verified hosted-domain claim may activate immediately; other addresses require ReSource PK email verification. New Google accounts receive baseline Buyer access only; Google identity alone never grants seller or platform permissions.
+- **FR-AUTH-09:** Support separate Buyer and Seller Google Identity Services entry points using server-verified ID tokens (signature, issuer, expiry, purpose-specific single-use nonce, audience, stable `sub`, and verified email). Both entry points resolve to the same canonical user and Google identity. A person may retain Buyer access while Seller access is requested and reviewed. Google identity alone never grants Seller organization membership or platform permissions.
 - **FR-AUTH-10:** Store Google provider identity separately from user email. Existing accounts link Google only while authenticated to that account and only when verified emails match; do not silently merge accounts by email. Google-only accounts may have no password hash and must not authenticate through password login.
 
 ### Seller onboarding review
@@ -24,12 +26,12 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 - **FR-SELLER-01:** An active verified Buyer can submit a Seller access request with an organization name and view their own request history. A pending request grants no organization membership or Seller permissions.
 - **FR-SELLER-02:** Only active, verified Platform Admins and Reviewers granted `seller_requests.review` can list requests and approve or reject pending requests. Rejection requires a review note; decisions are audited and cannot be applied twice.
 - **FR-SELLER-03:** Approval atomically creates the requested organization and Owner membership for the applicant while preserving Buyer capability. Direct seller registration and direct organization creation must not bypass approval.
-- **FR-SELLER-04:** Platform Admins invite Reviewers by email and assign or replace their `seller_requests.review` and/or `listings.review` grants. Invites are one-time, email-bound and expire after 72 hours. Admins can review requests and listings themselves; Reviewer management remains Admin-only.
+- **FR-SELLER-04:** Platform Admins invite Reviewers by email and assign or replace their `seller_requests.review` and/or `listings.review` grants. Invites are one-time, email-bound and expire after 72 hours. Admins can review requests and listings themselves; Reviewer management remains Admin-only. Additional platform activity, user, and organization permissions are future scope.
 
 ### Organizations and users
 
-- **FR-ORG-01:** Create seller organization with legal/display name, contact, location and verification status.
-- **FR-ORG-02:** Owner can invite, suspend, reactivate, change permitted roles, and transfer ownership with step-up authentication.
+- **FR-ORG-01:** An approved Seller request creates the seller organization and Owner membership; direct organization creation cannot bypass review.
+- **FR-ORG-02:** Owner can invite Managers and Staff. A Manager can invite Staff when the Owner grants `can_invite_staff`. Owners and authorized Managers can grant/revoke Staff `listings.view` and `listings.manage`; Staff have no listing access by default and cannot grant permissions. Listing management includes view. Further membership lifecycle, role changes, and ownership transfer require separately specified authorization and step-up behavior.
 - **FR-ORG-03:** Every membership/permission change emits an audit event.
 
 ### Catalog and discovery
@@ -43,16 +45,20 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 
 ### Pools, orders and inventory
 
+The following are planned requirements. The current backend has no group-order, reservation, or order implementation.
+
 - **FR-POOL-01:** Seller or system can open a pool with target, minimum contribution, close time and tier schedule.
 - **FR-POOL-02:** Joining a pool is transactional, idempotent and concurrency safe.
 - **FR-POOL-03:** System prevents contribution beyond available quantity and releases expired unpaid reservations.
 - **FR-POOL-04:** Pool states: `draft`, `open`, `target_met`, `locked`, `cancelled`, `expired`, `converted`.
-- **FR-ORD-01:** Order states: `pending_payment`, `paid`, `processing`, `ready`, `dispatched`, `delivered`, `completed`, `cancelled`, `refunded`, `disputed`.
+- **FR-ORD-01:** Planned order states are `pending_payment`, `paid`, `processing`, `ready`, `completed`, `cancelled`, `refunded`, and `disputed`. Exact states and transitions must be finalized before order implementation. ReSource PK does not track dispatch or delivery because delivery is coordinated outside the platform.
 - **FR-ORD-02:** Only allowed state transitions are accepted and each transition records actor, time, reason and prior state.
 
 - **FR-POOL-05:** A direct checkout is available only when buyer quantity meets the listing MOQ, the buyer purchases the full permitted lot, or the seller explicitly enables a smaller direct-buy lot. Otherwise the API returns an eligibility result for group purchase.
 
 ### Payments and ledger
+
+The following are planned requirements. The current backend has no checkout, provider integration, payment callbacks, or ledger.
 
 - **FR-PAY-01:** Provider integration is behind a payment adapter; sandbox or simulator implements the same contract.
 - **FR-PAY-02:** Server creates amount, currency, reference and signed request; client-supplied totals are ignored.
@@ -62,6 +68,8 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 - **FR-PAY-06:** Provider secrets never reach browser code, logs or source control.
 
 ### Fulfilment, trust and impact
+
+These are future product requirements. Delivery is outside ReSource PK's current scope; Buyer and Seller coordinate delivery externally. Buyer reviews of the Seller and material are planned after orders exist.
 
 - **FR-TRUST-01:** Messaging, if shipped, is tied to a listing/order and subject to access checks.
 - **FR-TRUST-02:** A completed transaction allows one buyer-to-seller and one seller-to-buyer review; moderation preserves history.
@@ -116,7 +124,7 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 
 ## Account transition and onboarding
 
-Buyer and Seller use separate Google entry points that resolve to the same canonical user and Google identity. A Buyer can request Seller access with an organization name and retains Buyer access while the request is reviewed. A Platform Reviewer or Platform Admin must approve the request before an organization and Owner membership are added to that same user. The backend continues to enforce active organization membership and platform assignments on every request. Owners invite Managers and grant their permissions; authorized Managers can invite Staff. Platform Admins are trusted developers/operators and can explicitly grant platform permissions. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+Buyer and Seller use separate Google entry points that resolve to the same canonical user and Google identity. A Buyer can request Seller access with an organization name and retains Buyer access while the request is reviewed. A Reviewer granted `seller_requests.review` or a Platform Admin must approve the request before an organization and Owner membership are added to that same user. The backend enforces active organization membership and explicit platform grants. Owners invite Managers; Managers with `can_invite_staff` can invite Staff and grant listing permissions. Platform Admins are trusted developers/operators and invite Reviewers with selected grants. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
 
 ## Catalog acceptance details — 11 October 2026
 

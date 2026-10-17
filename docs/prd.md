@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-> **Scope note (17 October 2026):** This is the target product specification, not a list of completed code. The backend's implemented features and agreed future work are tracked in [Current Features and Scope](current-features.md) and [Delivery Status](delivery-status.md).
+> **Scope note (17 October 2026):** This is the target product specification, not a list of completed code. The backend's implemented features and agreed future work are tracked in [Current Features and Scope](current-features.md) and [Delivery Status](delivery-status.md). Phase 3 purchase decisions and proposed data model are in [Purchase Module](purchase-module.md).
 
 ## Document control
 
@@ -67,15 +67,13 @@ ReSource PK connects textile mills directly with small and home-based businesses
 
 Platform approval creates the organization and its Owner membership. The Owner invites Managers or Staff by email. Invitations are single-use, hashed at rest, role-scoped, expire, and are accepted only by the invited email. Managers can invite Staff only when granted `can_invite_staff`. Owners and authorized Managers can grant Staff `listings.view` and/or `listings.manage`; Staff receive no organization listing access by default. `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment permissions will be added with those workflows.
 
-### Planned group purchase
+### Planned direct and group purchase
 
-A buyer joins an open pool for a specific quantity. The server locks the pool row, validates availability and tier rules, records a reservation and contribution, then recalculates totals in one database transaction. Repeated requests with the same idempotency key return the original result. Expired reservations release inventory.
+Phase 3 includes both direct orders and group orders. The Seller confirms either type before the Buyer is asked to pay; confirmed Buyers have 72 hours to pay. Direct orders reserve listing stock while awaiting Seller confirmation. Group contributions reserve quantity when the Buyer joins. Each group participant's price is locked at join time using their own share quantity to select the price tier. If a confirmed participant does not pay, their contribution is removed and the share reopens; a replacement group requires Seller reconfirmation. At the group deadline, the Seller Owner or an authorized Manager chooses to expire the group or confirm its smaller current total; confirmation includes all existing shares unchanged. Escrow is not part of the initial flow. Migration 013 adds the initial data foundation, while purchase workflows remain unimplemented. Detailed lifecycle, inventory, pricing, and data-model decisions are in [Purchase Module](purchase-module.md).
 
 ### Planned payment
 
-The backend creates a payment attempt from server-priced order data. Browser redirects are never proof of payment. Only a verified, idempotent provider callback may advance payment state. Every transition is recorded in an append-only payment event log.
-
-For the first agreed group-order flow, payment is due after the seller confirms a group that reaches its target, or elects to confirm a smaller total after the deadline. A non-paying member is removed and their share returns to the available quantity. Escrow is not part of the initial flow. These rules remain future work until checkout and group ordering are implemented.
+The backend creates payment attempts from server-priced, immutable order snapshots. Browser redirects are never proof of payment. Only a verified, idempotent provider callback may advance payment state. Payment and ledger events are recorded once, with retries protected against duplicate effects. The initial development/test implementation uses a sandbox adapter; the live provider and settlement route must be selected before enabling real payments. No escrow is planned for the initial flow.
 
 ### Delivery boundary
 
@@ -95,11 +93,7 @@ After fulfilment is confirmed, the system freezes a versioned canonical snapshot
 
 ## Purchase eligibility rules
 
-1. A buyer may check out directly only when their requested quantity meets the listing MOQ or when the seller explicitly publishes a smaller direct-buy lot.
-2. For a standard factory listing where the buyer's quantity is below MOQ, direct checkout is disabled and the UI offers Join a group purchase or Start a group purchase.
-3. A buyer may purchase the entire available lot individually when it meets seller conditions.
-4. Direct orders and group contributions have separate payment records and lifecycle states; both use the same secure payment adapter and ledger.
-5. Sellers may choose whether a listing supports direct purchase, group purchase, or both. They may not bypass their stated MOQ after a buyer has reserved stock.
+Listings choose direct purchase, group ordering, or both. Direct order eligibility follows the listing MOQ and any Seller-enabled smaller direct-buy lot; group joins require group ordering to be enabled. The API calculates eligible quantity and price from current stock and listing tiers, reserves quantity transactionally, and returns the exact terms before commitment. Full rules and open decisions are in [Purchase Module](purchase-module.md).
 
 ## Public landing experience
 

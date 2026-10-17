@@ -8,7 +8,8 @@ Read in this order:
 4. [`design.md`](design.md) - visual system, layouts, screens and responsive behavior.
 5. [`rules.md`](rules.md) - mandatory engineering and review standards.
 6. [`tasks.md`](tasks.md) - five-week executable delivery plan.
-7. [`memory.md`](memory.md) - durable decisions, constraints and open decisions.
+7. [`purchase-module.md`](purchase-module.md) - Phase 3 direct/group purchase rules and proposed data model.
+8. [`memory.md`](memory.md) - durable decisions, constraints and open decisions.
 
 These files form one baseline. A change to scope, behavior or architecture must update every affected document in the same pull request.
 

@@ -1,6 +1,6 @@
 # Software Requirements Specification
 
-> **Scope note (17 October 2026):** Requirements below describe the intended product. They are not proof of implementation. See [Current Features and Scope](current-features.md) for implemented backend behavior and agreed work that remains.
+> **Scope note (17 October 2026):** Requirements below describe the intended product. They are not proof of implementation. See [Current Features and Scope](current-features.md) for implemented backend behavior and [Purchase Module](purchase-module.md) for Phase 3 purchase decisions, proposed state model, and open choices.
 
 ## Purpose and system boundary
 
@@ -31,7 +31,7 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 ### Organizations and users
 
 - **FR-ORG-01:** An approved Seller request creates the seller organization and Owner membership; direct organization creation cannot bypass review.
-- **FR-ORG-02:** Owner can invite Managers and Staff. A Manager can invite Staff when the Owner grants `can_invite_staff`. Owners and authorized Managers can grant/revoke Staff `listings.view` and `listings.manage`; Staff have no listing access by default and cannot grant permissions. Listing management includes view. Further membership lifecycle, role changes, and ownership transfer require separately specified authorization and step-up behavior.
+- **FR-ORG-02:** Owner can invite Managers and Staff. A Manager can invite Staff when the Owner grants `can_invite_staff`. Owners and authorized Managers can grant/revoke Staff `listings.view` and `listings.manage`; Staff have no listing access by default and cannot grant permissions. Listing management includes view. For Phase 3, the Owner can confirm/reject direct orders and confirm groups; a Manager may do so only with an Owner-granted `orders.confirm` permission. Staff and platform reviewers receive no purchase permissions by default. Further membership lifecycle, role changes, and ownership transfer require separately specified authorization and step-up behavior.
 - **FR-ORG-03:** Every membership/permission change emits an audit event.
 
 ### Catalog and discovery
@@ -45,16 +45,18 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 
 ### Pools, orders and inventory
 
-The following are planned requirements. The current backend has no group-order, reservation, or order implementation.
+The following are planned workflow requirements. Migration 013 now provides the initial purchase/group/order/reservation schema; checkout APIs and lifecycle services are not implemented. The detailed working design is in [Purchase Module](purchase-module.md).
 
-- **FR-POOL-01:** Seller or system can open a pool with target, minimum contribution, close time and tier schedule.
-- **FR-POOL-02:** Joining a pool is transactional, idempotent and concurrency safe.
-- **FR-POOL-03:** System prevents contribution beyond available quantity and releases expired unpaid reservations.
-- **FR-POOL-04:** Pool states: `draft`, `open`, `target_met`, `locked`, `cancelled`, `expired`, `converted`.
-- **FR-ORD-01:** Planned order states are `pending_payment`, `paid`, `processing`, `ready`, `completed`, `cancelled`, `refunded`, and `disputed`. Exact states and transitions must be finalized before order implementation. ReSource PK does not track dispatch or delivery because delivery is coordinated outside the platform.
-- **FR-ORD-02:** Only allowed state transitions are accepted and each transition records actor, time, reason and prior state.
-
-- **FR-POOL-05:** A direct checkout is available only when buyer quantity meets the listing MOQ, the buyer purchases the full permitted lot, or the seller explicitly enables a smaller direct-buy lot. Otherwise the API returns an eligibility result for group purchase.
+- **FR-PUR-01:** A listing supports `direct`, `group`, or `both` purchase modes. The API enforces the mode, MOQ, available stock, seller-approved smaller direct lot, target, and price-tier rules on every request.
+- **FR-PUR-02:** A direct order is reserved at placement and enters `pending_seller_confirmation`. Seller confirmation starts a 72-hour Buyer payment deadline; rejection or expiry releases the reservation.
+- **FR-PUR-03:** Joining an open group reserves the Buyer quantity immediately. Contribution and inventory changes are atomic, idempotent, and concurrency safe. Buyers can leave only before Seller confirmation.
+- **FR-PUR-04:** Group target cannot exceed available stock. Reaching the target makes the group ready for Seller confirmation. At the deadline, the Owner or Manager with `orders.confirm` chooses to expire it or confirm the full current contribution total as a smaller group; all current shares remain unchanged and included.
+- **FR-PUR-05:** Seller confirmation snapshots the group participants and starts a 72-hour payment deadline per unpaid order. A nonpayer is removed and their quantity released. The group requires Seller reconfirmation before replacement participants are asked to pay; paid participants and their terms remain unchanged.
+- **FR-PUR-06:** Direct order prices are snapshotted on placement; group participant prices are snapshotted at join using that Buyer's individual share quantity to select the tier. Listing price edits, later joins, and group confirmation do not reprice existing orders. The server calculates totals; clients cannot set price or lifecycle state.
+- **FR-PUR-07:** Available stock equals physical stock minus active reservations and paid/committed quantities. Reservation creation, conversion, and release occur once under transaction/locking protection.
+- **FR-PUR-08:** Direct order states include `pending_seller_confirmation`, `pending_payment`, `paid`, `rejected`, and `payment_expired`. Group contribution states and legal transitions follow the Purchase Module design. Each transition records actor, time, reason, prior state, and new state. Post-confirmation cancellation/refund behavior remains to be defined.
+- **FR-PUR-09:** Payment attempts are separate from order state. Only a verified, idempotent provider result/callback can mark an order paid and create one ledger effect. The initial implementation uses a sandbox adapter until a live provider/settlement route is approved.
+- **FR-PUR-10:** ReSource PK does not manage delivery or dispatch states.
 
 ### Payments and ledger
 
@@ -108,7 +110,7 @@ These are future product requirements. Delivery is outside ReSource PK's current
 
 ## Core entities
 
-`users`, `sessions`, `organizations`, `organization_memberships`, `invitations`, `permissions`, `listings`, `listing_images`, `price_tiers`, `requirements`, `matches`, `pools`, `pool_contributions`, `inventory_reservations`, `orders`, `order_items`, `order_events`, `payment_attempts`, `payment_events`, `ledger_entries`, `shipments`, `disputes`, `reviews`, `passport_snapshots`, `blockchain_anchors`, `impact_events`, `notifications`, `audit_events`.
+`users`, `sessions`, `organizations`, `organization_memberships`, `invitations`, `permissions`, `listings`, `listing_images`, `price_tiers`, `requirements`, `matches`, `purchase_groups`, `orders`, immutable order price snapshots, `inventory_reservations`, `order_events`, `payment_attempts`, `payment_events`, `ledger_entries`, `disputes`, `reviews`, `passport_snapshots`, `blockchain_anchors`, `impact_events`, `notifications`, `audit_events`. This is the proposed logical model; migration-level names and constraints are specified by the Purchase Module design.
 
 All mutable business tables include `created_at`, `updated_at`, and optimistic version or equivalent where concurrent updates matter. Tenant-owned rows include `organization_id` and are filtered in repository/service code plus database policy where supported.
 
@@ -116,11 +118,13 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 
 1. An expired or already-used invitation is rejected without creating membership.
 2. A Manager without `can_invite_staff` cannot invite Staff or change Staff grants; Staff without `listings.view` or `listings.manage` cannot read private organization listings, and Staff cannot invite or grant permissions.
-3. Two concurrent joins cannot overfill a pool or double-reserve stock.
-4. Replaying a payment callback leaves one payment transition and one ledger effect.
-5. A completed order cannot have passport source fields edited; return/refund creates linked events.
-6. Changing a passport snapshot produces a mismatch against the on-chain hash.
-7. An administrator cannot view another organization’s private data without an authorized platform moderation workflow.
+3. Two concurrent direct orders or group joins cannot over-reserve listing stock or exceed a group target.
+4. Seller confirmation starts the payment window; payment before confirmation is rejected, and orders expire at 72 hours without timely payment.
+5. A nonpayer's share reopens, requires group reconfirmation, and cannot cause paid participants to be charged or repriced.
+6. Replaying a payment callback leaves one payment transition and one ledger effect.
+7. A completed order cannot have passport source fields edited; return/refund creates linked events.
+8. Changing a passport snapshot produces a mismatch against the on-chain hash.
+9. An administrator cannot view another organization's private data without an authorized platform moderation workflow.
 
 ## Account transition and onboarding
 

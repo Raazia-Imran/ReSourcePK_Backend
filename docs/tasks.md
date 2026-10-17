@@ -1,6 +1,6 @@
 # Five Week Delivery Plan
 
-> This is the original delivery plan, not a live feature checklist. See [Current Features and Scope](current-features.md) and [Delivery Status](delivery-status.md) for implemented behavior. Group ordering and payments are still future backend work; delivery is outside platform scope.
+> This is the original delivery plan, not a live feature checklist. See [Current Features and Scope](current-features.md), [Delivery Status](delivery-status.md), and [Purchase Module](purchase-module.md) for current behavior and Phase 3 decisions. Direct/group purchases and payments are future backend work; delivery is outside platform scope.
 
 ## Working model
 
@@ -37,17 +37,17 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 
 ## Week 3 Pools, pricing and payments
 
-**Outcome:** multiple buyers safely join a pool and complete sandbox contributions.
+**Outcome:** Buyers can complete direct purchases or safely join group orders, with Seller confirmation before payment and sandbox payment contributions.
 
-- T-201 Group-order, contribution, reservation, order, payment event and ledger migrations. Only explicitly group-enabled listings may be joined; payment follows Seller confirmation.
-- T-202 Versioned pricing engine with boundary/unit tests.
-- T-203 Atomic/idempotent join flow with concurrency and expiry tests.
-- T-204 Pool UI with target, tiers, countdown, reservation/payment states.
-- T-205 Payment adapter, signed request/callback validation, replay protection and simulator fallback.
-- T-206 Group contribution UI and lifecycle: target reached then Seller confirmation/payment; remove non-paying members and reopen their shares; at deadline let Seller Owner/authorized Manager expire or confirm a smaller total. Escrow is not required for the initial flow.
-- T-207 Security review of amounts, callbacks, secrets and authorization.
+- T-201 Direct/group purchase, reservation, order, and payment event foundation migration. Listings choose direct, group, or both; payments follow Seller confirmation. Migration 013 covers the initial schema; runtime flows and settlement ledger remain future work.
+- T-202 Versioned pricing and immutable order snapshots for direct orders and group contributions; group tiers use each Buyer's share quantity.
+- T-203 Atomic/idempotent direct order and group join flows with inventory concurrency, confirmation, 72-hour expiry, and release tests.
+- T-204 Buyer/Seller purchase UI with MOQ eligibility, target/deadline, per-Buyer locked prices, order confirmations, payment countdown and honest status states.
+- T-205 Payment adapter, signed request/callback validation, replay protection, ledger reconciliation and sandbox fallback. Do not enable live payments before provider/settlement approval.
+- T-206 Group lifecycle: target and deadline decisions; remove non-payers and reopen shares; require Seller reconfirmation before replacement participants pay. Escrow and delivery management are out of scope.
+- T-207 Enforce Owner order decisions and Owner-granted Manager `orders.confirm`; Staff have no order permission by default. Security review of amounts, callbacks, secrets and authorization.
 
-**Gate:** parallel test cannot overfill; callback replay has one financial effect; ledger reconciles.
+**Gate:** direct/group concurrent orders cannot over-reserve; callback replay has one financial effect; ledger reconciles; Seller confirmation and 72-hour expiry behave correctly.
 
 ## Week 4 Fulfilment, trust, administration and passport
 
@@ -90,4 +90,4 @@ Eleven of 37 implementation tasks are checked (29.7%, unweighted checklist compl
 
 ## Completion checkpoint — 11 October 2026
 
-T-102 now also includes the authenticated Vercel cleanup endpoint and daily schedule definition; four scheduler regression scenarios supplement the catalog suite. Hosted acceptance is still partial: credentials/team access, actual private upload/read/delete, a hosted seller/reviewer/buyer journey and an observed scheduled run must pass. Do not check the task or start Week 3 merely because the definition and isolated tests exist. Follow the final hosted steps in `verification-week-2.md`.
+T-102 now also includes the authenticated Vercel cleanup endpoint and daily schedule definition; four scheduler regression scenarios supplement the catalog suite. Hosted acceptance is still partial: credentials/team access, actual private upload/read/delete, a hosted seller/reviewer/buyer journey and an observed scheduled run must pass. The product owner chose to proceed with Phase 3 before hosting; keep Phase 1/2 hosted gates open and complete them after the Phase 3 deployment, before production release. Follow `verification-week-2.md` for those hosted checks.

@@ -75,7 +75,7 @@ Use permission-based RBAC scoped by organization.
 - Organization roles: `owner`, `manager`, `staff` (`org_admin` remains in the applied Phase 1 enum for migration compatibility but is not assignable or privileged in the current product).
 - Buyer is an account capability, not permission to manage an organization.
 - Owners can delegate through expiring email invitations.
-- Owners and Managers with `can_invite_staff` can grant Staff `listings.view` and/or `listings.manage`. Staff have no organization listing access by default; `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment grants will be added with those workflows.
+- Owners and Managers with `can_invite_staff` can grant Staff `listings.view` and/or `listings.manage`. Staff have no organization listing access by default; `listings.manage` includes view access. Staff cannot invite or grant permissions. In the planned purchase module, Owners can confirm/reject orders and Managers need explicit Owner-granted `orders.confirm`; Staff and listing-review grants do not imply order access. See [Purchase Module](purchase-module.md).
 - One canonical user may use Buyer context and, after Seller approval, one or more organization contexts. Separate Buyer/Seller Google entry points resolve to that same user. The current backend returns memberships and permissions; frontend dashboard switching is outside this checkout and must be verified in the paired frontend.
 - Emergency production access is outside normal UI roles, time-bound, approved, and logged.
 

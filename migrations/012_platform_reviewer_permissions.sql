@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS app.platform_reviewer_invitations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email CITEXT NOT NULL,
+  email TEXT NOT NULL,
   permissions TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   token_hash CHAR(64) NOT NULL UNIQUE,
   invited_by UUID NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,

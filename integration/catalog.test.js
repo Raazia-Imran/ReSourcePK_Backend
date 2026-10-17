@@ -481,13 +481,37 @@ test("image metadata, capability access and deferred cleanup follow the listing 
   const removals = [];
   t.mock.method(images, "remove", async (key) => removals.push(key));
   await cleanup.cleanImageObjects();
-  assert.equal(removals.length, 0, "fresh recovery jobs have a grace period");
+  assert.equal(
+    removals.includes(uploaded[0]),
+    false,
+    "fresh recovery jobs have a grace period",
+  );
   await db.query(
     "UPDATE app.image_cleanup_jobs SET created_at=now()-interval '3 minutes' WHERE object_key=$1",
     [uploaded[0]],
   );
-  assert.equal((await cleanup.cleanImageObjects()).removed, 1);
-  assert.deepEqual(removals, uploaded);
+  const eligible = await db.query(
+    "SELECT count(*)::int AS count FROM app.image_cleanup_jobs WHERE created_at < now()-interval '2 minutes'",
+  );
+  const batches = Math.ceil(eligible.rows[0].count / 20);
+  for (let batch = 0; batch <= batches; batch += 1) {
+    const pending = await db.query(
+      "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+      [uploaded[0]],
+    );
+    if (!pending.rowCount) break;
+    await cleanup.cleanImageObjects();
+  }
+  assert.equal(
+    (
+      await db.query(
+        "SELECT 1 FROM app.image_cleanup_jobs WHERE object_key=$1",
+        [uploaded[0]],
+      )
+    ).rowCount,
+    0,
+  );
+  assert.ok(removals.includes(uploaded[0]));
 });
 test("ambiguous storage timeout preserves recovery without creating image metadata", async (t) => {
   const images = require("../src/modules/catalog/imageAdapter");

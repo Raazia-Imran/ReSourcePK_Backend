@@ -9,7 +9,7 @@
     "test": "node --test test/*.test.js",
     "lint": "eslint .",
     "format:check": "prettier --check .",
-    "test:integration": "node --test integration/*.test.js",
+    "test:integration": "node --test --test-concurrency=1 integration/*.test.js",
     "db:seed:demo": "node scripts/seed-demo.js",
     "storage:setup": "node scripts/setup-storage.js",
     "storage:cleanup": "node scripts/cleanup-images.js",

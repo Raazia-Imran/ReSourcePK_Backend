@@ -114,11 +114,16 @@ test("active formats, forged headers, corrupt raster and oversized images are re
     (error) => error.status === 422,
   );
 });
-test("only Owner and Manager may mutate seller stock", async (t) => {
+test("listing access follows organization role and explicit Staff grants", async (t) => {
   const repo = require("../src/modules/catalog/repository");
   const service = require("../src/modules/catalog/service");
-  for (const role of ["staff", "org_admin", undefined]) {
-    const mock = t.mock.method(repo, "sellerRole", async () => role);
+  for (const membership of [
+    { role: "staff", permissions: [] },
+    { role: "staff", permissions: ["listings.view"] },
+    { role: "org_admin", permissions: [] },
+    null,
+  ]) {
+    const mock = t.mock.method(repo, "sellerRole", async () => membership);
     await assert.rejects(
       () => service.requireSeller("user", "org"),
       (error) => error.status === 403,
@@ -126,10 +131,27 @@ test("only Owner and Manager may mutate seller stock", async (t) => {
     mock.mock.restore();
   }
   for (const role of ["owner", "manager"]) {
-    const mock = t.mock.method(repo, "sellerRole", async () => role);
+    const mock = t.mock.method(repo, "sellerRole", async () => ({ role }));
     await service.requireSeller("user", "org");
     mock.mock.restore();
   }
+  const staffManager = t.mock.method(repo, "sellerRole", async () => ({
+    role: "staff",
+    permissions: ["listings.manage"],
+  }));
+  await service.requireSeller("user", "org");
+  await service.requireSeller("user", "org", undefined, "listings.view");
+  staffManager.mock.restore();
+  const staffViewer = t.mock.method(repo, "sellerRole", async () => ({
+    role: "staff",
+    permissions: ["listings.view"],
+  }));
+  await service.requireSeller("user", "org", undefined, "listings.view");
+  await assert.rejects(
+    () => service.requireSeller("user", "org"),
+    (error) => error.status === 403,
+  );
+  staffViewer.mock.restore();
 });
 test("stale edits and edits to published or archived stock are denied", () => {
   const { editable } = require("../src/modules/catalog/service");

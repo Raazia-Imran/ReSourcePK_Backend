@@ -352,6 +352,34 @@ async function inviteReviewer(adminId, email, permissions) {
   };
 }
 
+async function listReviewers(adminId) {
+  const admin = await query(
+    `SELECT 1 FROM app.platform_assignments p JOIN app.users u ON u.id=p.user_id
+     WHERE p.user_id=$1 AND p.role='platform_admin' AND u.status='active'
+     AND u.email_verified_at IS NOT NULL`,
+    [adminId],
+  );
+  if (!admin.rowCount)
+    throw new AppError(
+      403,
+      "PLATFORM_ADMIN_REQUIRED",
+      "Platform Admin access is required to manage reviewers",
+    );
+  const reviewers = await query(
+    `SELECT u.id AS user_id,u.full_name,u.email,
+       COALESCE(array_agg(rp.permission ORDER BY rp.permission)
+         FILTER (WHERE rp.permission IS NOT NULL),ARRAY[]::TEXT[]) AS permissions
+     FROM app.platform_assignments p
+     JOIN app.users u ON u.id=p.user_id
+     LEFT JOIN app.platform_reviewer_permissions rp ON rp.user_id=u.id
+     WHERE p.role='platform_reviewer' AND u.status='active'
+     GROUP BY u.id,u.full_name,u.email
+     ORDER BY u.full_name,u.email`,
+    [],
+  );
+  return reviewers.rows;
+}
+
 async function acceptReviewerInvitationNew(token, fullName, password) {
   const passwordHash = await bcrypt.hash(password, 12);
   return transaction(async (runner) => {
@@ -556,6 +584,7 @@ module.exports = {
   list,
   decide,
   revokeReviewer,
+  listReviewers,
   inviteReviewer,
   acceptReviewerInvitationNew,
   reviewerInvitationDetails,

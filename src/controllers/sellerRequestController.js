@@ -108,6 +108,10 @@ async function inviteReviewer(req, res) {
   });
 }
 
+async function listReviewers(req, res) {
+  res.json({ data: await service.listReviewers(req.auth.sub) });
+}
+
 async function acceptReviewerInvitationNew(req, res) {
   const body = reviewerAcceptNewBody.parse(req.body);
   res.status(201).json({
@@ -161,6 +165,7 @@ module.exports = {
   decide,
   revokeReviewer,
   inviteReviewer,
+  listReviewers,
   acceptReviewerInvitationNew,
   reviewerInvitationDetails,
   acceptReviewerInvitationExisting,

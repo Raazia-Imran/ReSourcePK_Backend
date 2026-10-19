@@ -43,6 +43,7 @@ router.put(
   limiter,
   controller.setReviewerPermissions,
 );
+router.get("/platform/reviewers", requireAuth, controller.listReviewers);
 router.post(
   "/platform/reviewers",
   requireAuth,

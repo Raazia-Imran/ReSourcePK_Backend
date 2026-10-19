@@ -29,23 +29,26 @@ code .env
 
 Fill the placeholders in this file before starting:
 
-| Setting              | What you enter                                                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Supabase PostgreSQL transaction-pooler connection string, with your database password substituted and URL-encoded |
-| `JWT_ACCESS_SECRET`  | A newly generated random secret of at least 32 characters                                                         |
-| `APP_URL`            | `http://localhost:3000`                                                                                           |
-| `CORS_ORIGINS`       | `http://localhost:3000`                                                                                           |
-| `PORT`               | `5000`                                                                                                            |
-| `GMAIL_USER`         | The Gmail account that sends verification/reset/invitation messages                                               |
-| `GMAIL_APP_PASSWORD` | Its Google app password, entered without spaces; never the normal Gmail login password                            |
+| Setting                         | What you enter                                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Supabase PostgreSQL transaction-pooler connection string, with your database password substituted and URL-encoded |
+| `JWT_ACCESS_SECRET`             | A newly generated random secret of at least 32 characters                                                         |
+| `APP_URL`                       | `http://localhost:3000`                                                                                           |
+| `CORS_ORIGINS`                  | `http://localhost:3000`                                                                                           |
+| `PORT`                          | `5000`                                                                                                            |
+| `GMAIL_USER`                    | The Gmail account that sends verification/reset/invitation messages                                               |
+| `GMAIL_APP_PASSWORD`            | Its Google app password, entered without spaces; never the normal Gmail login password                            |
+| `GOOGLE_CLIENT_ID`              | The Google OAuth Web client ID used by both Buyer and Seller Google entry points                                  |
+| `SELLER_REQUEST_ENCRYPTION_KEY` | A stable 64-character hex key for protecting CNIC numbers; generate it once and keep it backed up securely        |
 
 Generate a JWT secret locally using:
 
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-Copy the result into `.env`. This backend uses its own authentication; a Supabase anon key is not a substitute for `DATABASE_URL`.
+Use the first result for `JWT_ACCESS_SECRET` and the second for `SELLER_REQUEST_ENCRYPTION_KEY`. Keep the encryption key stable across deployments and backups; losing it makes stored CNIC values unreadable. This backend uses its own authentication; a Supabase anon key is not a substitute for `DATABASE_URL`.
 
 ### Where the passwords come from
 
@@ -102,14 +105,14 @@ npm run build
 npm start
 ```
 
-The frontend `.env` should contain `VITE_API_URL=http://localhost:5000/api/v1`. Open `http://localhost:3000`. Keep the backend terminal running. Restart Vite after changing its environment file. If Vite selects another port because 3000 is occupied, free port 3000 or update backend `APP_URL` and `CORS_ORIGINS` to match and restart both.
+The frontend `.env` should contain `VITE_API_URL=http://localhost:5000/api/v1` and the public Google Web client ID as `VITE_GOOGLE_CLIENT_ID`. Add `http://localhost:3000` to the OAuth client’s authorized JavaScript origins. Open `http://localhost:3000`. Keep the backend terminal running. Restart Vite after changing its environment file. If Vite selects another port because 3000 is occupied, free port 3000 or update backend `APP_URL` and `CORS_ORIGINS` to match and restart both.
 
 ## 6. Follow these checks in order
 
 1. **Public page:** inspect hero, story, navigation and catalog. Resize to phone, tablet and desktop widths. Empty catalog is valid until a listing is published.
 2. **Validation:** try registration with a short password. Expect a useful error; no account should be created for invalid input. Password visibility controls should work.
 3. **Buyer registration:** register using an email inbox you control. Open its verification email, verify, then sign in and enter the workspace. Reusing a consumed verification link must not verify another account.
-4. **Seller onboarding:** use the Seller Google entry point and submit an organization name. Confirm the request is pending and no organization membership exists yet. A Platform Admin or Reviewer granted `seller_requests.review` can approve it. After approval, the same canonical account retains Buyer access and gains the Seller organization workspace; the Buyer and Seller entry points do not create duplicate accounts.
+4. **Seller onboarding:** use the Seller Google entry point and submit an application with applicant name, CNIC, company/mill name, contact number, and business address. Set `SELLER_REQUEST_ENCRYPTION_KEY` in the backend environment before testing submission. Confirm the request is pending and no organization membership exists yet. A Platform Admin or Reviewer granted `seller_requests.review` can view the CNIC and approve/reject it. The applicant sees only the CNIC’s last four digits. After approval, the same canonical account retains Buyer access and gains the Seller organization workspace; Buyer and Seller entry points do not create duplicate accounts.
 5. **Team invitations:** as owner, invite a Manager and a Staff member. Test acceptance both while signed out and while signed in as the intended recipient. An unrelated account must not accept an invitation. Confirm Staff have no organization listing access by default; grant `listings.view` and then `listings.manage`, and verify each changes only the allowed listing operations. Confirm the Manager can update Staff grants only when the Owner granted `can_invite_staff`.
 6. **Catalog drafts:** as seller owner/manager, create a listing with valid title, description, material, condition, unit, quantity, MOQ and price. Expect a draft in your seller workspace, not the public catalog. MOQ above available quantity must fail.
 7. **Import:** download the CSV template, fill one valid row, preview, then import. Correct invalid rows before committing. CSV/XLSX files are limited to 2 MB and 100 data rows. Imports create drafts; they do not publish directly.

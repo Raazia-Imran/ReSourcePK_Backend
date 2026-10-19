@@ -1,9 +1,19 @@
 const { z } = require("zod");
 const service = require("../services/sellerRequestService");
 const { strongPassword } = require("../lib/password");
+const cnicNumber = z
+  .string()
+  .trim()
+  .regex(/^(?:\d{13}|\d{5}-\d{7}-\d|\d{5}\s\d{7}\s\d)$/);
 
 const requestBody = z
-  .object({ organizationName: z.string().trim().min(2).max(180) })
+  .object({
+    applicantName: z.string().trim().min(2).max(120),
+    cnicNumber,
+    organizationName: z.string().trim().min(2).max(180),
+    contactNumber: z.string().trim().min(7).max(32),
+    businessAddress: z.string().trim().min(5).max(500),
+  })
   .strict();
 const decisionBody = z
   .object({
@@ -54,13 +64,14 @@ const querySchema = z
 const meta = (req) => ({ ip: req.ip });
 
 async function submit(req, res) {
-  res.status(201).json({
-    data: await service.submit(
-      req.auth.sub,
-      requestBody.parse(req.body).organizationName,
-      meta(req),
-    ),
-  });
+  const result = await service.submit(
+    req.auth.sub,
+    requestBody.parse(req.body),
+    meta(req),
+  );
+  const status = result.wasUpdated ? 200 : 201;
+  delete result.wasUpdated;
+  res.status(status).json({ data: result });
 }
 
 async function mine(req, res) {

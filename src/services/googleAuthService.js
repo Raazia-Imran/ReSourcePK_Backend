@@ -169,38 +169,6 @@ async function createGoogleUser(runner, profile, meta) {
   return { user, verification };
 }
 
-async function submitSellerRequest(runner, userId, organizationName, meta) {
-  const membership = await runner.query(
-    `SELECT 1 FROM app.organization_memberships
-     WHERE user_id=$1 AND role='owner' LIMIT 1`,
-    [userId],
-  );
-  if (membership.rowCount) return;
-  const currentRequest = await runner.query(
-    `SELECT status FROM app.seller_requests
-     WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-    [userId],
-  );
-  if (currentRequest.rowCount && currentRequest.rows[0].status !== "rejected")
-    return;
-  if (!organizationName)
-    throw new AppError(
-      400,
-      "ORGANIZATION_NAME_REQUIRED",
-      "Organization name is required to request Seller access",
-    );
-  const request = await runner.query(
-    `INSERT INTO app.seller_requests(user_id,organization_name)
-     VALUES($1,$2) RETURNING id`,
-    [userId, organizationName],
-  );
-  await runner.query(
-    `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
-     VALUES($1,'seller_request.submitted','seller_request',$2,$3)`,
-    [userId, request.rows[0].id, meta.ip],
-  );
-}
-
 async function deliverVerification(user, verification) {
   const url = `${env.APP_URL}/verify-email?token=${encodeURIComponent(verification.token)}`;
   try {
@@ -219,7 +187,6 @@ async function deliverVerification(user, verification) {
 async function signIn(credential, nonce, meta, options = {}) {
   const sellerSignup = options.entryPoint === "seller";
   const noncePurpose = sellerSignup ? "seller_login" : "login";
-  const organizationName = options.organizationName?.trim();
   const profile = await verifiedProfile(credential, nonce);
   const outcome = await transaction(async (runner) => {
     // Serialize first-time sign-ins for the same email so parallel callbacks
@@ -233,8 +200,6 @@ async function signIn(credential, nonce, meta, options = {}) {
     let verification = null;
     if (!user)
       ({ user, verification } = await createGoogleUser(runner, profile, meta));
-    if (sellerSignup)
-      await submitSellerRequest(runner, user.id, organizationName, meta);
     if (verification) return { verificationRequired: true, verification, user };
 
     if (user.status !== "active" || !user.email_verified_at) {

@@ -111,8 +111,8 @@ paths:
           description: Google sign-in is not configured
   /auth/google/seller:
     post:
-      summary: Sign in through the Seller entry point and request seller access
-      description: Reuses the same canonical user and Google identity as Buyer sign-in. If the user has no pending Seller request or approved organization, organizationName is required and a request is queued. Approval adds Owner membership without removing Buyer access.
+      summary: Sign in through the Seller Google entry point
+      description: Reuses the same canonical user and Google identity as Buyer sign-in. This authenticates the user through the separate Seller entry point; it does not submit a Seller request or create an organization. Submit a Seller application through POST /seller/requests. Approval adds Owner membership without removing Buyer access.
       requestBody:
         required: true
         content:
@@ -124,8 +124,6 @@ paths:
           description: Canonical account session with current memberships and request context available through the request history endpoint
         "202":
           description: Additional ReSource PK email verification is required
-        "400":
-          description: Organization name is required when submitting a new Seller request
         "401":
           description: Invalid, expired, or unverified Google credential
         "409":
@@ -237,30 +235,59 @@ paths:
     post:
       security:
         - bearerAuth: []
-      summary: Request Seller access for an existing verified Buyer account
-      description: Submitting a request does not grant organization membership or Seller permissions. A Platform Reviewer or Platform Admin must approve it.
+      summary: Submit a Seller organization application
+      description: An active, verified account may apply. Submitting a request does not grant organization membership or Seller permissions. A Platform Reviewer with seller_requests.review or Platform Admin must approve it.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [organizationName]
+              required:
+                [
+                  applicantName,
+                  cnicNumber,
+                  organizationName,
+                  contactNumber,
+                  businessAddress,
+                ]
               properties:
+                applicantName:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+                  description: Applicant name, prefilled from the Google account and editable by the applicant
+                cnicNumber:
+                  type: string
+                  pattern: "^(?:[0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9]|[0-9]{5} [0-9]{7} [0-9])$"
+                  description: Pakistan CNIC number; encrypted at rest and returned in full only to authorized Seller request reviewers
                 organizationName:
                   type: string
                   minLength: 2
                   maxLength: 180
+                  description: Company or mill name
+                contactNumber:
+                  type: string
+                  minLength: 7
+                  maxLength: 32
+                businessAddress:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
               additionalProperties: false
       responses:
         "201":
-          description: Request queued for platform review
+          description: New request queued for platform review
+        "200":
+          description: Existing pending request details updated
         "401":
           description: Authentication required
         "403":
           description: Active verified account required
         "409":
-          description: Request already pending or Seller access already granted
+          description: Seller access already granted
+        "503":
+          description: Seller request encryption key is not configured
   /seller/requests/mine:
     get:
       security:
@@ -274,6 +301,7 @@ paths:
       security:
         - bearerAuth: []
       summary: List Seller access requests for a Reviewer with seller_requests.review or a Platform Admin
+      description: Full CNIC numbers are returned only from this permission-checked review endpoint. Requests created before CNIC collection may not have a value.
       parameters:
         - in: query
           name: status
@@ -334,7 +362,7 @@ paths:
         "404":
           description: Request not found
         "409":
-          description: Request already reviewed or applicant unavailable
+          description: Request already reviewed, application details are incomplete, or applicant unavailable
   /platform/reviewers:
     post:
       security:

@@ -6,6 +6,8 @@ const { randomToken, hashToken } = require("../lib/tokens");
 const { deliverEmail } = require("../email/deliveryService");
 const { organizationInviteEmail } = require("../email/templates");
 const { requirePlatformPermission } = require("./platformAccessService");
+const crypto = require("node:crypto");
+const { encryptCnic, decryptCnic } = require("./sellerRequestIdentity");
 
 const PLATFORM_PERMISSIONS = new Set([
   "seller_requests.review",
@@ -36,7 +38,7 @@ function slugify(value) {
   );
 }
 
-async function submit(userId, organizationName, meta) {
+async function submit(userId, input, meta) {
   return transaction(async (runner) => {
     const account = await runner.query(
       "SELECT status,email_verified_at FROM app.users WHERE id=$1 FOR UPDATE",
@@ -66,17 +68,11 @@ async function submit(userId, organizationName, meta) {
       );
 
     const requests = await runner.query(
-      `SELECT status FROM app.seller_requests
+      `SELECT id,status FROM app.seller_requests
        WHERE user_id=$1 AND status IN ('pending','approved')
-       ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+       ORDER BY created_at DESC,id DESC LIMIT 1 FOR UPDATE`,
       [userId],
     );
-    if (requests.rows[0]?.status === "pending")
-      throw new AppError(
-        409,
-        "SELLER_REQUEST_PENDING",
-        "Your Seller access request is awaiting review",
-      );
     if (requests.rows[0]?.status === "approved")
       throw new AppError(
         409,
@@ -84,10 +80,57 @@ async function submit(userId, organizationName, meta) {
         "This account already has Seller access",
       );
 
+    const currentRequest = requests.rows[0];
+    const requestId = currentRequest?.id || crypto.randomUUID();
+    const encryptedCnic = encryptCnic(input.cnicNumber, requestId, userId);
+    if (currentRequest) {
+      const updated = await runner.query(
+        `UPDATE app.seller_requests
+         SET applicant_name=$2,organization_name=$3,contact_number=$4,
+             business_address=$5,cnic_ciphertext=$6,cnic_nonce=$7,
+             cnic_auth_tag=$8,cnic_last_four=$9
+         WHERE id=$1 AND status='pending'
+         RETURNING id,user_id,applicant_name,organization_name,contact_number,
+           business_address,cnic_last_four,status,created_at`,
+        [
+          requestId,
+          input.applicantName.trim(),
+          input.organizationName.trim(),
+          input.contactNumber.trim(),
+          input.businessAddress.trim(),
+          encryptedCnic.ciphertext,
+          encryptedCnic.nonce,
+          encryptedCnic.authTag,
+          encryptedCnic.lastFour,
+        ],
+      );
+      await runner.query(
+        `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
+         VALUES($1,'seller_request.updated','seller_request',$2,$3)`,
+        [userId, requestId, meta.ip],
+      );
+      return { ...updated.rows[0], wasUpdated: true };
+    }
+
     const created = await runner.query(
-      `INSERT INTO app.seller_requests(user_id,organization_name)
-       VALUES($1,$2) RETURNING id,user_id,organization_name,status,created_at`,
-      [userId, organizationName.trim()],
+      `INSERT INTO app.seller_requests(
+         id,user_id,applicant_name,organization_name,contact_number,business_address,
+         cnic_ciphertext,cnic_nonce,cnic_auth_tag,cnic_last_four
+       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id,user_id,applicant_name,organization_name,contact_number,
+         business_address,cnic_last_four,status,created_at`,
+      [
+        requestId,
+        userId,
+        input.applicantName.trim(),
+        input.organizationName.trim(),
+        input.contactNumber.trim(),
+        input.businessAddress.trim(),
+        encryptedCnic.ciphertext,
+        encryptedCnic.nonce,
+        encryptedCnic.authTag,
+        encryptedCnic.lastFour,
+      ],
     );
     await runner.query(
       `INSERT INTO app.audit_events(actor_id,action,resource_type,resource_id,ip_address)
@@ -100,7 +143,8 @@ async function submit(userId, organizationName, meta) {
 
 async function mine(userId) {
   const result = await query(
-    `SELECT id,organization_name,status,review_note,organization_id,created_at,reviewed_at
+    `SELECT id,applicant_name,organization_name,contact_number,business_address,
+            cnic_last_four,status,review_note,organization_id,created_at,reviewed_at
      FROM app.seller_requests WHERE user_id=$1 ORDER BY created_at DESC,id DESC`,
     [userId],
   );
@@ -119,8 +163,10 @@ async function list(userId, { status = "pending", limit = 50, offset = 0 }) {
   return transaction(async (runner) => {
     await requireReviewer(userId, runner);
     const result = await runner.query(
-      `SELECT r.id,r.user_id,u.full_name AS applicant_name,u.email AS applicant_email,
-            r.organization_name,r.status,r.reviewed_by,reviewer.full_name AS reviewer_name,
+      `SELECT r.id,r.user_id,u.email AS applicant_email,
+            r.applicant_name,r.organization_name,r.contact_number,r.business_address,
+            r.cnic_ciphertext,r.cnic_nonce,r.cnic_auth_tag,r.cnic_last_four,
+            r.status,r.reviewed_by,reviewer.full_name AS reviewer_name,
             r.review_note,r.organization_id,r.created_at,r.reviewed_at
      FROM app.seller_requests r
      JOIN app.users u ON u.id=r.user_id
@@ -130,7 +176,15 @@ async function list(userId, { status = "pending", limit = 50, offset = 0 }) {
      LIMIT $2 OFFSET $3`,
       [status, limit, offset],
     );
-    return result.rows;
+    return result.rows.map((row) => {
+      const cnicNumber = decryptCnic(row);
+      const request = { ...row };
+      delete request.cnic_ciphertext;
+      delete request.cnic_nonce;
+      delete request.cnic_auth_tag;
+      delete request.cnic_last_four;
+      return { ...request, cnic_number: cnicNumber };
+    });
   });
 }
 
@@ -149,6 +203,18 @@ async function decide(reviewerId, requestId, decision, reviewNote, meta) {
         409,
         "SELLER_REQUEST_ALREADY_REVIEWED",
         "This request has already been reviewed",
+      );
+    if (
+      decision === "approved" &&
+      (!request.applicant_name ||
+        !request.contact_number ||
+        !request.business_address ||
+        !request.cnic_ciphertext)
+    )
+      throw new AppError(
+        409,
+        "SELLER_REQUEST_DETAILS_INCOMPLETE",
+        "The applicant must complete the required identity and business details before approval",
       );
 
     let organizationId = null;

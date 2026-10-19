@@ -39,9 +39,6 @@ const googleCredentialSchema = z
     nonce: z.string().min(32).max(200),
   })
   .strict();
-const sellerGoogleCredentialSchema = googleCredentialSchema.extend({
-  organizationName: z.string().trim().min(2).max(180).optional(),
-});
 
 function requestMeta(req) {
   return {
@@ -108,12 +105,12 @@ async function googleLogin(req, res) {
   });
 }
 async function googleSellerLogin(req, res) {
-  const input = sellerGoogleCredentialSchema.parse(req.body);
+  const input = googleCredentialSchema.parse(req.body);
   const result = await googleAuth.signIn(
     input.credential,
     input.nonce,
     requestMeta(req),
-    { entryPoint: "seller", organizationName: input.organizationName },
+    { entryPoint: "seller" },
   );
   if (result.verificationRequired)
     return res.status(202).json({

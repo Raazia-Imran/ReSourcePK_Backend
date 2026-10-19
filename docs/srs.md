@@ -23,8 +23,9 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 
 ### Seller onboarding review
 
-- **FR-SELLER-01:** An active verified Buyer can submit a Seller access request with an organization name and view their own request history. A pending request grants no organization membership or Seller permissions.
+- **FR-SELLER-01:** An active verified account can submit a Seller application with applicant name, CNIC, organization name, contact number, and business address, and view its own request history. A pending request grants no organization membership or Seller permissions.
 - **FR-SELLER-02:** Only active, verified Platform Admins and Reviewers granted `seller_requests.review` can list requests and approve or reject pending requests. Rejection requires a review note; decisions are audited and cannot be applied twice.
+- **FR-SELLER-05:** Seller applications collect applicant name, CNIC number, company/mill name, contact number, and mill/business address. The applicant name is prefilled from the Google profile and may be edited. CNIC is encrypted at rest and full-value access is limited to authorized Seller request reviewers; the applicant’s own request view returns only the last four digits.
 - **FR-SELLER-03:** Approval atomically creates the requested organization and Owner membership for the applicant while preserving Buyer capability. Direct seller registration and direct organization creation must not bypass approval.
 - **FR-SELLER-04:** Platform Admins invite Reviewers by email and assign or replace their `seller_requests.review` and/or `listings.review` grants. Invites are one-time, email-bound and expire after 72 hours. Admins can review requests and listings themselves; Reviewer management remains Admin-only. Additional platform activity, user, and organization permissions are future scope.
 
@@ -128,7 +129,7 @@ All mutable business tables include `created_at`, `updated_at`, and optimistic v
 
 ## Account transition and onboarding
 
-Buyer and Seller use separate Google entry points that resolve to the same canonical user and Google identity. A Buyer can request Seller access with an organization name and retains Buyer access while the request is reviewed. A Reviewer granted `seller_requests.review` or a Platform Admin must approve the request before an organization and Owner membership are added to that same user. The backend enforces active organization membership and explicit platform grants. Owners invite Managers; Managers with `can_invite_staff` can invite Staff and grant listing permissions. Platform Admins are trusted developers/operators and invite Reviewers with selected grants. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
+Buyer and Seller use separate Google entry points that resolve to the same canonical user and Google identity. A user can sign in through either entry and submit a Seller application containing applicant name, CNIC number, company/mill name, contact number, and mill/business address; the applicant retains Buyer access while the request is reviewed. The name is prefilled from the Google profile and editable. CNIC is encrypted at rest and visible in full only to authorized request reviewers. A Reviewer granted `seller_requests.review` or a Platform Admin must approve the request before an organization and Owner membership are added to that same user. The backend enforces active organization membership and explicit platform grants. Owners invite Managers; Managers with `can_invite_staff` can invite Staff and grant listing permissions. Platform Admins are trusted developers/operators and invite Reviewers with selected grants. Invitations remain one-time, bound to the invited email, and expire after 72 hours.
 
 ## Catalog acceptance details — 11 October 2026
 

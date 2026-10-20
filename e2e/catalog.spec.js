@@ -351,9 +351,8 @@ test("CSV preview, refreshed template download and image failures use the real A
     mimeType: "image/svg+xml",
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
   });
-  await stock
-    .getByRole("button", { name: "Upload image", exact: true })
-    .click();
+  const uploadButton = stock.locator(".image-editor form").getByRole("button");
+  await uploadButton.click();
   await expect(stock.getByRole("alert")).toContainText(
     "Choose a JPEG, PNG or WebP raster image",
   );
@@ -372,9 +371,7 @@ test("CSV preview, refreshed template download and image failures use the real A
       response.url().endsWith("/images") &&
       response.request().method() === "POST",
   );
-  await stock
-    .getByRole("button", { name: "Upload image", exact: true })
-    .click();
+  await uploadButton.click();
   const response = await unavailable;
   expect(response.status()).toBe(503);
   expect((await response.json()).error.code).toBe("STORAGE_NOT_CONFIGURED");

@@ -1,6 +1,6 @@
 # Analytics and Reporting Specification
 
-> This is a target analytics specification. Platform traffic, organization/staff counts, and role dashboards are not currently implemented in this backend; see [Current Features and Scope](current-features.md).
+> This document describes both the delivered operational dashboards and the larger reporting target. Platform traffic, ledger revenue, verified diversion and exports remain out of scope until their source records exist; see [Current Features and Scope](current-features.md).
 
 ## Principles
 
@@ -35,6 +35,14 @@ Users select current/previous week, month, year or custom range; apply permitted
 
 The server calculates aggregates. Browser charts receive only authorized data. Large exports run as jobs, expire after download and are audit logged. Ownership-only financial reports are not available to managers/staff without an explicit permission. Charts have accessible table equivalents.
 
-## Current delivery boundary — 11 October 2026
+## Delivered operational dashboards — 21 October 2026
 
-Reporting/analytics implementation remains Week 4. Catalog records now contain `is_demo`; default real-world metrics and exports must exclude these fixtures, with an explicit separately labelled demo mode if needed. Tier prices and stock levels do not establish revenue, verified waste diversion or completed purchases. Do not render invented KPIs while orders, ledger and impact events are unavailable.
+The current UI now has live operational views for Buyer purchase activity, Seller listing/order activity, organization name settings, Platform Admin organization and user directories, and Platform Admin operational analytics. Their API reads are authorized server-side. Seller and platform aggregate metrics exclude `is_demo` listings; directories include seeded records with a visible demo label.
+
+The Buyer impact view reports order state, paid order quantity/value, and recent orders. It does not claim that paid quantity is verified waste diversion. Seller reporting shows listing states, order states, requested quantity, recorded paid-value totals, and monthly order counts. Platform reporting shows account, organization, listing, Seller application, order, and recent audit-event counts. Settings currently permit only the Owner to change the organization name; the workspace slug is immutable. Organization and user directories are read-only.
+
+Managers need `orders.confirm` to access Seller Orders and Seller Analytics. Staff see Listings only when granted `listings.view` or `listings.manage`; organization settings are Owner-only. Platform directories and analytics are Platform Admin-only. Reviewers continue to see only their assigned review queues.
+
+## Current delivery boundary — 21 October 2026
+
+The operational dashboards are not a financial ledger or full reporting suite. Payment-provider settlement, refunds, verified impact events, date filters, CSV/PDF export, platform traffic, and edit/suspend actions for directory records are not implemented. Paid value means only orders recorded with status `paid`; it is not seller proceeds, GMV settlement, or proof of environmental diversion. Continue to exclude demo listings from live aggregate metrics and label them in administrative directories.

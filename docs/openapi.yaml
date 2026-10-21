@@ -1322,6 +1322,117 @@ paths:
         schema:
           type: string
           format: uuid
+  /analytics/buyer-impact:
+    get:
+      summary: Read the authenticated Buyer's order activity and paid material volume
+      description: Excludes demo listings. Paid order quantity is not represented as verified environmental diversion.
+      security: *id001
+      responses:
+        "200":
+          description: Summary metrics and up to ten recent Buyer orders
+        "401":
+          description: Authentication required
+  /organizations/{organizationId}/analytics:
+    get:
+      summary: Read Seller listing and order activity for an organization
+      description: Available to Owners and Managers granted orders.confirm. Demo listings are excluded.
+      security: *id001
+      responses:
+        "200":
+          description: Listing counts, order counts, recorded paid value, and monthly order totals
+        "403":
+          description: Organization role or permission is insufficient
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /organizations/{organizationId}/settings:
+    get:
+      summary: Read organization profile settings
+      security: *id001
+      responses:
+        "200":
+          description: Organization name, immutable slug, status and current role
+        "403":
+          description: Active organization membership required
+    patch:
+      summary: Update the organization name
+      description: Owner-only. Writes an audit event; workspace slug remains unchanged.
+      security: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 180
+      responses:
+        "200":
+          description: Updated organization profile
+        "403":
+          description: Owner access required
+        "422":
+          $ref: "#/components/responses/Validation"
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /platform/organizations:
+    get:
+      summary: List organizations for the Platform Admin directory
+      description: Includes demo organizations, explicitly identified in each result.
+      security: *id001
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Paginated organization records with member and listing counts
+        "403":
+          description: Platform Admin access required
+  /platform/users:
+    get:
+      summary: List user accounts for the Platform Admin directory
+      description: Includes demo users, explicitly identified in each result.
+      security: *id001
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Paginated account status, verification and workspace role records
+        "403":
+          description: Platform Admin access required
+  /platform/analytics:
+    get:
+      summary: Read live Platform Admin operational metrics
+      description: Aggregate metrics exclude demo accounts, organizations and listings. Paid order values are recorded order states, not settlement.
+      security: *id001
+      responses:
+        "200":
+          description: Live account, organization, listing, order, seller application and audit activity counts
+        "403":
+          description: Platform Admin access required
 components:
   securitySchemes:
     cronAuth:

@@ -718,6 +718,94 @@ paths:
         "200":
           { description: Paginated orders belonging to the signed-in user. }
         "401": { description: Authentication required. }
+  /orders/{orderId}/checkout:
+    post:
+      security: *id001
+      summary: Start RapidGateway hosted checkout for a confirmed Buyer order
+      description: The backend uses the immutable order amount. Only a verified signed webhook can mark an order paid; browser return is informational.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestKey, mobile]
+              additionalProperties: false
+              properties:
+                requestKey: { type: string, format: uuid }
+                mobile: { type: string, pattern: "^03[0-9]{9}$" }
+                testScenario:
+                  type: string
+                  enum:
+                    [
+                      SUCCESS,
+                      FAILED,
+                      PENDING,
+                      EXPIRED,
+                      INSUFFICIENT_BALANCE,
+                      INVALID_OTP,
+                      TIMEOUT,
+                      DUPLICATE,
+                    ]
+      responses:
+        "201":
+          { description: Hosted checkout URL and payment attempt returned. }
+        "401": { description: Authentication required. }
+        "409":
+          {
+            description: Order is not awaiting payment or attempt key was already used.,
+          }
+        "503":
+          {
+            description: Gateway credentials or webhook configuration are missing.,
+          }
+  /payment-attempts/{attemptId}:
+    get:
+      security: *id001
+      summary: Read the signed-in Buyer's payment attempt status
+      parameters:
+        - in: path
+          name: attemptId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Payment and order status. }
+        "401": { description: Authentication required. }
+        "404": { description: Attempt not found for this Buyer. }
+  /rapidgateway/webhook:
+    post:
+      summary: Receive signed RapidGateway transaction notifications
+      description: Verifies the raw-body HMAC and timestamp; duplicate event IDs are safe to retry. Refund and payout events are acknowledged but not processed.
+      parameters:
+        - in: header
+          name: X-RapidGateway-Signature
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-RapidGateway-Timestamp
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-RapidGateway-Event
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          {
+            description: Event accepted or safely ignored as a duplicate/unsupported event.,
+          }
+        "400": { description: Invalid event payload or payment details. }
+        "401": { description: Signature or timestamp validation failed. }
   /organizations/{organizationId}/orders:
     get:
       security: *id001

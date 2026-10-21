@@ -41,6 +41,10 @@ const schema = z.object({
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{2,62}$/)
     .optional(),
+  RAPID_GATEWAY_MODE: z.enum(["TEST", "LIVE"]).default("TEST"),
+  RAPID_GATEWAY_MERCHANT_ID: z.string().regex(/^\d+$/).optional(),
+  RAPID_GATEWAY_CLIENT_SECRET: z.string().min(1).optional(),
+  RAPID_GATEWAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 const result = schema.safeParse(process.env);
@@ -91,6 +95,16 @@ if (result.data.NODE_ENV === "production") {
     )
   )
     throw new Error("Production application and CORS origins require HTTPS");
+}
+if (
+  result.data.RAPID_GATEWAY_MODE === "LIVE" &&
+  (!result.data.RAPID_GATEWAY_MERCHANT_ID ||
+    !result.data.RAPID_GATEWAY_CLIENT_SECRET ||
+    !result.data.RAPID_GATEWAY_WEBHOOK_SECRET)
+) {
+  throw new Error(
+    "LIVE RapidGateway requires merchant ID, client secret, and webhook secret",
+  );
 }
 
 module.exports = {

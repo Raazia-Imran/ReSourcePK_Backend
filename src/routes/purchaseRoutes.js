@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const { env } = require("../config/env");
 const controller = require("../controllers/purchaseController");
+const paymentController = require("../controllers/paymentController");
 
 const router = express.Router();
 const mutationLimit = rateLimit({
@@ -15,6 +16,18 @@ const mutationLimit = rateLimit({
 
 router.post("/orders", requireAuth, mutationLimit, controller.createDirect);
 router.get("/orders/mine", requireAuth, controller.myOrders);
+router.post(
+  "/orders/:orderId/checkout",
+  requireAuth,
+  mutationLimit,
+  paymentController.startCheckout,
+);
+router.get(
+  "/payment-attempts/:attemptId",
+  requireAuth,
+  paymentController.getAttempt,
+);
+router.post("/rapidgateway/webhook", paymentController.webhook);
 router.get(
   "/organizations/:organizationId/orders",
   requireAuth,

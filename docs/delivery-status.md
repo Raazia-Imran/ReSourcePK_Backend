@@ -59,15 +59,15 @@ Status: **checked** means implemented scope with recorded automated evidence; **
 
 ### Week 3: Commerce
 
-| Task  | Status      | Work                                                                                                                                                         |
-| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| T-201 | partial     | Migrations 013/014 add purchase schema and workflow support; settlement ledger remains planned.                                                              |
-| T-202 | implemented | Server-side per-Buyer tier pricing and immutable order snapshots are implemented; evidence and live-payment rounding approval remain open.                   |
-| T-203 | partial     | Direct/group order APIs, idempotency, reservations, confirmation, and expiry processing are implemented; automated concurrency/expiry evidence remains open. |
-| T-204 | planned     | Pool UI with target, tiers, countdown, reservation/payment states.                                                                                           |
-| T-205 | planned     | Payment adapter, signed request/callback validation, replay protection and simulator fallback.                                                               |
-| T-206 | partial     | Direct/group APIs and nonpayer reopening/reconfirmation are implemented. Frontend, payment lifecycles, refund/cancel paths and reconciliation remain open.   |
-| T-207 | planned     | Security review of amounts, callbacks, secrets and authorization.                                                                                            |
+| Task  | Status      | Work                                                                                                                                                                                                                       |
+| ----- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T-201 | partial     | Migrations 013/014 add purchase schema and workflow support; settlement ledger remains planned.                                                                                                                            |
+| T-202 | implemented | Server-side per-Buyer tier pricing and immutable order snapshots are implemented; evidence and live-payment rounding approval remain open.                                                                                 |
+| T-203 | partial     | Direct/group order APIs, idempotency, reservations, confirmation, and expiry processing are implemented; automated concurrency/expiry evidence remains open.                                                               |
+| T-204 | planned     | Pool UI with target, tiers, countdown, reservation/payment states.                                                                                                                                                         |
+| T-205 | implemented | RapidGateway hosted checkout, TEST sandbox, signed webhook validation, replay protection and late-success reconciliation logging are implemented. LIVE credentials and webhook configuration are deployment prerequisites. |
+| T-206 | partial     | Direct/group APIs, nonpayer reopening/reconfirmation and Buyer checkout/return UI are implemented. Refunds, cancellation, settlement, payouts and reconciliation workflows remain open.                                    |
+| T-207 | partial     | Amounts come from immutable orders; webhook signatures, timestamps, idempotency, buyer ownership and late-success cases are handled. Provider and hosted end-to-end acceptance remain open.                                |
 
 ### Week 4: Trust/reports
 

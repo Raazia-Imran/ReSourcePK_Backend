@@ -35,7 +35,15 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "256kb" }));
+app.use(
+  express.json({
+    limit: "256kb",
+    verify(req, _res, buffer) {
+      if (req.path === "/api/v1/rapidgateway/webhook")
+        req.rawBody = Buffer.from(buffer);
+    },
+  }),
+);
 app.use(cookieParser());
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));

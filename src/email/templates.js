@@ -47,8 +47,7 @@ function verificationEmail({ name, url }) {
     text: `Hello ${name}, verify your email using this link: ${url}\nThe link expires in 24 hours.`,
     html: actionEmail({
       title: "Verify your email",
-      preview:
-        "Complete your ReThread account. This link expires in 24 hours.",
+      preview: "Complete your ReThread account. This link expires in 24 hours.",
       greeting: `Hello ${name},`,
       message:
         "Confirm your email address to activate your account and enter your workspace.",

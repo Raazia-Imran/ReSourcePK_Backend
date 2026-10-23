@@ -92,9 +92,9 @@ async function organizationAnalytics(userId, organizationId) {
     ),
     query(
       `SELECT count(*)::int AS total,
-         count(*) FILTER (WHERE status='pending_seller_confirmation')::int AS awaiting_response,
-         count(*) FILTER (WHERE status='pending_payment')::int AS awaiting_payment,
-         count(*) FILTER (WHERE status='paid')::int AS paid,
+         count(*) FILTER (WHERE o.status='pending_seller_confirmation')::int AS awaiting_response,
+         count(*) FILTER (WHERE o.status='pending_payment')::int AS awaiting_payment,
+         count(*) FILTER (WHERE o.status='paid')::int AS paid,
          COALESCE((SELECT json_agg(json_build_object('unit',requested.unit,'quantity',requested.quantity)
            ORDER BY requested.unit) FROM (
              SELECT o2.unit,sum(o2.quantity)::text AS quantity
@@ -102,7 +102,7 @@ async function organizationAnalytics(userId, organizationId) {
              WHERE o2.organization_id=$1 AND l2.is_demo=false
              GROUP BY o2.unit
            ) requested),'[]'::json) AS requested_quantity_by_unit,
-         COALESCE(sum(total_minor) FILTER (WHERE status='paid'),0)::text AS paid_total_minor
+         COALESCE(sum(o.total_minor) FILTER (WHERE o.status='paid'),0)::text AS paid_total_minor
        FROM app.orders o JOIN app.listings l ON l.id=o.listing_id
        WHERE o.organization_id=$1 AND l.is_demo=false`,
       [organizationId],

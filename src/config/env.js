@@ -34,7 +34,7 @@ const schema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
   GMAIL_USER: z.string().email().optional(),
   GMAIL_APP_PASSWORD: z.string().min(16).optional(),
-  EMAIL_FROM_NAME: z.string().default("ReSource PK"),
+  EMAIL_FROM_NAME: z.string().default("ReThread"),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
   LISTING_IMAGE_BUCKET: z

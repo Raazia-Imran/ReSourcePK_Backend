@@ -24,5 +24,6 @@ Live payments stay disabled until RapidGateway supplies a merchant ID, client se
 - A verified success commits the inventory reservation and marks the order paid in one database transaction. Failed payments leave the order payable until its existing 72-hour deadline.
 - A provider success arriving after the order has expired, or after another attempt already paid it, is recorded for reconciliation and does not silently change the order or reservation.
 - `GET /api/v1/payment-attempts/{attemptId}` returns status only to the Buyer who owns that attempt.
+- A pending attempt is returned as `expired` once its payment deadline passes or its order becomes unpayable. If the gateway reports success after the order is no longer payable (including a second successful attempt), the attempt is marked for reconciliation; the Buyer return page warns them not to pay again.
 
 This chunk does not implement refunds, settlement, payouts, or refunds webhook handling. Use hosted checkout only; embedded checkout and the provider's optional API-only card flow are not enabled.

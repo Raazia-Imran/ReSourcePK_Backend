@@ -124,7 +124,7 @@ async function createHostedCheckout({
     CUSTOMER_MOBILE_NO: mobile,
     CUSTOMER_EMAIL_ADDRESS: email,
     BASKET_ID: basketId,
-    TXNDESC: `ReSource PK order ${order.id}`.slice(0, 80),
+    TXNDESC: `ReThread order ${order.id}`.slice(0, 80),
     ORDER_DATE: new Date().toISOString().slice(0, 10),
     PROCCODE: "0",
     VERSION: "MY_VER_1.0",

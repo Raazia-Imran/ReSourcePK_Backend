@@ -192,8 +192,23 @@ function publicAttempt(attempt) {
 
 async function getAttempt(userId, attemptId) {
   const result = await db.query(
-    `SELECT p.id,p.status,p.amount_minor,p.currency,p.expires_at,p.created_at,
-       o.id AS order_id,o.status AS order_status
+    `SELECT p.id,
+       CASE
+         WHEN p.status IN ('succeeded','failed','expired','refund_pending','refunded')
+           THEN p.status
+         WHEN p.expires_at <= now() OR o.status IN (
+           'payment_expired','group_open','group_expired','withdrawn','rejected','seller_expired'
+         ) THEN 'expired'
+         ELSE p.status
+       END AS status,
+       p.amount_minor,p.currency,p.expires_at,p.created_at,
+       o.id AS order_id,o.status AS order_status,
+       EXISTS (
+         SELECT 1 FROM app.order_events e
+         WHERE e.order_id=o.id
+           AND e.event_type='payment.late_success_requires_review'
+           AND e.metadata->>'attemptId'=p.id::text
+       ) AS reconciliation_required
      FROM app.payment_attempts p JOIN app.orders o ON o.id=p.order_id
      WHERE p.id=$1 AND o.buyer_id=$2`,
     [attemptId, userId],

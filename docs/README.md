@@ -1,5 +1,15 @@
 # Project Documentation
 
+## Developer handoff (current implementation)
+
+These three documents are intended for developers joining the project. They describe the current code snapshot and user-facing flows; use the backend OpenAPI contract for exact schemas.
+
+1. [Backend specification and endpoint inventory](backend-handoff.md)
+2. [Frontend specification and user journeys](frontend-handoff.md)
+3. [Payment specification and end-to-end checkout](payment-handoff.md)
+
+The documents above supersede older implementation-status statements when they conflict. Product requirement and phase documents below remain useful for historical context and future scope.
+
 Read in this order:
 
 1. [`prd.md`](prd.md) - product scope, users, journeys and release gates.

@@ -1113,4 +1113,5 @@ module.exports = {
   listOpenGroups,
   organizationGroups,
   buyerGroupDetail,
+  releaseReservation,
 };

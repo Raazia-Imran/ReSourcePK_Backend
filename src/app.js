@@ -12,6 +12,10 @@ const catalogRoutes = require("./routes/catalogRoutes");
 const maintenanceRoutes = require("./routes/maintenanceRoutes");
 const sellerRequestRoutes = require("./routes/sellerRequestRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
+
+//new addition - for orderRoutes
+const orderRoutes = require("./routes/orderRoutes");
+
 const workspaceDataRoutes = require("./routes/workspaceDataRoutes");
 const { AppError } = require("./lib/errors");
 const { notFound, errorHandler } = require("./middlewares/errorHandler");
@@ -57,6 +61,10 @@ app.use("/api/v1", catalogRoutes);
 app.use("/api/v1", maintenanceRoutes);
 app.use("/api/v1", sellerRequestRoutes);
 app.use("/api/v1", purchaseRoutes);
+
+//new addition - for orderRoutes
+app.use("/api/v1", orderRoutes);
+
 app.use("/api/v1", workspaceDataRoutes);
 app.use(notFound);
 app.use(errorHandler);

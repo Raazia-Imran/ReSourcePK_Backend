@@ -1,0 +1,13 @@
+
+{
+  "input": {
+    "material": {
+      "type": "Cotton",
+      "category": "Textile"
+    },
+    "composition": ["Cotton", "Polyester"],
+    "condition": "Clean"
+  },
+  "expectedCanonical": "{\"composition\":[\"Cotton\",\"Polyester\"],\"condition\":\"Clean\",\"material\":{\"category\":\"Textile\",\"type\":\"Cotton\"}}",
+  "expectedHash": "dc6e9423464eeebf00535a84cc73e4658b1bde723321e548b273d492af9a56b6"
+}

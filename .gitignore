@@ -4,3 +4,7 @@ node_modules/
 test-results/
 playwright-report/
 paired-frontend/
+
+
+# Local database check script
+/check-passport-db.js

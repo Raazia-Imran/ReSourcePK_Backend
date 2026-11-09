@@ -52,6 +52,22 @@ test("creates a passport snapshot for a completed order", async () => {
         };
       }
 
+    // Mock successful blockchain anchor insertion.
+    if (sql.includes("INSERT INTO app.blockchain_anchors")) {
+      return {
+        rowCount: 1,
+        rows: [{ id: "anchor-1" }],
+      };
+    }
+
+    // Mock successful outbox job insertion.
+    if (sql.includes("INSERT INTO app.outbox")) {
+      return {
+        rowCount: 1,
+        rows: [{ id: "outbox-1" }],
+      };
+    }
+
       return { rowCount: 0, rows: [] };
     },
   };
@@ -79,12 +95,39 @@ test("creates a passport snapshot for a completed order", async () => {
   assert.equal(insertQueries.length, 1);
 
   // Verify first-version duplicate protection exists.
+//   assert.match(
+//     insertQueries[0].sql,
+//     /ON CONFLICT\s*\(order_id,\s*version\)\s*DO NOTHING/i,
+//   );
+// });
+
+
+
+  // Verify first-version duplicate protection exists.
   assert.match(
     insertQueries[0].sql,
     /ON CONFLICT\s*\(order_id,\s*version\)\s*DO NOTHING/i,
   );
-});
 
+  // Verify that one blockchain anchor was created.
+  const anchorQueries = queries.filter((query) =>
+  query.sql.includes("INSERT INTO app.blockchain_anchors"),
+  );
+
+  assert.equal(anchorQueries.length, 1);
+
+  // Verify that one outbox job was created.
+  const outboxQueries = queries.filter((query) =>
+  query.sql.includes("INSERT INTO app.outbox"),
+  );
+
+  assert.equal(outboxQueries.length, 1);
+  assert.equal(outboxQueries[0].params[0], "passport.anchor");
+  assert.deepEqual(outboxQueries[0].params[1], {
+    passportSnapshotId: snapshot.id,
+    passportHash: snapshot.passport_hash,
+  });
+});
 
 test("does not create duplicate snapshots when called again", async () => {
   const queries = [];
@@ -135,11 +178,28 @@ test("does not create duplicate snapshots when called again", async () => {
         };
       }
 
-      if (sql.includes("SELECT *") &&
-          sql.includes("FROM app.passport_snapshots")) {
+      if (
+        sql.includes("FROM app.passport_snapshots") &&
+        sql.includes("WHERE order_id = $1")) {
         return {
           rowCount: savedSnapshot ? 1 : 0,
           rows: savedSnapshot ? [savedSnapshot] : [],
+        };
+      }
+
+      // Mock successful blockchain anchor insertion.
+      if (sql.includes("INSERT INTO app.blockchain_anchors")) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "anchor-1" }],
+        };
+      }
+
+      // Mock successful outbox job insertion.
+      if (sql.includes("INSERT INTO app.outbox")) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "outbox-1" }],
         };
       }
 
@@ -159,4 +219,18 @@ test("does not create duplicate snapshots when called again", async () => {
 
   assert.equal(insertQueries.length, 2);
   assert.equal(savedSnapshot.order_id, "order-1");
+
+  // Only the first call should create a blockchain anchor.
+  const anchorQueries = queries.filter((query) =>
+    query.sql.includes("INSERT INTO app.blockchain_anchors"),
+  );
+
+  assert.equal(anchorQueries.length, 1);
+
+  // Only the first call should create an outbox job.
+  const outboxQueries = queries.filter((query) =>
+    query.sql.includes("INSERT INTO app.outbox"),
+  );
+
+  assert.equal(outboxQueries.length, 1);
 });

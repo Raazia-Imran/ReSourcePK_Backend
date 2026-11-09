@@ -2,6 +2,10 @@
 const crypto = require("node:crypto");
 const { buildPassportPayload } = require("./passportPayload");
 const { canonicalize, hashPassport } = require("./canonical");
+//new addition
+const {
+  enqueuePassportAnchor,
+} = require("../blockchain/outboxService");
 
 async function createSnapshotForOrder(tx, orderId) {
   if (!tx || typeof tx.query !== "function") {
@@ -79,7 +83,16 @@ async function createSnapshotForOrder(tx, orderId) {
   );
 
   if (insertResult.rows.length > 0) {
-    return insertResult.rows[0];
+
+    const snapshot = insertResult.rows[0];
+
+    // Schedule blockchain anchoring within the same transaction.
+    await enqueuePassportAnchor(tx, snapshot);
+
+    return snapshot;
+
+
+    //return insertResult.rows[0];
   }
 
   // If the snapshot already exists, return the existing record.

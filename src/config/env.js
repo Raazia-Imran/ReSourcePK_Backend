@@ -21,6 +21,16 @@ const schema = z.object({
     .max(10000)
     .default(300),
   DATABASE_URL: z.string().min(1),
+
+  //new addition
+
+  AMOY_RPC_URL: z.string().url().optional(),
+  ANCHOR_PRIVATE_KEY: z.string().optional(),
+  PASSPORT_CONTRACT_ADDRESS: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
+
   JWT_ACCESS_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   SELLER_REQUEST_ENCRYPTION_KEY: z

@@ -6,6 +6,10 @@ const crypto = require("node:crypto");
 const { corsOrigins, env } = require("./config/env");
 const { query } = require("./db");
 
+
+//new addition
+const passportRoutes = require("./routes/passportRoutes");
+
 const authRoutes = require("./routes/authRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
 const catalogRoutes = require("./routes/catalogRoutes");
@@ -64,6 +68,9 @@ app.use("/api/v1", purchaseRoutes);
 
 //new addition - for orderRoutes
 app.use("/api/v1", orderRoutes);
+
+//new addition - for PassportRoutes
+app.use("/api/v1", passportRoutes);
 
 app.use("/api/v1", workspaceDataRoutes);
 app.use(notFound);

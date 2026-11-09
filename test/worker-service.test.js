@@ -293,3 +293,87 @@ test("permanently fails after five unsuccessful attempts", async () => {
 
   assert.equal(adapter.failureCount, 5);
 });
+
+// Verifies that an expired processing job can be reclaimed after a worker crash.
+test("reclaims a job whose worker lease has expired", async () => {
+  const expiredJob = {
+    id: "job-expired",
+    type: "passport.anchor",
+    status: "processing",
+    attempts: 3,
+    payload: {
+      passportSnapshotId: "snapshot-expired",
+      passportHash: "a".repeat(64),
+    },
+  };
+
+  const mockTransaction = async (callback) =>
+    callback({
+      query: async (sql) => {
+        if (/WITH exhausted AS/i.test(sql)) {
+          return { rows: [], rowCount: 0 };
+        }
+
+        assert.match(sql, /status\s*=\s*'processing'/i);
+        assert.match(sql, /locked_until\s*<=\s*now\(\)/i);
+        assert.match(sql, /FOR UPDATE SKIP LOCKED/i);
+
+        return { rows: [expiredJob], rowCount: 1 };
+      },
+    });
+
+  const worker = createWorkerService(mockTransaction);
+  const result = await worker.claimNextJob();
+
+  assert.equal(result.id, "job-expired");
+  assert.equal(result.status, "processing");
+});
+
+// Simulates two workers claiming different pending jobs concurrently.
+test("two workers claim different jobs without claiming the same job", async () => {
+  const jobs = [
+    { id: "job-concurrent-1", status: "pending", attempts: 0 },
+    { id: "job-concurrent-2", status: "pending", attempts: 0 },
+  ];
+
+  const mockTransaction = async (callback) =>
+    callback({
+      query: async (sql) => {
+        if (/WITH exhausted AS/i.test(sql)) {
+          return { rows: [], rowCount: 0 };
+        }
+
+        assert.match(sql, /FOR UPDATE SKIP LOCKED/i);
+
+        const job = jobs.find((item) => item.status === "pending");
+
+        if (!job) {
+          return { rows: [], rowCount: 0 };
+        }
+
+        job.status = "processing";
+        job.attempts += 1;
+
+        return {
+          rows: [{ ...job }],
+          rowCount: 1,
+        };
+      },
+    });
+
+  const workerOne = createWorkerService(mockTransaction);
+  const workerTwo = createWorkerService(mockTransaction);
+
+  const [resultOne, resultTwo] = await Promise.all([
+    workerOne.claimNextJob(),
+    workerTwo.claimNextJob(),
+  ]);
+
+  assert.ok(resultOne);
+  assert.ok(resultTwo);
+  assert.notEqual(resultOne.id, resultTwo.id);
+  assert.deepEqual(
+    [resultOne.id, resultTwo.id].sort(),
+    ["job-concurrent-1", "job-concurrent-2"],
+  );
+});

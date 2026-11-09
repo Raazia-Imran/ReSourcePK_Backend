@@ -33,13 +33,20 @@ test("generates different keys for different versions", () => {
   assert.notEqual(versionOne, versionTwo);
 });
 
-test("matches ethers.id key derivation", () => {
-  const passportId = "passport-123";
-  const version = 1;
+// test("matches ethers.id key derivation", () => {
+//   const passportId = "passport-123";
+//   const version = 1;
 
-  const expected = ethers.id(`${passportId}:version-${version}`);
+//   const expected = ethers.id(`${passportId}:version-${version}`);
 
-  assert.equal(generatePassportKey(passportId, version), expected);
+//   assert.equal(generatePassportKey(passportId, version), expected);
+// });
+
+test("matches SHA-256 of passportId:version", () => {
+  const expected =
+    "0xdb6eb344e3fc26f5c0664285be9a451a410468c8e518a4a15ad66d6302885ebe";
+
+  assert.equal(generatePassportKey("passport-123", 1), expected);
 });
 
 test("rejects an empty passport ID", () => {

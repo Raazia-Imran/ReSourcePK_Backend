@@ -4,6 +4,9 @@ const request = require("supertest");
 const bcrypt = require("bcryptjs");
 const crypto = require("node:crypto");
 
+//new addition
+const orders = require("../src/modules/orders/service");
+
 const url = new URL(
   process.env.TEST_DATABASE_URL || "postgresql://invalid/invalid",
 );
@@ -37,6 +40,8 @@ let staffToken;
 let buyerToken;
 let secondBuyerToken;
 let replacementBuyerToken;
+//new addition
+let platformAdmin;
 const listingIds = [];
 
 async function createUser(roleLabel) {
@@ -131,6 +136,16 @@ test.before(async () => {
   owner = await createUser("owner");
   manager = await createUser("manager");
   staff = await createUser("staff");
+
+  //new addition
+
+  platformAdmin = await createUser("platform-admin");
+  await db.query(
+  `INSERT INTO app.platform_assignments(user_id, role, granted_by)
+   VALUES($1, 'platform_admin', $2)`,
+  [platformAdmin, owner],
+  );
+
   buyer = await createUser("buyer");
   secondBuyer = await createUser("second-buyer");
   replacementBuyer = await createUser("replacement-buyer");
@@ -390,6 +405,155 @@ test("concurrent direct orders cannot reserve more stock than a listing has", as
   assert.equal(reservations.rows[0].quantity, "30.000");
 });
 
+test("cancelling an order before completion creates no impact event", async () => {
+  const listingId = await createListing();
+
+  const placed = await request(app)
+    .post("/api/v1/orders")
+    .set("Authorization", `Bearer ${buyerToken}`)
+    .send({
+      listingId,
+      quantity: "10",
+      requestKey: requestKey(),
+    });
+
+  assert.equal(placed.status, 201, JSON.stringify(placed.body));
+
+  const orderId = placed.body.data.id;
+
+  await db.query(
+  `UPDATE app.orders
+   SET fulfilment_status = 'pending_payment'
+   WHERE id = $1`,
+  [orderId],
+
+);
+  
+  await orders.cancelOrder(
+    orderId,
+    buyer,
+    "Integration test cancellation",
+    requestKey(),
+    "buyer",
+  );
+
+  const confirmed = await request(app)
+  .post(`/api/v1/organizations/${organization}/orders/${orderId}/decision`)
+  .set("Authorization", `Bearer ${ownerToken}`)
+  .send({ decision: "confirm" });
+  
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+
+  const result = await db.query(
+    `SELECT COUNT(*)::int AS count
+     FROM app.impact_events
+     WHERE order_id = $1`,
+    [orderId],
+  );
+
+  assert.equal(result.rows[0].count, 0);
+});
+
+//new addition
+
+
+test("refund creates exactly one reversal and is idempotent", async () => {
+  const listingId = await createListing();
+
+  const placed = await request(app)
+    .post("/api/v1/orders")
+    //.set("Authorization", `Bearer ${buyerToken}`)
+    .set("Authorization", `Bearer ${replacementBuyerToken}`)
+
+    .send({
+      listingId,
+      quantity: "10",
+      requestKey: requestKey(),
+    });
+
+  assert.equal(placed.status, 201, JSON.stringify(placed.body));
+  const orderId = placed.body.data.id;
+
+  const confirmed = await request(app)
+    .post(`/api/v1/organizations/${organization}/orders/${orderId}/decision`)
+    .set("Authorization", `Bearer ${ownerToken}`)
+    .send({ decision: "confirm" });
+
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+
+  // Create a successful payment attempt for the refund simulation.
+  await db.query(
+    `INSERT INTO app.payment_attempts
+       (order_id, provider, method, amount_minor, idempotency_key, expires_at, status)
+     VALUES ($1, 'integration-test', 'card', 1000, $2, now() + interval '1 day', 'succeeded')`,
+    [orderId, requestKey()],
+  );
+
+  await db.query(
+    `UPDATE app.orders
+     SET fulfilment_status = 'dispatched'
+     WHERE id = $1`,
+    [orderId],
+  );
+
+  // Complete the order, creating its diversion event.
+  await orders.confirmReceipt(
+    orderId,
+    //buyer,
+    replacementBuyer,
+    "Refund integration test completion",
+    requestKey(),
+  );
+
+  // Refund twice to verify idempotency.
+  await orders.simulateRefund(
+    orderId,
+    platformAdmin,
+    "Integration test refund",
+    requestKey(),
+  );
+
+  await orders.simulateRefund(
+    orderId,
+    platformAdmin,
+    "Repeated integration test refund",
+    requestKey(),
+  );
+
+  const events = await db.query(
+    `SELECT impact_entry_type, quantity, unit
+     FROM app.impact_events
+     WHERE order_id = $1
+     ORDER BY impact_entry_type`,
+    [orderId],
+  );
+
+  assert.equal(events.rowCount, 2);
+  assert.deepEqual(
+    events.rows.map((row) => row.impact_entry_type).sort(),
+    ["diversion", "reversal"],
+  );
+  assert.equal(Number(events.rows[0].quantity), 10);
+  assert.equal(Number(events.rows[1].quantity), 10);
+  assert.ok(events.rows.every((row) => row.unit === "kg"));
+
+  const payment = await db.query(
+    `SELECT status FROM app.payment_attempts WHERE order_id = $1`,
+    [orderId],
+  );
+
+  assert.equal(payment.rows[0].status, "refunded");
+
+  const order = await db.query(
+    `SELECT fulfilment_status FROM app.orders WHERE id = $1`,
+    [orderId],
+  );
+
+  assert.equal(order.rows[0].fulfilment_status, "refunded");
+});
+
+
+
 test.after(async () => {
   if (listingIds.length)
     await db.query(
@@ -398,3 +562,73 @@ test.after(async () => {
     );
   await db.pool.end();
 });
+
+
+test("completed orders create exactly one traceable diversion impact event", async () => {
+  // Create a real listing and direct purchase.
+  const listingId = await createListing();
+
+  const placed = await request(app)
+    .post("/api/v1/orders")
+    //.set("Authorization", `Bearer ${buyerToken}`)
+    .set("Authorization", `Bearer ${buyerToken}`)
+    .send({
+      listingId,
+      quantity: "10",
+      requestKey: requestKey(),
+    });
+
+  assert.equal(placed.status, 201, JSON.stringify(placed.body));
+
+  const orderId = placed.body.data.id;
+
+  // Confirm the order through the existing Seller decision flow.
+  const confirmed = await request(app)
+    .post(`/api/v1/organizations/${organization}/orders/${orderId}/decision`)
+    .set("Authorization", `Bearer ${ownerToken}`)
+    .send({ decision: "confirm" });
+
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+
+  // Set the fulfilment status to dispatched for this lifecycle test.
+  // This isolates the receipt-confirmation operation.
+  await db.query(
+    `UPDATE app.orders
+     SET fulfilment_status = 'dispatched'
+     WHERE id = $1`,
+    [orderId],
+  );
+
+  // Buyer confirms receipt.
+  await orders.confirmReceipt(
+    orderId,
+    buyer,
+    //replacementBuyer,
+    "Integration test receipt confirmation",
+    requestKey(),
+  );
+
+  // Confirm receipt again to test idempotency.
+  await orders.confirmReceipt(
+    orderId,
+    buyer,
+    //replacementBuyer,
+    "Repeated receipt confirmation",
+    requestKey(),
+  );
+
+  // Verify impact event traceability and quantity.
+  const result = await db.query(
+    `SELECT order_id, quantity, unit, impact_entry_type
+     FROM app.impact_events
+     WHERE order_id = $1`,
+    [orderId],
+  );
+
+  assert.equal(result.rowCount, 1);
+  assert.equal(result.rows[0].order_id, orderId);
+  assert.equal(Number(result.rows[0].quantity), 10);
+  assert.equal(result.rows[0].unit, "kg");
+  assert.equal(result.rows[0].impact_entry_type, "diversion");
+});
+

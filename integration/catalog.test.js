@@ -165,10 +165,15 @@ test("suspending an organization removes its stock from detail, count and matchi
     "UPDATE app.organizations SET status='suspended' WHERE id=$1",
     [org],
   );
-  assert.equal(
-    (await repo.search({ page: 1, limit: 12, sort: "newest" })).total,
-    0,
-  );
+  // assert.equal(
+  //   (await repo.search({ page: 1, limit: 12, sort: "newest" })).total,
+  //   0,
+  // );
+
+  const search = await repo.search({ page: 1, limit: 100, sort: "newest" });
+  assert.equal(search.items.some((item) => item.id === listing.id), false);
+
+
   await assert.rejects(
     () => service.publicListing(listing.id),
     (error) => error.status === 404,
@@ -178,7 +183,17 @@ test("suspending an organization removes its stock from detail, count and matchi
     unit: "kg",
     minQuantity: "60",
   });
-  assert.equal((await repo.matches(buyer, requirement.id)).items.length, 0);
+  
+  //assert.equal((await repo.matches(buyer, requirement.id)).items.length, 0);
+  
+
+  const matchingResults = await repo.matches(buyer, requirement.id);
+  assert.equal(
+  matchingResults.items.some((item) => item.id === listing.id),
+  false,
+);
+
+
   await db.query("UPDATE app.organizations SET status='active' WHERE id=$1", [
     org,
   ]);

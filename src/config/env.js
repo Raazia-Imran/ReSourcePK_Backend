@@ -21,6 +21,7 @@ const schema = z.object({
     .max(10000)
     .default(300),
   DATABASE_URL: z.string().min(1),
+  DATABASE_CA_CERT: z.string().min(1).optional(),
 
   //new addition
 

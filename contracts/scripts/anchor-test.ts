@@ -38,7 +38,9 @@ async function main() {
   console.log("SUCCESS: Hash anchored and retrieved correctly!");
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(error);
   process.exitCode = 1;
-});
+}

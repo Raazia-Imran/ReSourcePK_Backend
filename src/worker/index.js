@@ -45,7 +45,8 @@ async function main() {
   async function run() {
     log("info", "blockchain_worker_started");
 
-    while (!stopping) {
+    while (true) {
+      if (stopping) break;
       try {
         const result = await worker.processNextJob();
 

@@ -64,8 +64,10 @@ function canonicalize(value) {
       throw new TypeError(`Unsupported object at ${path}`);
     }
 
-    // Sort keys alphabetically
-    const keys = Object.keys(current).sort();
+    // Preserve deterministic UTF-16 ordering; locale-dependent sorting would change hashes.
+    const keys = Object.keys(current).sort((left, right) =>
+      left < right ? -1 : Number(left > right),
+    );
 
     const properties = keys.map((key) => {
       const propertyValue = current[key];

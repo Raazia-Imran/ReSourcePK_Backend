@@ -11,11 +11,7 @@ async function enqueuePassportAnchor(tx, passportSnapshot) {
     throw new TypeError("A valid transaction client is required");
   }
 
-  if (
-    !passportSnapshot ||
-    !passportSnapshot.id ||
-    !passportSnapshot.passport_hash
-  ) {
+  if (!passportSnapshot?.id || !passportSnapshot.passport_hash) {
     throw new TypeError("A valid passport snapshot is required");
   }
 

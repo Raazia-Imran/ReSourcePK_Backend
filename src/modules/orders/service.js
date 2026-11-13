@@ -128,8 +128,7 @@ async function transitionOrder(
       `fulfilment.${toStatus}`,
       order.fulfilment_status,
       toStatus,
-      reason,
-      correlationId,
+      { reason, correlationId },
     );
 
     if (actorType === "seller") {
@@ -218,8 +217,7 @@ async function addOrderEvent(
   type,
   priorStatus,
   newStatus,
-  reason = null,
-  correlationId = null,
+  { reason = null, correlationId = null } = {},
 ) {
   await runner.query(
     `INSERT INTO app.order_events
@@ -298,8 +296,7 @@ async function confirmReceipt(orderId, buyerId, reason, correlationId) {
       "fulfilment.delivered",
       "dispatched",
       "delivered",
-      reason,
-      correlationId,
+      { reason, correlationId },
     );
 
     // Record delivered -> completed.
@@ -310,8 +307,7 @@ async function confirmReceipt(orderId, buyerId, reason, correlationId) {
       "fulfilment.completed",
       "delivered",
       "completed",
-      reason,
-      correlationId,
+      { reason, correlationId },
     );
 
     await addAudit(
@@ -412,8 +408,7 @@ async function cancelOrder(
       "fulfilment.cancelled",
       order.fulfilment_status,
       "cancelled",
-      reason || "Order cancelled",
-      correlationId,
+      { reason: reason || "Order cancelled", correlationId: correlationId },
     );
 
     // Record the action in the audit log.
@@ -494,8 +489,7 @@ async function raiseDispute(
       "order.disputed",
       order.fulfilment_status,
       "disputed",
-      reason,
-      correlationId,
+      { reason, correlationId },
     );
 
     await addAudit(
@@ -592,8 +586,7 @@ async function simulateRefund(orderId, actorId, reason, correlationId) {
       "order.refunded",
       order.fulfilment_status,
       "refunded",
-      reason,
-      correlationId,
+      { reason, correlationId },
     );
 
     await addAudit(

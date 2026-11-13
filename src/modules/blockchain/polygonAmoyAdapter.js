@@ -39,7 +39,7 @@
 //     const tx = await this.contract.anchor(key, hash);
 //     const receipt = await tx.wait();
 
-//     if (!receipt || receipt.status !== 1) {
+//     if (receipt?.status !== 1) {
 //       throw new Error("Polygon Amoy anchor transaction failed");
 //     }
 
@@ -90,7 +90,7 @@
 //     const tx = await this.contract.anchor(key, hash);
 //     const receipt = await tx.wait();
 
-//     if (!receipt || receipt.status !== 1) {
+//     if (receipt?.status !== 1) {
 //       throw new Error("Polygon Amoy anchor transaction failed");
 //     }
 
@@ -149,7 +149,7 @@ class PolygonAmoyAdapter {
     const tx = await this.contract.anchor(key, hash);
     const receipt = await tx.wait();
 
-    if (!receipt || receipt.status !== 1) {
+    if (receipt?.status !== 1) {
       throw new Error("Polygon Amoy anchor transaction failed");
     }
 

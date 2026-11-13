@@ -1,5 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+function oneRow(row) {
+  return { rowCount: 1, rows: [row] };
+}
 
 const db = require("../src/db");
 const orderService = require("../src/modules/orders/service");
@@ -9,6 +12,17 @@ const {
   canTransition,
   assertTransition,
 } = require("../src/modules/orders/orderStateMachine");
+
+function recordTransaction(t, queries, respond) {
+  t.mock.method(db, "transaction", async (work) =>
+    work({
+      query: async (sql, params) => {
+        queries.push({ sql, params });
+        return respond(sql, params);
+      },
+    }),
+  );
+}
 
 const STATUSES = Object.keys(TRANSITIONS);
 
@@ -77,28 +91,17 @@ test("unknown statuses are rejected", () => {
 test("disputed orders cannot be cancelled", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-1",
+        buyer_id: "buyer-1",
+        fulfilment_status: "disputed",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-1",
-              buyer_id: "buyer-1",
-              fulfilment_status: "disputed",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 0, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 0, rows: [] };
+  });
 
   await assert.rejects(
     () =>
@@ -128,28 +131,17 @@ test("disputed orders cannot be cancelled", async (t) => {
 test("cancelling an eligible order releases active and committed reservations", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-2",
+        buyer_id: "buyer-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-2",
-              buyer_id: "buyer-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await orderService.cancelOrder(
     "order-2",
@@ -186,35 +178,24 @@ test("repeated cancellation does not create duplicate events or audit records", 
   const queries = [];
   let currentStatus = "paid";
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-3",
+        buyer_id: "buyer-1",
+        fulfilment_status: currentStatus,
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-3",
-              buyer_id: "buyer-1",
-              fulfilment_status: currentStatus,
-            },
-          ],
-        };
-      }
+    if (
+      sql.includes("UPDATE app.orders") &&
+      sql.includes("fulfilment_status")
+    ) {
+      currentStatus = "cancelled";
+    }
 
-      if (
-        sql.includes("UPDATE app.orders") &&
-        sql.includes("fulfilment_status")
-      ) {
-        currentStatus = "cancelled";
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await orderService.cancelOrder(
     "order-3",
@@ -252,29 +233,18 @@ test("repeated cancellation does not create duplicate events or audit records", 
 test("buyers cannot use the general transition function", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-4",
+        buyer_id: "buyer-1",
+        fulfilment_status: "paid",
+        organization_id: "org-1",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-4",
-              buyer_id: "buyer-1",
-              fulfilment_status: "paid",
-              organization_id: "org-1",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     () =>
@@ -311,57 +281,36 @@ test("buyers cannot use the general transition function", async (t) => {
 test("authorized sellers can move paid orders to processing", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-seller-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_memberships")) {
+      return oneRow({
+        id: "membership-1",
+        role: "owner",
+      });
+    }
 
-      if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "membership-1",
-              role: "owner",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_membership_permissions")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.organization_membership_permissions")) {
-        return { rowCount: 0, rows: [] };
-      }
+    if (sql.includes("UPDATE app.orders")) {
+      return oneRow({
+        id: "order-seller-1",
+        fulfilment_status: "processing",
+      });
+    }
 
-      if (sql.includes("UPDATE app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              fulfilment_status: "processing",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   const updatedOrder = await orderService.transitionOrder(
     "order-seller-1",
@@ -403,45 +352,29 @@ test("authorized sellers can move paid orders to processing", async (t) => {
 test("sellers cannot skip fulfilment steps", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-seller-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_memberships")) {
+      return oneRow({
+        id: "membership-1",
+        role: "owner",
+      });
+    }
 
-      if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "membership-1",
-              role: "owner",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_membership_permissions")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.organization_membership_permissions")) {
-        return { rowCount: 0, rows: [] };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     orderService.transitionOrder(
@@ -481,54 +414,35 @@ test("authorized sellers can move processing orders to ready and dispatched", as
   const queries = [];
   let currentStatus = "processing";
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-seller-2",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: currentStatus,
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-2",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: currentStatus,
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_memberships")) {
+      return oneRow({ id: "membership-1", role: "owner" });
+    }
 
-      if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "membership-1", role: "owner" }],
-        };
-      }
+    if (sql.includes("FROM app.organization_membership_permissions")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.organization_membership_permissions")) {
-        return { rowCount: 0, rows: [] };
-      }
+    if (sql.includes("UPDATE app.orders")) {
+      currentStatus = params[1];
 
-      if (sql.includes("UPDATE app.orders")) {
-        currentStatus = params[1];
+      return oneRow({
+        id: "order-seller-2",
+        fulfilment_status: currentStatus,
+      });
+    }
 
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-2",
-              fulfilment_status: currentStatus,
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   const readyOrder = await orderService.transitionOrder(
     "order-seller-2",
@@ -577,45 +491,29 @@ test("authorized sellers can move processing orders to ready and dispatched", as
 test("sellers without orders.confirm permission cannot update orders", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-seller-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_memberships")) {
+      return oneRow({
+        id: "membership-1",
+        role: "manager",
+      });
+    }
 
-      if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "membership-1",
-              role: "manager",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_membership_permissions")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.organization_membership_permissions")) {
-        return { rowCount: 0, rows: [] };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     orderService.transitionOrder(
@@ -654,34 +552,23 @@ test("sellers without orders.confirm permission cannot update orders", async (t)
 test("sellers cannot update orders belonging to another organization", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
-
-      if (sql.includes("FROM app.orders")) {
-        // Simulate the organization-scoped order lookup.
-        if (params[1] === "org-2") {
-          return { rowCount: 0, rows: [] };
-        }
-
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      // Simulate the organization-scoped order lookup.
+      if (params[1] === "org-2") {
+        return { rowCount: 0, rows: [] };
       }
 
-      return { rowCount: 0, rows: [] };
-    },
-  };
+      return oneRow({
+        id: "order-seller-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 0, rows: [] };
+  });
 
   await assert.rejects(
     orderService.transitionOrder(
@@ -720,45 +607,29 @@ test("sellers cannot update orders belonging to another organization", async (t)
 test("sellers cannot move paid orders directly to completed", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-seller-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_memberships")) {
+      return oneRow({
+        id: "membership-1",
+        role: "owner",
+      });
+    }
 
-      if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "membership-1",
-              role: "owner",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.organization_membership_permissions")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.organization_membership_permissions")) {
-        return { rowCount: 0, rows: [] };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     orderService.transitionOrder(
@@ -803,29 +674,19 @@ test("concurrent duplicate seller requests create only one transition", async (t
       queries.push({ sql, params });
 
       if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: fulfilmentStatus,
-            },
-          ],
-        };
+        return oneRow({
+          id: "order-seller-1",
+          buyer_id: "buyer-1",
+          organization_id: "org-1",
+          fulfilment_status: fulfilmentStatus,
+        });
       }
 
       if (sql.includes("FROM app.organization_memberships")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "membership-1",
-              role: "owner",
-            },
-          ],
-        };
+        return oneRow({
+          id: "membership-1",
+          role: "owner",
+        });
       }
 
       if (sql.includes("FROM app.organization_membership_permissions")) {
@@ -835,15 +696,10 @@ test("concurrent duplicate seller requests create only one transition", async (t
       if (sql.includes("UPDATE app.orders")) {
         fulfilmentStatus = params[1];
 
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-seller-1",
-              fulfilment_status: fulfilmentStatus,
-            },
-          ],
-        };
+        return oneRow({
+          id: "order-seller-1",
+          fulfilment_status: fulfilmentStatus,
+        });
       }
 
       return { rowCount: 1, rows: [] };
@@ -918,78 +774,52 @@ test("concurrent duplicate seller requests create only one transition", async (t
 test("buyers can confirm receipt and complete dispatched orders", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("JOIN app.listings")) {
+      return oneRow({
+        id: "order-receipt-1",
+        listing_id: "listing-1",
+        quantity: "12.500",
+        unit: "kg",
+        completed_at: "2026-11-08T10:00:00.000Z",
+        fulfilment_status: "completed",
+        material: "Cotton",
+        composition: "100% Cotton",
+        color: "White",
+        condition: "Good",
+      });
+    }
 
-      if (sql.includes("JOIN app.listings")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-1",
-              listing_id: "listing-1",
-              quantity: "12.500",
-              unit: "kg",
-              completed_at: "2026-11-08T10:00:00.000Z",
-              fulfilment_status: "completed",
-              material: "Cotton",
-              composition: "100% Cotton",
-              color: "White",
-              condition: "Good",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-receipt-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "dispatched",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "dispatched",
-            },
-          ],
-        };
-      }
+    if (sql.includes("UPDATE app.orders")) {
+      return oneRow({
+        id: "order-receipt-1",
+        fulfilment_status: "completed",
+      });
+    }
 
-      if (sql.includes("UPDATE app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-1",
-              fulfilment_status: "completed",
-            },
-          ],
-        };
-      }
+    if (sql.includes("INSERT INTO app.passport_snapshots")) {
+      return oneRow({
+        id: params[0],
+        order_id: params[1],
+        version: 1,
+        canonical_json: params[2],
+        snapshot_data: params[3],
+        passport_hash: params[4],
+        status: "pending",
+      });
+    }
 
-      if (sql.includes("INSERT INTO app.passport_snapshots")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: params[0],
-              order_id: params[1],
-              version: 1,
-              canonical_json: params[2],
-              snapshot_data: params[3],
-              passport_hash: params[4],
-              status: "pending",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   const completedOrder = await orderService.confirmReceipt(
     "order-receipt-1",
@@ -1029,48 +859,32 @@ test("buyers can confirm receipt and complete dispatched orders", async (t) => {
 test("other buyers cannot confirm receipt of someone else's order", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("JOIN app.listings")) {
+      return oneRow({
+        id: "order-receipt-1",
+        listing_id: "listing-1",
+        quantity: "12.500",
+        unit: "kg",
+        completed_at: "2026-11-08T10:00:00.000Z",
+        fulfilment_status: "completed",
+        material: "Cotton",
+        composition: "100% Cotton",
+        color: "White",
+        condition: "Good",
+      });
+    }
 
-      if (sql.includes("JOIN app.listings")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-1",
-              listing_id: "listing-1",
-              quantity: "12.500",
-              unit: "kg",
-              completed_at: "2026-11-08T10:00:00.000Z",
-              fulfilment_status: "completed",
-              material: "Cotton",
-              composition: "100% Cotton",
-              color: "White",
-              condition: "Good",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-receipt-2",
+        buyer_id: "buyer-1",
+        fulfilment_status: "dispatched",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-2",
-              buyer_id: "buyer-1",
-              fulfilment_status: "dispatched",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     () =>
@@ -1108,28 +922,17 @@ test("other buyers cannot confirm receipt of someone else's order", async (t) =>
 test("repeated receipt confirmation does not create duplicate events or audit records", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-receipt-3",
+        buyer_id: "buyer-1",
+        fulfilment_status: "completed",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-receipt-3",
-              buyer_id: "buyer-1",
-              fulfilment_status: "completed",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   const completedOrder = await orderService.confirmReceipt(
     "order-receipt-3",
@@ -1167,57 +970,38 @@ test("refund simulation updates payment and order only once", async (t) => {
   const queries = [];
   let currentStatus = "paid";
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-refund-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: currentStatus,
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-refund-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: currentStatus,
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.platform_assignments")) {
+      return oneRow({ "?column?": 1 });
+    }
 
-      if (sql.includes("FROM app.platform_assignments")) {
-        return { rowCount: 1, rows: [{ "?column?": 1 }] };
-      }
+    if (sql.includes("FROM app.payment_attempts")) {
+      return oneRow({ id: "payment-1", status: "succeeded" });
+    }
 
-      if (sql.includes("FROM app.payment_attempts")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "payment-1", status: "succeeded" }],
-        };
-      }
+    if (
+      sql.includes("UPDATE app.orders") &&
+      sql.includes("fulfilment_status")
+    ) {
+      currentStatus = "refunded";
 
-      if (
-        sql.includes("UPDATE app.orders") &&
-        sql.includes("fulfilment_status")
-      ) {
-        currentStatus = "refunded";
+      return oneRow({
+        id: "order-refund-1",
+        fulfilment_status: "refunded",
+      });
+    }
 
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-refund-1",
-              fulfilment_status: "refunded",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await orderService.simulateRefund(
     "order-refund-1",
@@ -1257,33 +1041,22 @@ test("refund simulation updates payment and order only once", async (t) => {
 test("non-admin users cannot simulate refunds", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-refund-2",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-refund-2",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.platform_assignments")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.platform_assignments")) {
-        return { rowCount: 0, rows: [] };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     () =>
@@ -1316,37 +1089,26 @@ test("non-admin users cannot simulate refunds", async (t) => {
 test("refund simulation rejects orders without a successful payment", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-refund-3",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-refund-3",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (sql.includes("FROM app.platform_assignments")) {
+      return oneRow({ "?column?": 1 });
+    }
 
-      if (sql.includes("FROM app.platform_assignments")) {
-        return { rowCount: 1, rows: [{ "?column?": 1 }] };
-      }
+    if (sql.includes("FROM app.payment_attempts")) {
+      return { rowCount: 0, rows: [] };
+    }
 
-      if (sql.includes("FROM app.payment_attempts")) {
-        return { rowCount: 0, rows: [] };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await assert.rejects(
     () =>
@@ -1379,44 +1141,28 @@ test("refund simulation rejects orders without a successful payment", async (t) 
 test("buyers can raise a dispute and create a dispute record", async (t) => {
   const queries = [];
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-dispute-1",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: "paid",
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-dispute-1",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: "paid",
-            },
-          ],
-        };
-      }
+    if (
+      sql.includes("UPDATE app.orders") &&
+      sql.includes("fulfilment_status")
+    ) {
+      return oneRow({
+        id: "order-dispute-1",
+        fulfilment_status: "disputed",
+      });
+    }
 
-      if (
-        sql.includes("UPDATE app.orders") &&
-        sql.includes("fulfilment_status")
-      ) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-dispute-1",
-              fulfilment_status: "disputed",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await orderService.raiseDispute(
     "order-dispute-1",
@@ -1459,46 +1205,30 @@ test("repeated dispute requests do not create duplicate records or events", asyn
   const queries = [];
   let currentStatus = "paid";
 
-  const runner = {
-    query: async (sql, params) => {
-      queries.push({ sql, params });
+  recordTransaction(t, queries, async (sql, params) => {
+    if (sql.includes("FROM app.orders")) {
+      return oneRow({
+        id: "order-dispute-2",
+        buyer_id: "buyer-1",
+        organization_id: "org-1",
+        fulfilment_status: currentStatus,
+      });
+    }
 
-      if (sql.includes("FROM app.orders")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-dispute-2",
-              buyer_id: "buyer-1",
-              organization_id: "org-1",
-              fulfilment_status: currentStatus,
-            },
-          ],
-        };
-      }
+    if (
+      sql.includes("UPDATE app.orders") &&
+      sql.includes("fulfilment_status")
+    ) {
+      currentStatus = "disputed";
 
-      if (
-        sql.includes("UPDATE app.orders") &&
-        sql.includes("fulfilment_status")
-      ) {
-        currentStatus = "disputed";
+      return oneRow({
+        id: "order-dispute-2",
+        fulfilment_status: "disputed",
+      });
+    }
 
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-dispute-2",
-              fulfilment_status: "disputed",
-            },
-          ],
-        };
-      }
-
-      return { rowCount: 1, rows: [] };
-    },
-  };
-
-  t.mock.method(db, "transaction", async (work) => work(runner));
+    return { rowCount: 1, rows: [] };
+  });
 
   await orderService.raiseDispute(
     "order-dispute-2",

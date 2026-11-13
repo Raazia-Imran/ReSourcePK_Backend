@@ -55,13 +55,13 @@ async function checkDrawer(page, width) {
   const drawer = page.getByRole("dialog", { name: "Workspace navigation" });
   await expect(drawer).toBeVisible();
   await expect(
-    drawer.getByRole("link", { name: "ReSource PK home" }),
+    drawer.getByRole("link", { name: "ReThread home" }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(drawer.getByRole("button", { name: "Sign out" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    drawer.getByRole("link", { name: "ReSource PK home" }),
+    drawer.getByRole("link", { name: "ReThread home" }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(opener).toBeFocused();
@@ -301,7 +301,7 @@ test("CSV preview, refreshed template download and image failures use the real A
     .click();
   await refreshed;
   const download = await downloading;
-  expect(download.suggestedFilename()).toBe("resourcepk-listings.csv");
+  expect(download.suggestedFilename()).toBe("rethread-listings.csv");
   const chunks = [];
   for await (const chunk of await download.createReadStream())
     chunks.push(chunk);

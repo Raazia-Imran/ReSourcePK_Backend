@@ -1,6 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+function oneRow(row) {
+  return { rowCount: 1, rows: [row] };
+}
+
 const { createSnapshotForOrder } = require("../src/modules/passports/service");
 
 test("creates a passport snapshot for a completed order", async () => {
@@ -12,57 +16,41 @@ test("creates a passport snapshot for a completed order", async () => {
 
       // Mock the completed order and its listing.
       if (sql.includes("JOIN app.listings")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-1",
-              listing_id: "listing-1",
-              quantity: "12.500",
-              unit: "kg",
-              completed_at: "2026-11-08T10:00:00.000Z",
-              fulfilment_status: "completed",
-              material: "Cotton",
-              composition: "100% Cotton",
-              color: "White",
-              condition: "Good",
-            },
-          ],
-        };
+        return oneRow({
+          id: "order-1",
+          listing_id: "listing-1",
+          quantity: "12.500",
+          unit: "kg",
+          completed_at: "2026-11-08T10:00:00.000Z",
+          fulfilment_status: "completed",
+          material: "Cotton",
+          composition: "100% Cotton",
+          color: "White",
+          condition: "Good",
+        });
       }
 
       // Mock successful snapshot insertion.
       if (sql.includes("INSERT INTO app.passport_snapshots")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: params[0],
-              order_id: params[1],
-              version: 1,
-              canonical_json: params[2],
-              snapshot_data: params[3],
-              passport_hash: params[4],
-              status: "pending",
-            },
-          ],
-        };
+        return oneRow({
+          id: params[0],
+          order_id: params[1],
+          version: 1,
+          canonical_json: params[2],
+          snapshot_data: params[3],
+          passport_hash: params[4],
+          status: "pending",
+        });
       }
 
       // Mock successful blockchain anchor insertion.
       if (sql.includes("INSERT INTO app.blockchain_anchors")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "anchor-1" }],
-        };
+        return oneRow({ id: "anchor-1" });
       }
 
       // Mock successful outbox job insertion.
       if (sql.includes("INSERT INTO app.outbox")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "outbox-1" }],
-        };
+        return oneRow({ id: "outbox-1" });
       }
 
       return { rowCount: 0, rows: [] };
@@ -130,23 +118,18 @@ test("does not create duplicate snapshots when called again", async () => {
       queries.push({ sql, params });
 
       if (sql.includes("JOIN app.listings")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              id: "order-1",
-              listing_id: "listing-1",
-              quantity: "12.500",
-              unit: "kg",
-              completed_at: "2026-11-08T10:00:00.000Z",
-              fulfilment_status: "completed",
-              material: "Cotton",
-              composition: "100% Cotton",
-              color: "White",
-              condition: "Good",
-            },
-          ],
-        };
+        return oneRow({
+          id: "order-1",
+          listing_id: "listing-1",
+          quantity: "12.500",
+          unit: "kg",
+          completed_at: "2026-11-08T10:00:00.000Z",
+          fulfilment_status: "completed",
+          material: "Cotton",
+          composition: "100% Cotton",
+          color: "White",
+          condition: "Good",
+        });
       }
 
       if (sql.includes("INSERT INTO app.passport_snapshots")) {
@@ -182,18 +165,12 @@ test("does not create duplicate snapshots when called again", async () => {
 
       // Mock successful blockchain anchor insertion.
       if (sql.includes("INSERT INTO app.blockchain_anchors")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "anchor-1" }],
-        };
+        return oneRow({ id: "anchor-1" });
       }
 
       // Mock successful outbox job insertion.
       if (sql.includes("INSERT INTO app.outbox")) {
-        return {
-          rowCount: 1,
-          rows: [{ id: "outbox-1" }],
-        };
+        return oneRow({ id: "outbox-1" });
       }
 
       return { rowCount: 0, rows: [] };

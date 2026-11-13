@@ -4,7 +4,7 @@
 
 Integrate `feature/step-8` and the impact-specific additions from `feature/step-10-impact-events`. Preserve the newer routes, payment transitions, canonical passport implementation, outbox worker and tests from Step 8. Step 10 independently copied older files, so a blind merge would regress them. The integration branch resolves those overlaps explicitly. No historical SQL migration from Step 8 is changed.
 
-`feature/week4-passport`, `feature/step-6-polygon-smart-contract` and `feature/step-7-blockchain-outbox` are ancestors of Step 8. Do not merge them separately. Frontend `fix/rethread-ui-polish` equals main. Foundation, blueprint, catalog-completion and onboarding branches already have their work in main. Older acceptance/CI branches contain earlier variants of work later consolidated into main. Keep recovery archives and legacy signup branches unmerged; see merge-reconciliation.md.
+`feature/week4-passport` and `feature/step-7-blockchain-outbox` are ancestors of Step 8. Step 6 is a divergent branch whose contract project was restored in Step 7 (`aa32a70`); compare its contracts tree instead of treating it as an ancestor. Do not merge those branches separately. Frontend `fix/rethread-ui-polish` equals main. Foundation, blueprint, catalog-completion and onboarding branches already have their work in main. Older acceptance/CI branches contain earlier variants of work later consolidated into main. Keep recovery archives and legacy signup branches unmerged; see merge-reconciliation.md.
 
 ## Contributions in the requested window
 

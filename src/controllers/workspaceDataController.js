@@ -68,3 +68,41 @@ module.exports = {
   platformUsers,
   platformAnalytics,
 };
+
+const periodSchema = z
+  .object({
+    from: z.iso.datetime().optional(),
+    to: z.iso.datetime().optional(),
+  })
+  .strict();
+function reportingPeriod(input) {
+  const parsed = periodSchema.parse(input);
+  const to = parsed.to || new Date().toISOString();
+  const from =
+    parsed.from || new Date(Date.now() - 30 * 86400000).toISOString();
+  const span = new Date(to) - new Date(from);
+  if (span <= 0 || span > 366 * 86400000)
+    throw new (require("../lib/errors").AppError)(
+      400,
+      "INVALID_REPORT_PERIOD",
+      "Select a period of 1 to 366 days",
+    );
+  return { from, to };
+}
+module.exports.sellerCommerceMetrics = async (req, res) =>
+  send(
+    res,
+    await service.sellerCommerceMetrics(
+      req.auth.sub,
+      organizationId.parse(req.params.organizationId),
+      reportingPeriod(req.query),
+    ),
+  );
+module.exports.platformCommerceMetrics = async (req, res) =>
+  send(
+    res,
+    await service.platformCommerceMetrics(
+      req.auth.sub,
+      reportingPeriod(req.query),
+    ),
+  );

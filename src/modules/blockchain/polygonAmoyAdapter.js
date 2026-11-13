@@ -1,4 +1,3 @@
-
 // const { JsonRpcProvider, Wallet, Contract } = require("ethers");
 
 // const AMOY_CHAIN_ID = 80002;
@@ -49,8 +48,6 @@
 // }
 
 // module.exports = { PolygonAmoyAdapter };
-
-
 
 // const { JsonRpcProvider, Wallet, Contract } = require("ethers");
 
@@ -121,9 +118,7 @@ class PolygonAmoyAdapter {
     this.provider = new JsonRpcProvider(rpcUrl, AMOY_CHAIN_ID);
 
     // A wallet is optional for read-only verification.
-    this.wallet = privateKey
-      ? new Wallet(privateKey, this.provider)
-      : null;
+    this.wallet = privateKey ? new Wallet(privateKey, this.provider) : null;
 
     this.contract = new Contract(
       contractAddress,
@@ -133,10 +128,7 @@ class PolygonAmoyAdapter {
   }
 
   validateBytes32(value, fieldName) {
-    if (
-      typeof value !== "string" ||
-      !/^0x[0-9a-fA-F]{64}$/.test(value)
-    ) {
+    if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
       throw new TypeError(`${fieldName} must be a valid bytes32 value`);
     }
   }

@@ -1,9 +1,10 @@
-
 const crypto = require("node:crypto");
 const { pool, transaction } = require("../db");
 const { env } = require("../config/env");
 const { createWorkerService } = require("../modules/blockchain/workerService");
-const { PolygonAmoyAdapter } = require("../modules/blockchain/polygonAmoyAdapter");
+const {
+  PolygonAmoyAdapter,
+} = require("../modules/blockchain/polygonAmoyAdapter");
 
 function log(level, event, details = {}) {
   console.log(

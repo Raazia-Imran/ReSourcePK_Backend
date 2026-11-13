@@ -45,7 +45,6 @@ async function confirmReceipt(req, res) {
   res.json({ data: order });
 }
 
-
 async function buyerCancelOrder(req, res) {
   const input = z
     .object({
@@ -86,9 +85,11 @@ async function sellerCancelOrder(req, res) {
 }
 
 async function raiseDispute(req, res) {
-  const schema = z.object({
-    reason: z.string().trim().min(3).max(1000),
-  }).strict();
+  const schema = z
+    .object({
+      reason: z.string().trim().min(3).max(1000),
+    })
+    .strict();
 
   const input = schema.parse(req.body);
 
@@ -109,9 +110,11 @@ async function raiseDispute(req, res) {
 //new addition
 
 async function simulateRefund(req, res) {
-  const schema = z.object({
-    reason: z.string().trim().min(3).max(1000),
-  }).strict();
+  const schema = z
+    .object({
+      reason: z.string().trim().min(3).max(1000),
+    })
+    .strict();
 
   const input = schema.parse(req.body);
 
@@ -132,7 +135,6 @@ async function simulateRefund(req, res) {
 //   sellerCancelOrder,
 //   raiseDispute,
 // };
-
 
 module.exports = {
   sellerTransition,

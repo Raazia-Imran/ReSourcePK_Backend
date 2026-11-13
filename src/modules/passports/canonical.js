@@ -1,4 +1,3 @@
-
 const crypto = require("node:crypto");
 
 /**
@@ -27,7 +26,7 @@ function canonicalize(value) {
     if (typeof current === "number") {
       if (!Number.isSafeInteger(current)) {
         throw new TypeError(
-          `Invalid number at ${path}: only safe integers are allowed`
+          `Invalid number at ${path}: only safe integers are allowed`,
         );
       }
 
@@ -36,9 +35,7 @@ function canonicalize(value) {
 
     // Undefined and unsupported primitive types
     if (typeof current !== "object") {
-      throw new TypeError(
-        `Unsupported value at ${path}: ${typeof current}`
-      );
+      throw new TypeError(`Unsupported value at ${path}: ${typeof current}`);
     }
 
     // Arrays: preserve their original order
@@ -49,7 +46,7 @@ function canonicalize(value) {
           .map((item, index) => {
             if (!(index in current)) {
               throw new TypeError(
-                `Undefined array element at ${path}[${index}]`
+                `Undefined array element at ${path}[${index}]`,
               );
             }
 
@@ -74,15 +71,11 @@ function canonicalize(value) {
       const propertyValue = current[key];
 
       if (propertyValue === undefined) {
-        throw new TypeError(
-          `Undefined value at ${path}.${key}`
-        );
+        throw new TypeError(`Undefined value at ${path}.${key}`);
       }
 
       return (
-        JSON.stringify(key) +
-        ":" +
-        serialize(propertyValue, `${path}.${key}`)
+        JSON.stringify(key) + ":" + serialize(propertyValue, `${path}.${key}`)
       );
     });
 

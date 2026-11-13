@@ -46,6 +46,4 @@ async function requirePlatformAdmin(userId, runner) {
   }
 }
 
-module.exports = { requirePlatformPermission,
-requirePlatformAdmin,
- };
+module.exports = { requirePlatformPermission, requirePlatformAdmin };

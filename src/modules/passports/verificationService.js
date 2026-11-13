@@ -4,7 +4,9 @@ const { hashPassport } = require("./canonical");
 const { generatePassportKey } = require("../blockchain/keyGenerator");
 const { PolygonAmoyAdapter } = require("../blockchain/polygonAmoyAdapter");
 const { env } = require("../../config/env");
-const { requirePlatformAdmin } = require("../../services/platformAccessService");
+const {
+  requirePlatformAdmin,
+} = require("../../services/platformAccessService");
 
 function createReadAdapter() {
   if (!env.AMOY_RPC_URL || !env.PASSPORT_CONTRACT_ADDRESS) {
@@ -89,8 +91,7 @@ function createVerificationService({
         matches =
           computedHash.toLowerCase() ===
             snapshot.passport_hash.trim().toLowerCase() &&
-          chainHash.toLowerCase() ===
-            `0x${computedHash}`.toLowerCase();
+          chainHash.toLowerCase() === `0x${computedHash}`.toLowerCase();
       } catch (error) {
         if (error instanceof AppError) throw error;
 
@@ -115,12 +116,7 @@ function createVerificationService({
     };
   }
 
-  async function retryPassportAnchor(
-    passportId,
-    userId,
-    reason,
-    ipAddress,
-  ) {
+  async function retryPassportAnchor(passportId, userId, reason, ipAddress) {
     return transactionFn(async (tx) => {
       // Authorization is checked before revealing whether the passport exists.
       await requirePlatformAdmin(userId, tx);

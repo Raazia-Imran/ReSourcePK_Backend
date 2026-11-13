@@ -334,7 +334,6 @@ async function processWebhook(headers, rawBody, payload) {
       `UPDATE app.orders SET status='paid', fulfilment_status='paid', paid_at=now()
       WHERE id=$1 AND status='pending_payment'`,
       [attempt.order_id],
-
     );
 
     // await runner.query(
@@ -343,13 +342,11 @@ async function processWebhook(headers, rawBody, payload) {
     //   [attempt.order_id],
     // );
 
+    //status='paid' preserves your existing purchase workflow.
 
+    //fulfilment_status='paid' starts the new fulfilment lifecycle.
 
-//status='paid' preserves your existing purchase workflow.
-
-//fulfilment_status='paid' starts the new fulfilment lifecycle.
-
-//Both changes happen inside the same database transaction, so they cannot become inconsistent if the transaction rolls back.
+    //Both changes happen inside the same database transaction, so they cannot become inconsistent if the transaction rolls back.
 
     await runner.query(
       `UPDATE app.inventory_reservations SET status='committed',committed_at=now()

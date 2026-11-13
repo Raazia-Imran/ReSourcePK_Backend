@@ -117,3 +117,7 @@ Automated evidence: [backend CI including eight browser scenarios](https://githu
 The prior final backend/frontend CI runs passed at `f0234e8`/`2b9d07e` (runs [38141881887](https://github.com/Raazia-Imran/ReSourcePK_Backend/actions/runs/38141881887) and [38141843306](https://github.com/Raazia-Imran/ReSourcePK_Frontend/actions/runs/38141843306)). The backend completion follow-up adds four scheduler regression scenarios (27 total regression tests), an authenticated cleanup endpoint and a daily Vercel cron definition. It keeps the existing provider/SQL cleanup service and adds no dependency or migration. This definition is ready for deployment configuration; activation and a real run remain unverified.
 
 Vercel access was retried and still returns 403 for the intended team; no local authenticated CLI/provider environment is available. Staging storage restrictions and an empty security-advisor result were reconfirmed read-only. The latest hosted setup sequence is in `verification-week-2.md`; T-102 remains partial and progress remains 11/37.
+
+## 13 November 2026 integration review
+
+See [current integration review](release-review-2026-11-13.md) for recent contributions, branch decisions, test evidence, Cloudflare requirements and remaining work. Earlier status snapshots remain historical. Hosted release acceptance remains open.

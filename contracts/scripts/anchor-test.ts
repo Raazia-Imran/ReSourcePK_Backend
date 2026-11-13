@@ -9,10 +9,7 @@ async function main() {
     throw new Error("PASSPORT_CONTRACT_ADDRESS is missing from .env");
   }
 
-  const registry = await ethers.getContractAt(
-    "PassportRegistry",
-    address
-  );
+  const registry = await ethers.getContractAt("PassportRegistry", address);
 
   // Dummy data only — no real passport information.
   const key = ethers.id("rethread-demo-passport:version-1");

@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -10,17 +9,13 @@ const {
 } = require("../src/modules/passports/canonical");
 
 // Load our three permanent test vectors.
-const fixtureDirectory = path.join(
-  __dirname,
-  "fixtures",
-  "passport"
-);
+const fixtureDirectory = path.join(__dirname, "fixtures", "passport");
 
 const fixtures = ["vector1.json", "vector2.json", "vector3.json"].map(
   (filename) => {
     const filePath = path.join(fixtureDirectory, filename);
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  }
+  },
 );
 
 // Test 1: Every fixture must produce its expected canonical JSON and hash.
@@ -52,7 +47,7 @@ test("object key order does not affect the canonical hash", () => {
 
   assert.equal(
     hashPassport(canonicalize(first)),
-    hashPassport(canonicalize(second))
+    hashPassport(canonicalize(second)),
   );
 });
 
@@ -72,7 +67,7 @@ test("changing passport data produces a different hash", () => {
 
   assert.notEqual(
     hashPassport(canonicalize(original)),
-    hashPassport(canonicalize(modified))
+    hashPassport(canonicalize(modified)),
   );
 });
 
@@ -96,7 +91,7 @@ test("array order is preserved during canonicalization", () => {
 
   assert.notEqual(
     hashPassport(canonicalize(first)),
-    hashPassport(canonicalize(second))
+    hashPassport(canonicalize(second)),
   );
 });
 

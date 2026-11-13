@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -42,36 +41,27 @@ test("rejects a second anchor for an existing key", async () => {
 
   await adapter.anchor(KEY, HASH);
 
-  await assert.rejects(
-    () => adapter.anchor(KEY, ANOTHER_HASH),
-    {
-      message: "already anchored",
-    },
-  );
+  await assert.rejects(() => adapter.anchor(KEY, ANOTHER_HASH), {
+    message: "already anchored",
+  });
 });
 
 test("rejects an invalid key", async () => {
   const adapter = new FakeAdapter();
 
-  await assert.rejects(
-    () => adapter.get("invalid-key"),
-    {
-      name: "TypeError",
-      message: "key must be a valid bytes32 hexadecimal value",
-    },
-  );
+  await assert.rejects(() => adapter.get("invalid-key"), {
+    name: "TypeError",
+    message: "key must be a valid bytes32 hexadecimal value",
+  });
 });
 
 test("rejects an invalid hash", async () => {
   const adapter = new FakeAdapter();
 
-  await assert.rejects(
-    () => adapter.anchor(KEY, "invalid-hash"),
-    {
-      name: "TypeError",
-      message: "hash must be a valid bytes32 hexadecimal value",
-    },
-  );
+  await assert.rejects(() => adapter.anchor(KEY, "invalid-hash"), {
+    name: "TypeError",
+    message: "hash must be a valid bytes32 hexadecimal value",
+  });
 });
 
 test("treats uppercase and lowercase keys as the same key", async () => {

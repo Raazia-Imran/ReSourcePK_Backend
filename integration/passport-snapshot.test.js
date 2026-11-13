@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
@@ -113,9 +112,7 @@ async function prepareDispatchedOrder() {
   const orderId = placed.body.data.id;
 
   const confirmed = await request(app)
-    .post(
-      `/api/v1/organizations/${organization}/orders/${orderId}/decision`,
-    )
+    .post(`/api/v1/organizations/${organization}/orders/${orderId}/decision`)
     .set("Authorization", `Bearer ${ownerToken}`)
     .send({ decision: "confirm" });
 
@@ -218,10 +215,7 @@ test("receipt confirmation creates one immutable passport snapshot", async () =>
   );
 
   await assert.rejects(
-    db.query(
-      "DELETE FROM app.passport_snapshots WHERE id = $1",
-      [snapshot.id],
-    ),
+    db.query("DELETE FROM app.passport_snapshots WHERE id = $1", [snapshot.id]),
     /cannot be deleted/i,
   );
 });

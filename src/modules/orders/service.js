@@ -6,7 +6,9 @@ const { assertTransition } = require("./orderStateMachine");
 //{ releaseReservation } = require("../purchases/service");
 
 //new addition
-const { requirePlatformAdmin } = require("../../services/platformAccessService");
+const {
+  requirePlatformAdmin,
+} = require("../../services/platformAccessService");
 
 //new addition
 const { createSnapshotForOrder } = require("../passports/service");
@@ -28,100 +30,85 @@ async function transitionOrder(
     const order = await lockOrder(runner, orderId, organizationId);
 
     if (actorType === "seller") {
-  await requireOrderDecision(runner, actorId, order.organization_id);
-} else if (actorType === "buyer") {
-  if (!sameId(order.buyer_id, actorId)) {
-    throw new AppError(
-      404,
-      "ORDER_NOT_FOUND",
-      "Order unavailable",
-    );
-  }
-} else {
-  throw new AppError(
-    403,
-    "ORDER_ACCESS_DENIED",
-    "You are not authorized to perform this action",
-  );
-}
+      await requireOrderDecision(runner, actorId, order.organization_id);
+    } else if (actorType === "buyer") {
+      if (!sameId(order.buyer_id, actorId)) {
+        throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
+      }
+    } else {
+      throw new AppError(
+        403,
+        "ORDER_ACCESS_DENIED",
+        "You are not authorized to perform this action",
+      );
+    }
 
-// Repeated requests for the current status are harmless.
-if (order.fulfilment_status === toStatus) {
-  return order;
-}
+    // Repeated requests for the current status are harmless.
+    if (order.fulfilment_status === toStatus) {
+      return order;
+    }
 
-// Validate the requested state transition.
-// assertTransition(order.fulfilment_status, toStatus);
+    // Validate the requested state transition.
+    // assertTransition(order.fulfilment_status, toStatus);
 
-// const sellerTransitions = [
-//   "processing",
-//   "ready",
-//   "dispatched",
-// ];
+    // const sellerTransitions = [
+    //   "processing",
+    //   "ready",
+    //   "dispatched",
+    // ];
 
-// const buyerTransitions = [
-//   "cancelled",
-//   "delivered",
-//   "completed",
-//   "disputed",
-// ];
+    // const buyerTransitions = [
+    //   "cancelled",
+    //   "delivered",
+    //   "completed",
+    //   "disputed",
+    // ];
 
-// if (
-//   (actorType === "seller" && !sellerTransitions.includes(toStatus)) ||
-//   (actorType === "buyer" && !buyerTransitions.includes(toStatus))
-// ) {
-//   throw new AppError(
-//     403,
-//     "ORDER_ACTION_DENIED",
-//     "You are not authorized to perform this order action",
-//   );
-// }
+    // if (
+    //   (actorType === "seller" && !sellerTransitions.includes(toStatus)) ||
+    //   (actorType === "buyer" && !buyerTransitions.includes(toStatus))
+    // ) {
+    //   throw new AppError(
+    //     403,
+    //     "ORDER_ACTION_DENIED",
+    //     "You are not authorized to perform this order action",
+    //   );
+    // }
 
-// Only sellers can use the general fulfilment transition function.
-// const sellerTransitions = [
-//   "processing",
-//   "ready",
-//   "dispatched",
-// ];
+    // Only sellers can use the general fulfilment transition function.
+    // const sellerTransitions = [
+    //   "processing",
+    //   "ready",
+    //   "dispatched",
+    // ];
 
-// if (actorType !== "seller" || !sellerTransitions.includes(toStatus)) {
-//   throw new AppError(
-//     403,
-//     "ORDER_ACTION_DENIED",
-//     "You are not authorized to perform this order action",
-//   );
-// }
+    // if (actorType !== "seller" || !sellerTransitions.includes(toStatus)) {
+    //   throw new AppError(
+    //     403,
+    //     "ORDER_ACTION_DENIED",
+    //     "You are not authorized to perform this order action",
+    //   );
+    // }
 
-// // Validate the requested state transition.
-// assertTransition(order.fulfilment_status, toStatus);
+    // // Validate the requested state transition.
+    // assertTransition(order.fulfilment_status, toStatus);
 
+    // Validate whether the requested state transition is valid.
+    assertTransition(order.fulfilment_status, toStatus);
 
+    // Only sellers can use the general fulfilment transition function.
+    const sellerTransitions = ["processing", "ready", "dispatched"];
 
+    if (actorType !== "seller" || !sellerTransitions.includes(toStatus)) {
+      throw new AppError(
+        403,
+        "ORDER_ACTION_DENIED",
+        "You are not authorized to perform this order action",
+      );
+    }
 
-
-// Validate whether the requested state transition is valid.
-assertTransition(order.fulfilment_status, toStatus);
-
-// Only sellers can use the general fulfilment transition function.
-const sellerTransitions = [
-  "processing",
-  "ready",
-  "dispatched",
-];
-
-if (actorType !== "seller" || !sellerTransitions.includes(toStatus)) {
-  throw new AppError(
-    403,
-    "ORDER_ACTION_DENIED",
-    "You are not authorized to perform this order action",
-  );
-}
-
-
-
-
-const result = await runner.query(
-  `UPDATE app.orders
+    const result = await runner.query(
+      `UPDATE app.orders
    SET fulfilment_status = $2,
        completed_at = CASE
          WHEN $2 = 'completed' THEN now()
@@ -129,36 +116,35 @@ const result = await runner.query(
        END
    WHERE id = $1
    RETURNING *`,
-  [order.id, toStatus],
-);
+      [order.id, toStatus],
+    );
 
-const updatedOrder = result.rows[0];
+    const updatedOrder = result.rows[0];
 
-await addOrderEvent(
-  runner,
-  order.id,
-  actorId,
-  `fulfilment.${toStatus}`,
-  order.fulfilment_status,
-  toStatus,
-  reason,
-  correlationId,
-);
+    await addOrderEvent(
+      runner,
+      order.id,
+      actorId,
+      `fulfilment.${toStatus}`,
+      order.fulfilment_status,
+      toStatus,
+      reason,
+      correlationId,
+    );
 
-if (actorType === "seller") {
-  await addAudit(
-    runner,
-    actorId,
-    order.organization_id,
-    `order.fulfilment.${toStatus}`,
-    "order",
-    order.id,
-    reason,
-  );
-}
+    if (actorType === "seller") {
+      await addAudit(
+        runner,
+        actorId,
+        order.organization_id,
+        `order.fulfilment.${toStatus}`,
+        "order",
+        order.id,
+        reason,
+      );
+    }
 
-return updatedOrder;
-
+    return updatedOrder;
   });
 }
 
@@ -173,11 +159,7 @@ async function lockOrder(runner, orderId, organizationId = null) {
   );
 
   if (!result.rowCount) {
-    throw new AppError(
-      404,
-      "ORDER_NOT_FOUND",
-      "Order unavailable",
-    );
+    throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
   }
 
   return result.rows[0];
@@ -264,22 +246,13 @@ async function addAudit(
   );
 }
 
-async function confirmReceipt(
-  orderId,
-  buyerId,
-  reason,
-  correlationId,
-) {
+async function confirmReceipt(orderId, buyerId, reason, correlationId) {
   return db.transaction(async (runner) => {
     const order = await lockOrder(runner, orderId);
 
     // Only the actual buyer can confirm receipt.
     if (!sameId(order.buyer_id, buyerId)) {
-      throw new AppError(
-        404,
-        "ORDER_NOT_FOUND",
-        "Order unavailable",
-      );
+      throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
     }
 
     // Repeated confirmation must not create duplicate events.
@@ -307,6 +280,15 @@ async function confirmReceipt(
 
     // Create the passport snapshot within the same transaction.
     await createSnapshotForOrder(runner, order.id);
+
+    await runner.query(
+      `INSERT INTO app.impact_events
+     (order_id, quantity, unit, impact_entry_type)
+     VALUES ($1, $2, $3, 'diversion')
+     ON CONFLICT (order_id) WHERE impact_entry_type = 'diversion'
+     DO NOTHING`,
+      [order.id, order.quantity, order.unit],
+    );
 
     // Record dispatched -> delivered.
     await addOrderEvent(
@@ -359,36 +341,20 @@ async function cancelOrder(
     const order = await lockOrder(runner, orderId, organizationId);
 
     if (!order) {
-      throw new AppError(
-        404,
-        "ORDER_NOT_FOUND",
-        "Order unavailable",
-      );
+      throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
     }
 
     // Verify that the person requesting cancellation is authorized.
     if (actorType === "buyer") {
       if (!sameId(order.buyer_id, actorId)) {
-        throw new AppError(
-          404,
-          "ORDER_NOT_FOUND",
-          "Order unavailable",
-        );
+        throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
       }
     } else if (actorType === "seller") {
       if (!sameId(order.organization_id, organizationId)) {
-        throw new AppError(
-          404,
-          "ORDER_NOT_FOUND",
-          "Order unavailable",
-        );
+        throw new AppError(404, "ORDER_NOT_FOUND", "Order unavailable");
       }
 
-      await requireOrderDecision(
-        runner,
-        actorId,
-        organizationId,
-      );
+      await requireOrderDecision(runner, actorId, organizationId);
     } else {
       throw new AppError(
         403,
@@ -408,7 +374,7 @@ async function cancelOrder(
         "ORDER_DISPUTED",
         "Disputed orders must be resolved before cancellation",
       );
-}
+    }
 
     // The state machine prevents cancellation after dispatch.
     assertTransition(order.fulfilment_status, "cancelled");
@@ -482,18 +448,10 @@ async function raiseDispute(
 
     if (actorType === "buyer") {
       if (!sameId(order.buyer_id, actorId)) {
-        throw new AppError(
-          404,
-          "ORDER_NOT_FOUND",
-          "Order not found",
-        );
+        throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
       }
     } else if (actorType === "seller") {
-      await requireOrderDecision(
-        runner,
-        actorId,
-        order.organization_id,
-      );
+      await requireOrderDecision(runner, actorId, order.organization_id);
     } else {
       throw new AppError(
         403,
@@ -507,7 +465,6 @@ async function raiseDispute(
     }
 
     assertTransition(order.fulfilment_status, "disputed");
-
 
     //new addition
 
@@ -610,6 +567,22 @@ async function simulateRefund(orderId, actorId, reason, correlationId) {
        WHERE id = $1
        RETURNING *`,
       [order.id],
+    );
+
+    await runner.query(
+      `INSERT INTO app.impact_events
+      (order_id, quantity, unit, impact_entry_type)
+      SELECT d.order_id, d.quantity, d.unit, 'reversal'
+      FROM app.impact_events d
+      WHERE d.order_id = $1
+      AND d.impact_entry_type = 'diversion'
+      AND NOT EXISTS (
+      SELECT 1
+      FROM app.impact_events r
+      WHERE r.order_id = d.order_id
+      AND r.impact_entry_type = 'reversal'
+      )`,
+      [orderId],
     );
 
     await addOrderEvent(

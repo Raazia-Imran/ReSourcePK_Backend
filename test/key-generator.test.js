@@ -7,10 +7,7 @@ const {
 } = require("../src/modules/blockchain/keyGenerator");
 
 test("generates a valid bytes32 key", () => {
-  const key = generatePassportKey(
-    "550e8400-e29b-41d4-a716-446655440000",
-    1,
-  );
+  const key = generatePassportKey("550e8400-e29b-41d4-a716-446655440000", 1);
 
   assert.match(key, /^0x[0-9a-fA-F]{64}$/);
 });
@@ -50,10 +47,7 @@ test("matches SHA-256 of passportId:version", () => {
 });
 
 test("rejects an empty passport ID", () => {
-  assert.throws(
-    () => generatePassportKey("", 1),
-    /valid passportId/,
-  );
+  assert.throws(() => generatePassportKey("", 1), /valid passportId/);
 });
 
 test("rejects an invalid version", () => {

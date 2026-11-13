@@ -1,4 +1,3 @@
-
 /**
  * Adds a passport anchoring job to the outbox.
  *

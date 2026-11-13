@@ -9,9 +9,9 @@ const { ZERO_HASH } = require("./fakeAdapter");
  * The application uses the real database transaction by default.
  */
 function createWorkerService(
-    transactionFn = transaction,
-    adapter = null,
-    maxAttempts = 5,
+  transactionFn = transaction,
+  adapter = null,
+  maxAttempts = 5,
 ) {
   /**
    * Claims one available blockchain job from the outbox.
@@ -21,9 +21,9 @@ function createWorkerService(
    */
   async function claimNextJob() {
     return transactionFn(async (tx) => {
-        // Mark expired jobs as failed if they already exhausted all attempts.
-        await tx.query(
-            `WITH exhausted AS (
+      // Mark expired jobs as failed if they already exhausted all attempts.
+      await tx.query(
+        `WITH exhausted AS (
             UPDATE app.outbox
             SET
             status = 'failed',
@@ -47,11 +47,10 @@ function createWorkerService(
             FROM exhausted
             WHERE a.passport_snapshot_id::text =
             exhausted.payload->>'passportSnapshotId'`,
-            [maxAttempts],
-        );
+        [maxAttempts],
+      );
 
-
-        const result = await tx.query(
+      const result = await tx.query(
         `WITH candidate AS (
         SELECT id
         FROM app.outbox
@@ -85,7 +84,7 @@ function createWorkerService(
         WHERE o.id = candidate.id
         RETURNING o.*`,
         [maxAttempts],
-    );
+      );
 
       if (result.rows.length === 0) {
         return null;
@@ -95,40 +94,37 @@ function createWorkerService(
     });
   }
 
-
-    /**
+  /**
    * Retrieves the passport snapshot associated with an outbox job.
    */
   async function getPassportSnapshot(snapshotId) {
     return transactionFn(async (tx) => {
-        const result = await tx.query(
-            `SELECT
+      const result = await tx.query(
+        `SELECT
             id,
             version,
             snapshot_data,
             passport_hash
             FROM app.passport_snapshots
             WHERE id = $1`,
-            [snapshotId],
-        );
+        [snapshotId],
+      );
 
       if (result.rows.length === 0) {
-        throw new Error(
-          `Passport snapshot not found: ${snapshotId}`,
-        );
+        throw new Error(`Passport snapshot not found: ${snapshotId}`);
       }
 
       return result.rows[0];
     });
-   }
+  }
 
-     /**
+  /**
    * Marks the passport anchor and outbox job as completed.
    */
-    async function markJobCompleted(job, snapshotId, txHash) {
-        return transactionFn(async (tx) => {
-            await tx.query(
-                `UPDATE app.blockchain_anchors
+  async function markJobCompleted(job, snapshotId, txHash) {
+    return transactionFn(async (tx) => {
+      await tx.query(
+        `UPDATE app.blockchain_anchors
                 SET
                 status = 'anchored',
                 tx_hash = COALESCE($2, tx_hash),
@@ -136,50 +132,49 @@ function createWorkerService(
                 last_error = NULL,
                 anchored_at = now()
                 WHERE passport_snapshot_id = $1`,
-                [snapshotId, txHash, job.attempts],
-            );
-            await tx.query(
-                `UPDATE app.outbox
+        [snapshotId, txHash, job.attempts],
+      );
+      await tx.query(
+        `UPDATE app.outbox
                 SET
                 status = 'completed',
                 locked_until = NULL,
                 last_error = NULL,
                 updated_at = now()
                 WHERE id = $1`,
-                [job.id],
-            );
-        });
-    }
+        [job.id],
+      );
+    });
+  }
 
+  /***
+   * * Records a failed attempt and schedules a retry if attempts remain.
+   * */
+  async function markJobFailed(job, snapshotId, error) {
+    const errorMessage = String(error.message || error).slice(0, 2000);
+    const exhausted = job.attempts >= maxAttempts;
 
-    /***
-     * * Records a failed attempt and schedules a retry if attempts remain.
-     * */
-    async function markJobFailed(job, snapshotId, error) {
-        const errorMessage = String(error.message || error).slice(0, 2000);
-        const exhausted = job.attempts >= maxAttempts;
+    // Exponential backoff: 30s, 60s, 120s, 240s...
+    const retryDelaySeconds = 30 * 2 ** (job.attempts - 1);
 
-        // Exponential backoff: 30s, 60s, 120s, 240s...
-        const retryDelaySeconds = 30 * (2 ** (job.attempts - 1));
-
-        return transactionFn(async (tx) => {
-            await tx.query(
-                `UPDATE app.blockchain_anchors
+    return transactionFn(async (tx) => {
+      await tx.query(
+        `UPDATE app.blockchain_anchors
                 SET
                 status = $2,
                 attempts = $3,
                 last_error = $4
                 WHERE passport_snapshot_id = $1`,
-                [
-                    snapshotId,
-                    exhausted ? "failed" : "pending",
-                    job.attempts,
-                    errorMessage,
-                ],
-            );
+        [
+          snapshotId,
+          exhausted ? "failed" : "pending",
+          job.attempts,
+          errorMessage,
+        ],
+      );
 
-            await tx.query(
-                `UPDATE app.outbox
+      await tx.query(
+        `UPDATE app.outbox
                 SET
                 status = $2,
                 next_attempt_at = CASE
@@ -191,105 +186,105 @@ function createWorkerService(
                 last_error = $4,
                 updated_at = now()
                 WHERE id = $1`,
-                [
-                    job.id,
-                    exhausted ? "failed" : "pending",
-                    retryDelaySeconds,
-                    errorMessage,
-                ],
-            );
-        });
-    }
+        [
+          job.id,
+          exhausted ? "failed" : "pending",
+          retryDelaySeconds,
+          errorMessage,
+        ],
+      );
+    });
+  }
 
-      /**
+  /**
    * Processes one blockchain job from the outbox.
    */
-    async function processNextJob() {
-        if (
-            !adapter ||
-            typeof adapter.get !== "function" ||
-            typeof adapter.anchor !== "function"
-        ) {
-            throw new Error("A valid blockchain adapter is required");
-        }
-
-        const job = await claimNextJob();
-        if (!job) {
-            return null;
-        }
-
-        const snapshotId = job.payload?.passportSnapshotId;
-
-        try {
-            if (job.type !== "passport.anchor") {
-                throw new Error(`Unsupported outbox job type: ${job.type}`);
-            }
-
-            if (!snapshotId) {
-                throw new Error("Passport snapshot ID is missing from job payload");
-            }
-
-            // Retrieve the original passport snapshot.
-            const snapshot = await getPassportSnapshot(snapshotId);
-
-            // Verify that the queued hash matches the stored snapshot hash.
-            if (job.payload.passportHash !== snapshot.passport_hash) {
-                throw new Error("Passport hash does not match the stored snapshot");
-            }
-
-            if (!/^[0-9a-f]{64}$/i.test(snapshot.passport_hash)) {
-                throw new Error("Invalid passport hash format");
-            }
-
-            const passportId = snapshot.snapshot_data.passportId;
-            const version = snapshot.snapshot_data.version;
-
-            // Generate the blockchain key.
-            const key = generatePassportKey(passportId, version);
-
-            // Convert the stored SHA-256 hash into bytes32 format.
-            const hash = `0x${snapshot.passport_hash}`;
-
-            // Check the blockchain before attempting a new write.
-            const existingHash = await adapter.get(key);
-
-            if (
-                typeof existingHash !== "string" ||
-                !/^0x[0-9a-fA-F]{64}$/.test(existingHash)
-            ) {
-                throw new Error("Blockchain adapter returned an invalid hash");
-            }
-
-            let txHash = null;
-
-            if (existingHash.toLowerCase() !== ZERO_HASH.toLowerCase()) {
-                if (existingHash.toLowerCase() !== hash.toLowerCase()) {
-                    throw new Error(
-                        "Blockchain key already contains a different passport hash",
-                    );
-                }
-
-                // The correct hash already exists. Do not write again.
-                } else {
-                    txHash = await adapter.anchor(key, hash);
-                }
-
-                await markJobCompleted(job, snapshotId, txHash);
-
-                return {
-                    jobId: job.id,
-                    status: "completed",
-                    txHash,
-                };
-            } catch (error) {
-            await markJobFailed(job, snapshotId, error);
-            return {
-                jobId: job.id,
-                status: job.attempts >= maxAttempts ? "failed" : "retrying",
-                error: String(error.message || error).slice(0, 2000),
-            };
-        }
+  async function processNextJob() {
+    if (
+      !adapter ||
+      typeof adapter.get !== "function" ||
+      typeof adapter.anchor !== "function"
+    ) {
+      throw new Error("A valid blockchain adapter is required");
     }
+
+    const job = await claimNextJob();
+    if (!job) {
+      return null;
+    }
+
+    const snapshotId = job.payload?.passportSnapshotId;
+
+    try {
+      if (job.type !== "passport.anchor") {
+        throw new Error(`Unsupported outbox job type: ${job.type}`);
+      }
+
+      if (!snapshotId) {
+        throw new Error("Passport snapshot ID is missing from job payload");
+      }
+
+      // Retrieve the original passport snapshot.
+      const snapshot = await getPassportSnapshot(snapshotId);
+
+      // Verify that the queued hash matches the stored snapshot hash.
+      if (job.payload.passportHash !== snapshot.passport_hash) {
+        throw new Error("Passport hash does not match the stored snapshot");
+      }
+
+      if (!/^[0-9a-f]{64}$/i.test(snapshot.passport_hash)) {
+        throw new Error("Invalid passport hash format");
+      }
+
+      const passportId = snapshot.snapshot_data.passportId;
+      const version = snapshot.snapshot_data.version;
+
+      // Generate the blockchain key.
+      const key = generatePassportKey(passportId, version);
+
+      // Convert the stored SHA-256 hash into bytes32 format.
+      const hash = `0x${snapshot.passport_hash}`;
+
+      // Check the blockchain before attempting a new write.
+      const existingHash = await adapter.get(key);
+
+      if (
+        typeof existingHash !== "string" ||
+        !/^0x[0-9a-fA-F]{64}$/.test(existingHash)
+      ) {
+        throw new Error("Blockchain adapter returned an invalid hash");
+      }
+
+      let txHash = null;
+
+      if (existingHash.toLowerCase() !== ZERO_HASH.toLowerCase()) {
+        if (existingHash.toLowerCase() !== hash.toLowerCase()) {
+          throw new Error(
+            "Blockchain key already contains a different passport hash",
+          );
+        }
+
+        // The correct hash already exists. Do not write again.
+      } else {
+        txHash = await adapter.anchor(key, hash);
+      }
+
+      await markJobCompleted(job, snapshotId, txHash);
+
+      return {
+        jobId: job.id,
+        status: "completed",
+        txHash,
+      };
+    } catch (error) {
+      await markJobFailed(job, snapshotId, error);
+      return {
+        jobId: job.id,
+        status: job.attempts >= maxAttempts ? "failed" : "retrying",
+        error: String(error.message || error).slice(0, 2000),
+      };
+    }
+  }
 
   return {
     claimNextJob,

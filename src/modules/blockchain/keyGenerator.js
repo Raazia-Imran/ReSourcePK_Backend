@@ -1,4 +1,3 @@
-
 // const test = require("node:test");
 // const assert = require("node:assert/strict");
 // const { createHash } = require("node:crypto");
@@ -83,9 +82,7 @@ function generatePassportKey(passportId, version) {
 
   const keyInput = `${passportId}:${version}`;
 
-  return `0x${createHash("sha256")
-    .update(keyInput, "utf8")
-    .digest("hex")}`;
+  return `0x${createHash("sha256").update(keyInput, "utf8").digest("hex")}`;
 }
 
 module.exports = {

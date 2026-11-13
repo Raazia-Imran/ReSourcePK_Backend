@@ -2,3 +2,9 @@ node_modules/
 paired-frontend/
 playwright-report/
 test-results/
+
+contracts/.agents/
+contracts/.claude/
+contracts/artifacts/
+contracts/cache/
+contracts/types/

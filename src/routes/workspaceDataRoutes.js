@@ -27,4 +27,14 @@ router.get(
 router.get("/platform/users", requireAuth, controller.platformUsers);
 router.get("/platform/analytics", requireAuth, controller.platformAnalytics);
 
+router.get(
+  "/organizations/:organizationId/commerce-metrics",
+  requireAuth,
+  controller.sellerCommerceMetrics,
+);
+router.get(
+  "/platform/commerce-metrics",
+  requireAuth,
+  controller.platformCommerceMetrics,
+);
 module.exports = router;

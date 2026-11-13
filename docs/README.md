@@ -32,3 +32,7 @@ Google Sign-In backend/frontend contract and account-linking behavior: [Google a
 Current implementation evidence: [delivery status](delivery-status.md), [Week 2 verification guide](verification-week-2.md), and [catalog ADR 004](adr/004-catalog-completion.md). [Phase 2 progress](phase-2-progress.md) is a historical handoff, not current implementation truth.
 
 Latest implementation decision: [Week 2 acceptance ADR 005](adr/005-week-2-acceptance.md).
+
+## 13 November 2026 integration review
+
+See [current integration review](release-review-2026-11-13.md) for recent contributions, branch decisions, test evidence, Cloudflare requirements and remaining work. Earlier status snapshots remain historical. Hosted release acceptance remains open.

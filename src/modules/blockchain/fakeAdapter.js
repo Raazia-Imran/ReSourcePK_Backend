@@ -1,4 +1,3 @@
-
 const { randomBytes } = require("node:crypto");
 
 const ZERO_HASH = `0x${"0".repeat(64)}`;
@@ -14,10 +13,7 @@ class FakeAdapter {
 
   // Checks that a value is a valid bytes32 hexadecimal string.
   validateBytes32(value, fieldName) {
-    if (
-      typeof value !== "string" ||
-      !/^0x[0-9a-fA-F]{64}$/.test(value)
-    ) {
+    if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
       throw new TypeError(
         `${fieldName} must be a valid bytes32 hexadecimal value`,
       );
@@ -46,10 +42,7 @@ class FakeAdapter {
     // Simulate temporary or permanent blockchain failures.
     this.failureCount += 1;
 
-    if (
-      this.alwaysFail ||
-      this.failureCount <= this.failuresBeforeSuccess
-    ) {
+    if (this.alwaysFail || this.failureCount <= this.failuresBeforeSuccess) {
       throw new Error("Simulated blockchain transaction failure");
     }
 

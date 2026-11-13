@@ -1,10 +1,7 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const {
-  createSnapshotForOrder,
-} = require("../src/modules/passports/service");
+const { createSnapshotForOrder } = require("../src/modules/passports/service");
 
 test("creates a passport snapshot for a completed order", async () => {
   const queries = [];
@@ -52,30 +49,27 @@ test("creates a passport snapshot for a completed order", async () => {
         };
       }
 
-    // Mock successful blockchain anchor insertion.
-    if (sql.includes("INSERT INTO app.blockchain_anchors")) {
-      return {
-        rowCount: 1,
-        rows: [{ id: "anchor-1" }],
-      };
-    }
+      // Mock successful blockchain anchor insertion.
+      if (sql.includes("INSERT INTO app.blockchain_anchors")) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "anchor-1" }],
+        };
+      }
 
-    // Mock successful outbox job insertion.
-    if (sql.includes("INSERT INTO app.outbox")) {
-      return {
-        rowCount: 1,
-        rows: [{ id: "outbox-1" }],
-      };
-    }
+      // Mock successful outbox job insertion.
+      if (sql.includes("INSERT INTO app.outbox")) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "outbox-1" }],
+        };
+      }
 
       return { rowCount: 0, rows: [] };
     },
   };
 
-  const snapshot = await createSnapshotForOrder(
-    runner,
-    "order-1",
-  );
+  const snapshot = await createSnapshotForOrder(runner, "order-1");
 
   // Verify the returned snapshot.
   assert.equal(snapshot.order_id, "order-1");
@@ -95,13 +89,11 @@ test("creates a passport snapshot for a completed order", async () => {
   assert.equal(insertQueries.length, 1);
 
   // Verify first-version duplicate protection exists.
-//   assert.match(
-//     insertQueries[0].sql,
-//     /ON CONFLICT\s*\(order_id,\s*version\)\s*DO NOTHING/i,
-//   );
-// });
-
-
+  //   assert.match(
+  //     insertQueries[0].sql,
+  //     /ON CONFLICT\s*\(order_id,\s*version\)\s*DO NOTHING/i,
+  //   );
+  // });
 
   // Verify first-version duplicate protection exists.
   assert.match(
@@ -111,14 +103,14 @@ test("creates a passport snapshot for a completed order", async () => {
 
   // Verify that one blockchain anchor was created.
   const anchorQueries = queries.filter((query) =>
-  query.sql.includes("INSERT INTO app.blockchain_anchors"),
+    query.sql.includes("INSERT INTO app.blockchain_anchors"),
   );
 
   assert.equal(anchorQueries.length, 1);
 
   // Verify that one outbox job was created.
   const outboxQueries = queries.filter((query) =>
-  query.sql.includes("INSERT INTO app.outbox"),
+    query.sql.includes("INSERT INTO app.outbox"),
   );
 
   assert.equal(outboxQueries.length, 1);
@@ -180,7 +172,8 @@ test("does not create duplicate snapshots when called again", async () => {
 
       if (
         sql.includes("FROM app.passport_snapshots") &&
-        sql.includes("WHERE order_id = $1")) {
+        sql.includes("WHERE order_id = $1")
+      ) {
         return {
           rowCount: savedSnapshot ? 1 : 0,
           rows: savedSnapshot ? [savedSnapshot] : [],

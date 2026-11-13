@@ -1,4 +1,3 @@
-
 /**
  * Builds the public, privacy-safe data payload for a passport.
  *
@@ -8,14 +7,9 @@
  * @param {Object} params.order - Completed order database record
  * @param {Object} params.listing - Listing database record
  */
-function buildPassportPayload({
-  passportId,
-  version,
-  order,
-  listing,
-}) {
+function buildPassportPayload({ passportId, version, order, listing }) {
   // We will add validation and payload construction here.
-    if (!passportId || typeof passportId !== "string") {
+  if (!passportId || typeof passportId !== "string") {
     throw new TypeError("A valid passportId is required");
   }
 
@@ -31,12 +25,12 @@ function buildPassportPayload({
     throw new Error("Cannot create a passport for an incomplete order");
   }
 
-    // Convert quantity into a fixed three-decimal string.
+  // Convert quantity into a fixed three-decimal string.
   const quantity = String(order.quantity);
 
   if (!/^\d+\.\d{3}$/.test(quantity)) {
     throw new TypeError(
-      "Order quantity must have exactly three decimal places"
+      "Order quantity must have exactly three decimal places",
     );
   }
 
@@ -47,7 +41,7 @@ function buildPassportPayload({
     throw new TypeError("Invalid order completion timestamp");
   }
 
-    const payload = {
+  const payload = {
     schemaVersion: 1,
     passportId,
     version,

@@ -6,7 +6,6 @@ const crypto = require("node:crypto");
 const { corsOrigins, env } = require("./config/env");
 const { query } = require("./db");
 
-
 //new addition
 const passportRoutes = require("./routes/passportRoutes");
 

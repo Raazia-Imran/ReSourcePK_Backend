@@ -14,7 +14,8 @@
     "storage:setup": "node scripts/setup-storage.js",
     "storage:cleanup": "node scripts/cleanup-images.js",
     "test:e2e": "playwright test",
-    "worker": "node src/worker/index.js"
+    "worker": "node src/worker/index.js",
+    "worker:blockchain": "node src/worker/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",

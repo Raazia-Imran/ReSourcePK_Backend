@@ -10,7 +10,7 @@ const retryInput = z
 async function getVerification(req, res, next) {
   try {
     const data = await service.getPublicVerification(
-      req.params.passportId,
+      z.string().uuid().parse(req.params.passportId),
     );
 
     return res.json({ data });
@@ -24,7 +24,7 @@ async function retryAnchor(req, res, next) {
     const { reason } = retryInput.parse(req.body);
 
     const data = await service.retryPassportAnchor(
-      req.params.passportId,
+      z.string().uuid().parse(req.params.passportId),
       req.auth.sub,
       reason,
       req.ip,

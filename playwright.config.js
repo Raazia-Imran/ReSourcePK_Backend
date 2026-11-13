@@ -27,6 +27,10 @@ module.exports = defineConfig({
     baseURL: "http://localhost:3000",
     browserName: "chromium",
     screenshot: "only-on-failure",
+    launchOptions: {
+      executablePath:
+        process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+    },
     trace: "off",
   },
   webServer: [
@@ -42,7 +46,7 @@ module.exports = defineConfig({
       },
     },
     {
-      command: "npm run preview -- --host 0.0.0.0 --port 3000 --strictPort",
+      command: "npm run preview -- --host localhost --port 3000 --strictPort",
       cwd: frontend,
       url: "http://localhost:3000",
       reuseExistingServer: false,

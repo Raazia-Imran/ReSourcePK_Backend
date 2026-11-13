@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -19,7 +18,7 @@ test("all permitted fulfilment transitions are accepted", () => {
       assert.equal(
         canTransition(from, to),
         true,
-        `${from} -> ${to} should be allowed`
+        `${from} -> ${to} should be allowed`,
       );
 
       assert.doesNotThrow(() => assertTransition(from, to));
@@ -37,7 +36,7 @@ test("all transitions not listed in TRANSITIONS are rejected", () => {
       assert.equal(
         canTransition(from, to),
         false,
-        `${from} -> ${to} should not be allowed`
+        `${from} -> ${to} should not be allowed`,
       );
 
       assert.throws(
@@ -46,7 +45,7 @@ test("all transitions not listed in TRANSITIONS are rejected", () => {
           assert.equal(error.code, "ORDER_INVALID_TRANSITION");
           return true;
         },
-        `${from} -> ${to} should throw ORDER_INVALID_TRANSITION`
+        `${from} -> ${to} should throw ORDER_INVALID_TRANSITION`,
       );
     }
   }
@@ -59,10 +58,9 @@ test("cancelled and refunded are final states", () => {
     for (const to of STATUSES) {
       assert.equal(canTransition(finalStatus, to), false);
 
-      assert.throws(
-        () => assertTransition(finalStatus, to),
-        { code: "ORDER_INVALID_TRANSITION" }
-      );
+      assert.throws(() => assertTransition(finalStatus, to), {
+        code: "ORDER_INVALID_TRANSITION",
+      });
     }
   }
 });
@@ -71,10 +69,9 @@ test("unknown statuses are rejected", () => {
   assert.equal(canTransition("unknown", "paid"), false);
   assert.equal(canTransition("paid", "unknown"), false);
 
-  assert.throws(
-    () => assertTransition("unknown", "paid"),
-    { code: "ORDER_INVALID_TRANSITION" }
-  );
+  assert.throws(() => assertTransition("unknown", "paid"), {
+    code: "ORDER_INVALID_TRANSITION",
+  });
 });
 
 test("disputed orders cannot be cancelled", async (t) => {
@@ -297,17 +294,13 @@ test("buyers cannot use the general transition function", async (t) => {
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "A buyer must not update fulfilment status through this function",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
     "A rejected transition must not create an order event",
   );
@@ -383,9 +376,7 @@ test("authorized sellers can move paid orders to processing", async (t) => {
   assert.equal(updatedOrder.fulfilment_status, "processing");
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     true,
     "The authorized seller should update the order",
   );
@@ -408,7 +399,6 @@ test("authorized sellers can move paid orders to processing", async (t) => {
 });
 
 //an illegal seller status jump
-
 
 test("sellers cannot skip fulfilment steps", async (t) => {
   const queries = [];
@@ -467,25 +457,19 @@ test("sellers cannot skip fulfilment steps", async (t) => {
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "An invalid transition should not update the order",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
     "An invalid transition should not create an order event",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.audit_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.audit_events")),
     false,
     "An invalid transition should not create an audit record",
   );
@@ -590,7 +574,6 @@ test("authorized sellers can move processing orders to ready and dispatched", as
 //test a manager who does not have the orders.confirm permission.
 //The service should reject the request with ORDER_DECISION_DENIED and make no changes.
 
-
 test("sellers without orders.confirm permission cannot update orders", async (t) => {
   const queries = [];
 
@@ -648,32 +631,25 @@ test("sellers without orders.confirm permission cannot update orders", async (t)
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "A manager without permission should not update the order",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
     "A denied action should not create an order event",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.audit_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.audit_events")),
     false,
     "A denied action should not create an audit record",
   );
 });
 
 //seller organization isolation: a seller from org-2 must not be able to access an order belonging to org-1.
-
 
 test("sellers cannot update orders belonging to another organization", async (t) => {
   const queries = [];
@@ -721,32 +697,25 @@ test("sellers cannot update orders belonging to another organization", async (t)
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "A seller from another organization must not update the order",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
     "A seller from another organization must not create an order event",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.audit_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.audit_events")),
     false,
     "A seller from another organization must not create an audit record",
   );
 });
 
 //a seller must not be able to move an order directly from paid to completed
-
 
 test("sellers cannot move paid orders directly to completed", async (t) => {
   const queries = [];
@@ -805,32 +774,25 @@ test("sellers cannot move paid orders directly to completed", async (t) => {
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "An invalid transition must not update the order",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
     "An invalid transition must not create an order event",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.audit_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.audit_events")),
     false,
     "An invalid transition must not create an audit record",
   );
 });
 
 //concurrent duplicate seller requests
-
 
 test("concurrent duplicate seller requests create only one transition", async (t) => {
   const queries = [];
@@ -924,20 +886,12 @@ test("concurrent duplicate seller requests create only one transition", async (t
 
   assert.equal(results.length, 2);
 
-  assert.equal(
-    results[0].fulfilment_status,
-    "processing",
-  );
+  assert.equal(results[0].fulfilment_status, "processing");
+
+  assert.equal(results[1].fulfilment_status, "processing");
 
   assert.equal(
-    results[1].fulfilment_status,
-    "processing",
-  );
-
-  assert.equal(
-    queries.filter((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ).length,
+    queries.filter((query) => query.sql.includes("UPDATE app.orders")).length,
     1,
     "Only one request should update the order",
   );
@@ -958,9 +912,6 @@ test("concurrent duplicate seller requests create only one transition", async (t
     "Only one audit record should be created",
   );
 });
-
-
-
 
 //verify that the actual buyer can confirm receipt of a dispatched order and that the service records both fulfilment events
 
@@ -1017,7 +968,6 @@ test("buyers can confirm receipt and complete dispatched orders", async (t) => {
         };
       }
 
-
       if (sql.includes("INSERT INTO app.passport_snapshots")) {
         return {
           rowCount: 1,
@@ -1057,10 +1007,7 @@ test("buyers can confirm receipt and complete dispatched orders", async (t) => {
   assert.equal(eventInserts.length, 2);
 
   assert.deepEqual(
-    eventInserts.map((query) => [
-      query.params[3],
-      query.params[4],
-    ]),
+    eventInserts.map((query) => [query.params[3], query.params[4]]),
     [
       ["dispatched", "delivered"],
       ["delivered", "completed"],
@@ -1141,23 +1088,17 @@ test("other buyers cannot confirm receipt of someone else's order", async (t) =>
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.order_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.order_events")),
     false,
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("INSERT INTO app.audit_events"),
-    ),
+    queries.some((query) => query.sql.includes("INSERT INTO app.audit_events")),
     false,
   );
 });
@@ -1200,9 +1141,7 @@ test("repeated receipt confirmation does not create duplicate events or audit re
   assert.equal(completedOrder.fulfilment_status, "completed");
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "An already completed order should not be updated again",
   );
@@ -1223,7 +1162,6 @@ test("repeated receipt confirmation does not create duplicate events or audit re
     "Repeated confirmation must not create another audit record",
   );
 });
-
 
 test("refund simulation updates payment and order only once", async (t) => {
   const queries = [];
@@ -1316,7 +1254,6 @@ test("refund simulation updates payment and order only once", async (t) => {
   assert.match(paymentUpdates[0].sql, /status\s*=\s*'refunded'/);
 });
 
-
 test("non-admin users cannot simulate refunds", async (t) => {
   const queries = [];
 
@@ -1364,24 +1301,17 @@ test("non-admin users cannot simulate refunds", async (t) => {
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "An unauthorized user must not update the order",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.payment_attempts"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.payment_attempts")),
     false,
     "An unauthorized user must not update payment status",
   );
 });
-
-
-
 
 test("refund simulation rejects orders without a successful payment", async (t) => {
   const queries = [];
@@ -1434,17 +1364,13 @@ test("refund simulation rejects orders without a successful payment", async (t) 
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.orders"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.orders")),
     false,
     "The order must not be refunded without successful payment",
   );
 
   assert.equal(
-    queries.some((query) =>
-      query.sql.includes("UPDATE app.payment_attempts"),
-    ),
+    queries.some((query) => query.sql.includes("UPDATE app.payment_attempts")),
     false,
     "Payment status must remain unchanged",
   );
@@ -1528,8 +1454,6 @@ test("buyers can raise a dispute and create a dispute record", async (t) => {
   assert.equal(orderEvents.length, 1);
   assert.equal(auditEvents.length, 1);
 });
-
-
 
 test("repeated dispute requests do not create duplicate records or events", async (t) => {
   const queries = [];

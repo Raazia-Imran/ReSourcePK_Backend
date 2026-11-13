@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -58,59 +57,64 @@ test("does not include private or commercial information", () => {
 
 test("rejects a missing passport ID", () => {
   assert.throws(
-    () => buildPassportPayload({
-      ...sampleData,
-      passportId: "",
-    }),
-    TypeError
+    () =>
+      buildPassportPayload({
+        ...sampleData,
+        passportId: "",
+      }),
+    TypeError,
   );
 });
 
 test("rejects an invalid passport version", () => {
   assert.throws(
-    () => buildPassportPayload({
-      ...sampleData,
-      version: 0,
-    }),
-    TypeError
+    () =>
+      buildPassportPayload({
+        ...sampleData,
+        version: 0,
+      }),
+    TypeError,
   );
 });
 
 test("rejects an incomplete order", () => {
   assert.throws(
-    () => buildPassportPayload({
-      ...sampleData,
-      order: {
-        ...sampleData.order,
-        completed_at: null,
-      },
-    }),
-    /incomplete order/
+    () =>
+      buildPassportPayload({
+        ...sampleData,
+        order: {
+          ...sampleData.order,
+          completed_at: null,
+        },
+      }),
+    /incomplete order/,
   );
 });
 
 test("rejects a quantity without exactly three decimal places", () => {
   assert.throws(
-    () => buildPassportPayload({
-      ...sampleData,
-      order: {
-        ...sampleData.order,
-        quantity: "10.5",
-      },
-    }),
-    TypeError
+    () =>
+      buildPassportPayload({
+        ...sampleData,
+        order: {
+          ...sampleData.order,
+          quantity: "10.5",
+        },
+      }),
+    TypeError,
   );
 });
 
 test("rejects an invalid completion timestamp", () => {
   assert.throws(
-    () => buildPassportPayload({
-      ...sampleData,
-      order: {
-        ...sampleData.order,
-        completed_at: "not-a-date",
-      },
-    }),
-    TypeError
+    () =>
+      buildPassportPayload({
+        ...sampleData,
+        order: {
+          ...sampleData.order,
+          completed_at: "not-a-date",
+        },
+      }),
+    TypeError,
   );
 });

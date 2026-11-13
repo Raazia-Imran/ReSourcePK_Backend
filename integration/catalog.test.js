@@ -223,10 +223,9 @@ test("suspending an organization removes its stock from detail, count and matchi
       false,
     );
   } finally {
-    await db.query(
-      "UPDATE app.organizations SET status='active' WHERE id=$1",
-      [org],
-    );
+    await db.query("UPDATE app.organizations SET status='active' WHERE id=$1", [
+      org,
+    ]);
   }
 });
 

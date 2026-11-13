@@ -21,7 +21,7 @@ paths:
           description: Storage is not configured or one or more objects could not be cleaned.
         "500":
           description: Cleanup could not complete; inspect the correlation ID in backend logs.
-    
+
   /public/passports/{passportId}/verification:
     get:
       summary: Verify a passport against its Polygon Amoy anchor
@@ -111,8 +111,7 @@ paths:
         "409":
           description: Passport anchor is not in a retryable failed state.
 
-
-    /organizations/{organizationId}/orders/{orderId}/fulfilment:
+  /organizations/{organizationId}/orders/{orderId}/fulfilment:
     post:
       summary: Update order fulfilment status
       description: Allows an authorized seller to advance an order through fulfilment.

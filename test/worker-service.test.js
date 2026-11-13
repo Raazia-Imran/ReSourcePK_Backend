@@ -1,9 +1,10 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { FakeAdapter } = require("../src/modules/blockchain/fakeAdapter");
-const { generatePassportKey } = require("../src/modules/blockchain/keyGenerator");
+const {
+  generatePassportKey,
+} = require("../src/modules/blockchain/keyGenerator");
 
 const {
   createWorkerService,
@@ -27,25 +28,25 @@ test("claims and returns an available blockchain job", async () => {
     transactionCalled = true;
 
     return callback({
-        query: async (sql) => {
-            // First query handles expired jobs; no exhausted jobs in this test.
-            if (/WITH exhausted AS/i.test(sql)) {
-                return {
-                    rows: [],
-                    rowCount: 0,
-                };
-            }
+      query: async (sql) => {
+        // First query handles expired jobs; no exhausted jobs in this test.
+        if (/WITH exhausted AS/i.test(sql)) {
+          return {
+            rows: [],
+            rowCount: 0,
+          };
+        }
 
-            // Second query claims the available job.
-            assert.match(sql, /FOR UPDATE SKIP LOCKED/i);
-            assert.match(sql, /UPDATE app\.outbox/i);
-            return {
-                rows: [job],
-                rowCount: 1,
-            };
-        },
+        // Second query claims the available job.
+        assert.match(sql, /FOR UPDATE SKIP LOCKED/i);
+        assert.match(sql, /UPDATE app\.outbox/i);
+        return {
+          rows: [job],
+          rowCount: 1,
+        };
+      },
     });
-};
+  };
 
   const workerService = createWorkerService(mockTransaction);
 
@@ -98,7 +99,6 @@ test("claims a job inside a database transaction", async () => {
   assert.equal(transactionCalled, true);
   assert.equal(queryCalled, true);
 });
-
 
 test("successfully processes a passport anchor job", async () => {
   const passportHash = "a".repeat(64);
@@ -157,10 +157,7 @@ test("successfully processes a passport anchor job", async () => {
   };
 
   const adapter = new FakeAdapter();
-  const workerService = createWorkerService(
-    mockTransaction,
-    adapter,
-  );
+  const workerService = createWorkerService(mockTransaction, adapter);
 
   const result = await workerService.processNextJob();
 
@@ -174,7 +171,6 @@ test("successfully processes a passport anchor job", async () => {
   assert.equal(anchorUpdated, true);
   assert.equal(outboxUpdated, true);
 });
-
 
 function createRetryMockTransaction(jobs, snapshot) {
   return async (callback) =>
@@ -372,8 +368,8 @@ test("two workers claim different jobs without claiming the same job", async () 
   assert.ok(resultOne);
   assert.ok(resultTwo);
   assert.notEqual(resultOne.id, resultTwo.id);
-  assert.deepEqual(
-    [resultOne.id, resultTwo.id].sort(),
-    ["job-concurrent-1", "job-concurrent-2"],
-  );
+  assert.deepEqual([resultOne.id, resultTwo.id].sort(), [
+    "job-concurrent-1",
+    "job-concurrent-2",
+  ]);
 });

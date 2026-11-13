@@ -4,7 +4,6 @@ import { network } from "hardhat";
 const { ethers } = await network.create();
 
 describe("PassportRegistry", function () {
-
   it("should allow the writer to anchor a hash and retrieve it", async function () {
     const registry = await ethers.deployContract("PassportRegistry");
 
@@ -26,7 +25,7 @@ describe("PassportRegistry", function () {
     const hash = ethers.id("passport-data-hash");
 
     await expect(
-      registry.connect(otherWallet).anchor(key, hash)
+      registry.connect(otherWallet).anchor(key, hash),
     ).to.be.revertedWith("not writer");
   });
 
@@ -39,9 +38,9 @@ describe("PassportRegistry", function () {
 
     await registry.anchor(key, firstHash);
 
-    await expect(
-      registry.anchor(key, secondHash)
-    ).to.be.revertedWith("already anchored");
+    await expect(registry.anchor(key, secondHash)).to.be.revertedWith(
+      "already anchored",
+    );
   });
 
   it("should return zero bytes32 for an unknown key", async function () {
@@ -51,5 +50,4 @@ describe("PassportRegistry", function () {
 
     expect(await registry.get(unknownKey)).to.equal(ethers.ZeroHash);
   });
-
 });

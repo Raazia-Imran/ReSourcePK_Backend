@@ -1,4 +1,3 @@
-
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -45,18 +44,12 @@ test("successfully creates a blockchain anchor and outbox job", async () => {
   assert.equal(queries.length, 2);
 
   // Verify the anchor insert.
-  assert.match(
-    queries[0].sql,
-    /INSERT INTO app\.blockchain_anchors/i,
-  );
+  assert.match(queries[0].sql, /INSERT INTO app\.blockchain_anchors/i);
 
   assert.equal(queries[0].params[0], "snapshot-1");
 
   // Verify the outbox job.
-  assert.match(
-    queries[1].sql,
-    /INSERT INTO app\.outbox/i,
-  );
+  assert.match(queries[1].sql, /INSERT INTO app\.outbox/i);
 
   assert.equal(queries[1].params[0], "passport.anchor");
 
@@ -119,10 +112,11 @@ test("propagates database errors", async () => {
 
 test("rejects an invalid transaction client", async () => {
   await assert.rejects(
-    () => enqueuePassportAnchor(null, {
-      id: "snapshot-1",
-      passport_hash: "abc123hash",
-    }),
+    () =>
+      enqueuePassportAnchor(null, {
+        id: "snapshot-1",
+        passport_hash: "abc123hash",
+      }),
     {
       name: "TypeError",
       message: "A valid transaction client is required",
@@ -135,11 +129,8 @@ test("rejects an invalid passport snapshot", async () => {
     query: async () => ({ rowCount: 0, rows: [] }),
   };
 
-  await assert.rejects(
-    () => enqueuePassportAnchor(tx, null),
-    {
-      name: "TypeError",
-      message: "A valid passport snapshot is required",
-    },
-  );
+  await assert.rejects(() => enqueuePassportAnchor(tx, null), {
+    name: "TypeError",
+    message: "A valid passport snapshot is required",
+  });
 });

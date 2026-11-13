@@ -995,7 +995,8 @@ async function expireDueOrders(limit = 100) {
 async function buyerOrders(buyerId, page, limit) {
   const offset = (page - 1) * limit;
   const result = await db.query(
-    `SELECT o.*,g.status AS group_status,l.title AS listing_title
+    `SELECT o.*,g.status AS group_status,l.title AS listing_title,
+       (SELECT ps.id FROM app.passport_snapshots ps WHERE ps.order_id=o.id ORDER BY ps.version DESC LIMIT 1) AS passport_id
      FROM app.orders o JOIN app.listings l ON l.id=o.listing_id
      LEFT JOIN app.purchase_groups g ON g.id=o.group_id
      WHERE o.buyer_id=$1 ORDER BY o.created_at DESC,o.id DESC LIMIT $2 OFFSET $3`,
@@ -1013,7 +1014,8 @@ async function sellerOrders(userId, organizationId, page, limit) {
   return db.transaction(async (runner) => {
     await requireOrderDecision(runner, userId, organizationId);
     const result = await runner.query(
-      `SELECT o.*,l.title AS listing_title,g.status AS group_status
+      `SELECT o.*,l.title AS listing_title,g.status AS group_status,
+         (SELECT ps.id FROM app.passport_snapshots ps WHERE ps.order_id=o.id ORDER BY ps.version DESC LIMIT 1) AS passport_id
        FROM app.orders o JOIN app.listings l ON l.id=o.listing_id
        LEFT JOIN app.purchase_groups g ON g.id=o.group_id
        WHERE o.organization_id=$1 ORDER BY o.created_at DESC,o.id DESC LIMIT $2 OFFSET $3`,

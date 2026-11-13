@@ -1,0 +1,10 @@
+{
+  "input": {
+    "schemaVersion": 1,
+    "colour": "White",
+    "quantity": "10.000",
+    "unit": "kg"
+  },
+  "expectedCanonical": "{\"colour\":\"White\",\"quantity\":\"10.000\",\"schemaVersion\":1,\"unit\":\"kg\"}",
+  "expectedHash": "0d02fc57ddea4a02dd7a4c34cc16457bbba63fdf3e244d933ed08aed8e1193ee"
+}

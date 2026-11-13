@@ -120,3 +120,7 @@ Add a dated row describing what changed, why, affected requirements and migratio
 - Added the remaining host-side preparation: authenticated, uncached Vercel image-cleanup endpoint and daily cron definition using the existing locked/bounded service. Four regression scenarios cover missing/forged credentials, wrong methods/missing storage, successful counts/log redaction and partial/unexpected failure. Existing provider/database/browser evidence stays scoped; scheduler tests mock the worker and do not claim a live run.
 - Rechecked the staging project: healthy, `listing-images` private/WebP-only/5 MB; security advisor returned no findings. No application users/inventory were changed. Vercel still returns 403 for `raazias-projects-142c0b42`, lists no accessible teams, and no authenticated local CLI or provider environment exists. Do not retrieve secrets to work around this.
 - Remaining external action: restore intended-team Vercel access, configure backend database/JWT/Gmail/private storage/cron secrets directly in the host, review/deploy the paired PRs, and record the real provider roundtrip, hosted seller/reviewer/buyer flow and scheduled log. The verification guide provides the exact sequence. T-102 and hosted gates remain open; overall task count stays 11/37.
+
+## 13 November 2026 integration review
+
+See [current integration review](release-review-2026-11-13.md) for recent contributions, branch decisions, test evidence, Cloudflare requirements and remaining work. Earlier status snapshots remain historical. Hosted release acceptance remains open.

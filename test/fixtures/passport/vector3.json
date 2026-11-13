@@ -1,0 +1,9 @@
+{
+  "input": {
+    "completedAt": "2026-11-07T21:30:00.000Z",
+    "version": 1,
+    "passportId": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "expectedCanonical": "{\"completedAt\":\"2026-11-07T21:30:00.000Z\",\"passportId\":\"550e8400-e29b-41d4-a716-446655440000\",\"version\":1}",
+  "expectedHash": "b1604a36258f7635acee29a079f7fdb0dbd5ad109fe7cb855a10d8a7b644eb27"
+}

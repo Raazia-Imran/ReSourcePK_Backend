@@ -21,6 +21,342 @@ paths:
           description: Storage is not configured or one or more objects could not be cleaned.
         "500":
           description: Cleanup could not complete; inspect the correlation ID in backend logs.
+
+  /public/passports/{passportId}/verification:
+    get:
+      summary: Verify a passport against its Polygon Amoy anchor
+      description: Returns public passport verification metadata only. Private snapshot fields are never exposed.
+      parameters:
+        - name: passportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Passport verification result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      passportId:
+                        type: string
+                        format: uuid
+                      version:
+                        type: integer
+                      status:
+                        type: string
+                        enum: [pending, anchored, failed]
+                      network:
+                        type: string
+                      transactionId:
+                        type: [string, "null"]
+                      anchoredAt:
+                        type: [string, "null"]
+                        format: date-time
+                      snapshotHash:
+                        type: string
+                      matches:
+                        type: [boolean, "null"]
+        "404":
+          description: Passport not found.
+        "429":
+          description: Public verification rate limit exceeded.
+        "503":
+          description: Blockchain verification is temporarily unavailable.
+
+  /platform/passports/{passportId}/retry-anchor:
+    post:
+      summary: Retry a failed passport blockchain anchor
+      description: Platform-admin-only action. Resets the failed anchor and its outbox job and records an audit event.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: passportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Anchor retry queued successfully.
+        "400":
+          description: Invalid request body.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Platform administrator permission required.
+        "404":
+          description: Passport or anchor not found.
+        "409":
+          description: Passport anchor is not in a retryable failed state.
+
+  /organizations/{organizationId}/orders/{orderId}/fulfilment:
+    post:
+      summary: Update order fulfilment status
+      description: Allows an authorized seller to advance an order through fulfilment.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - toStatus
+              properties:
+                toStatus:
+                  type: string
+                  enum:
+                    - processing
+                    - ready
+                    - dispatched
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Fulfilment status updated successfully.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Seller lacks the required permission.
+        "404":
+          description: Order not found or inaccessible.
+        "409":
+          description: Invalid fulfilment transition.
+
+  /orders/{orderId}/confirm-receipt:
+    post:
+      summary: Confirm receipt of an order
+      description: Allows the buyer to confirm receipt and complete a dispatched order.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Receipt confirmed successfully.
+        "401":
+          description: Authentication required.
+        "404":
+          description: Order not found or buyer is not authorized.
+        "409":
+          description: Order cannot be completed in its current state.
+
+  /orders/{orderId}/cancel:
+    post:
+      summary: Cancel an order as a buyer
+      description: Allows the buyer to cancel an eligible order.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Order cancelled successfully.
+        "401":
+          description: Authentication required.
+        "404":
+          description: Order not found or buyer is not authorized.
+        "409":
+          description: Order cannot be cancelled in its current state.
+
+  /organizations/{organizationId}/orders/{orderId}/cancel:
+    post:
+      summary: Cancel an order as a seller
+      description: Allows an authorized seller to cancel an eligible order.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Order cancelled successfully.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Seller is not authorized to cancel this order.
+        "404":
+          description: Order not found or inaccessible.
+        "409":
+          description: Order cannot be cancelled in its current state.
+
+  /orders/{orderId}/dispute:
+    post:
+      summary: Buyer raises a dispute for an order
+      description: Allows the buyer who owns the order to raise a dispute.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Dispute raised successfully.
+        "401":
+          description: Authentication required.
+        "404":
+          description: Order not found.
+        "409":
+          description: Order cannot be disputed in its current state.
+
+  /organizations/{organizationId}/orders/{orderId}/dispute:
+    post:
+      summary: Seller raises a dispute for an order
+      description: Allows an authorized seller in the organization to raise a dispute.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Dispute raised successfully.
+        "401":
+          description: Authentication required.
+        "404":
+          description: Order not found.
+        "403":
+          description: Seller is not authorized to dispute this order.
+        "409":
+          description: Order cannot be disputed in its current state.
+
   /internal/purchase-expiry:
     get:
       summary: Expire overdue direct orders and unpaid group contributions
@@ -1215,6 +1551,50 @@ paths:
         schema:
           type: string
           format: uuid
+
+  /platform/orders/{orderId}/refund-simulation:
+    post:
+      security: *id001
+      summary: Simulate an order refund (Platform Admin only)
+      description: >
+        Simulates a refund locally. Only an active, verified Platform Admin
+        can perform this action. No payment provider is contacted. The request
+        records an order event and audit event. Repeated requests are idempotent.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+              additionalProperties: false
+      responses:
+        "200":
+          description: Refund simulated; order fulfilment status is refunded
+        "401":
+          description: Authentication required
+        "403":
+          description: Active, verified Platform Admin required
+        "404":
+          description: Order not found
+        "409":
+          description: Order is not refundable or has no successful payment attempt
+        "422":
+          $ref: "#/components/responses/Validation"
+
   /requirements:
     get:
       security: *id001

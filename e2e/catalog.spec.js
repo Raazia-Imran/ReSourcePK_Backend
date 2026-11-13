@@ -3,16 +3,21 @@ const AxeBuilder = require("@axe-core/playwright").default;
 const crypto = require("node:crypto");
 const sharp = require("sharp");
 
+// Public Buyer/Seller sign-in now uses Google. These opt-in synthetic fixtures
+// authenticate through the existing password API, then exercise real httpOnly
+// refresh sessions. Live Google OAuth remains a separate hosted acceptance gate.
 async function signIn(page, account, destination) {
+  const response = await page.request.post(
+    "http://localhost:5000/api/v1/auth/login",
+    {
+      data: {
+        email: `${account}@resourcepk.example.invalid`,
+        password: process.env.E2E_PASSWORD,
+      },
+    },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
   await page.goto(destination);
-  await expect(page).toHaveURL(/\/login$/);
-  await page
-    .getByLabel("Email address")
-    .fill(`${account}@resourcepk.example.invalid`);
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill(process.env.E2E_PASSWORD);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(destination + "$"));
 }
 async function inspect(page, name, testInfo) {
@@ -50,13 +55,13 @@ async function checkDrawer(page, width) {
   const drawer = page.getByRole("dialog", { name: "Workspace navigation" });
   await expect(drawer).toBeVisible();
   await expect(
-    drawer.getByRole("link", { name: "ReSource PK home" }),
+    drawer.getByRole("link", { name: "ReThread home" }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(drawer.getByRole("button", { name: "Sign out" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    drawer.getByRole("link", { name: "ReSource PK home" }),
+    drawer.getByRole("link", { name: "ReThread home" }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(opener).toBeFocused();
@@ -296,7 +301,7 @@ test("CSV preview, refreshed template download and image failures use the real A
     .click();
   await refreshed;
   const download = await downloading;
-  expect(download.suggestedFilename()).toBe("resourcepk-listings.csv");
+  expect(download.suggestedFilename()).toBe("rethread-listings.csv");
   const chunks = [];
   for await (const chunk of await download.createReadStream())
     chunks.push(chunk);
@@ -377,4 +382,22 @@ test("CSV preview, refreshed template download and image failures use the real A
   const response = await unavailable;
   expect(response.status()).toBe(503);
   expect((await response.json()).error.code).toBe("STORAGE_NOT_CONFIGURED");
+});
+
+test("reviewer password sign-in and protected-route redirect use real sessions", async ({
+  page,
+}) => {
+  await page.goto("/admin/review-queue");
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto("/reviewer/login");
+  await page
+    .getByLabel("Email address")
+    .fill("demo-admin@resourcepk.example.invalid");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(process.env.E2E_PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin(?:\/overview)?$/);
+  await page.goto("/admin/review-queue");
+  await expect(page).toHaveURL(/\/admin\/review-queue$/);
 });

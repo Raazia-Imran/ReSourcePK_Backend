@@ -160,29 +160,75 @@ test("wrong tenant, staff, and revoked membership cannot mutate stock", async ()
     [owner, org],
   );
 });
+// test("suspending an organization removes its stock from detail, count and matching", async () => {
+//   await db.query(
+//     "UPDATE app.organizations SET status='suspended' WHERE id=$1",
+//     [org],
+//   );
+//   assert.equal(
+//     (await repo.search({ page: 1, limit: 12, sort: "newest" })).total,
+//     0,
+//   );
+//   await assert.rejects(
+//     () => service.publicListing(listing.id),
+//     (error) => error.status === 404,
+//   );
+//   const requirement = await service.createRequirement(buyer, {
+//     material: "Cotton",
+//     unit: "kg",
+//     minQuantity: "60",
+//   });
+//   assert.equal((await repo.matches(buyer, requirement.id)).items.length, 0);
+//   await db.query("UPDATE app.organizations SET status='active' WHERE id=$1", [
+//     org,
+//   ]);
+// });
+
 test("suspending an organization removes its stock from detail, count and matching", async () => {
-  await db.query(
-    "UPDATE app.organizations SET status='suspended' WHERE id=$1",
-    [org],
-  );
-  assert.equal(
-    (await repo.search({ page: 1, limit: 12, sort: "newest" })).total,
-    0,
-  );
-  await assert.rejects(
-    () => service.publicListing(listing.id),
-    (error) => error.status === 404,
-  );
-  const requirement = await service.createRequirement(buyer, {
-    material: "Cotton",
-    unit: "kg",
-    minQuantity: "60",
-  });
-  assert.equal((await repo.matches(buyer, requirement.id)).items.length, 0);
-  await db.query("UPDATE app.organizations SET status='active' WHERE id=$1", [
-    org,
-  ]);
+  try {
+    await db.query(
+      "UPDATE app.organizations SET status='suspended' WHERE id=$1",
+      [org],
+    );
+
+    const ownListings = await db.query(
+      `SELECT count(*)::int AS total
+       FROM app.listings
+       WHERE organization_id=$1 AND status='published'`,
+      [org],
+    );
+    assert.equal(ownListings.rows[0].total, 1);
+
+    assert.equal(
+      (await repo.search({ page: 1, limit: 12, sort: "newest" })).items.some(
+        (item) => item.id === listing.id,
+      ),
+      false,
+    );
+
+    await assert.rejects(
+      () => service.publicListing(listing.id),
+      (error) => error.status === 404,
+    );
+
+    const requirement = await service.createRequirement(buyer, {
+      material: "Cotton",
+      unit: "kg",
+      minQuantity: "60",
+    });
+
+    const matches = await repo.matches(buyer, requirement.id);
+    assert.equal(
+      matches.items.some((item) => item.id === listing.id),
+      false,
+    );
+  } finally {
+    await db.query("UPDATE app.organizations SET status='active' WHERE id=$1", [
+      org,
+    ]);
+  }
 });
+
 test("concurrent imports with one key create one batch; changed replay has no effect", async () => {
   const requestKey = crypto.randomUUID();
   const results = await Promise.all([

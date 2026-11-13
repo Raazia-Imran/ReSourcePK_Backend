@@ -13,7 +13,9 @@
     "db:seed:demo": "node scripts/seed-demo.js",
     "storage:setup": "node scripts/setup-storage.js",
     "storage:cleanup": "node scripts/cleanup-images.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "worker": "node src/worker/index.js",
+    "worker:blockchain": "node src/worker/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
@@ -22,6 +24,7 @@
     "cors": "^2.8.6",
     "csv-parse": "^7.0.3",
     "dotenv": "^17.3.1",
+    "ethers": "^6.17.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "google-auth-library": "^11.3.1",

@@ -36,7 +36,8 @@ async function requirePlatformAdmin(userId, runner = { query }) {
 }
 
 async function buyerImpact(userId) {
-  const [summary, recent] = await Promise.all([
+  //const [summary, recent] = await Promise.all([
+  const [summary, recent, impact] = await Promise.all([
     query(
       `SELECT count(*)::int AS order_count,
          count(*) FILTER (WHERE o.status IN ('group_open','pending_seller_confirmation'))::int AS awaiting_seller,
@@ -63,8 +64,39 @@ async function buyerImpact(userId) {
        ORDER BY o.created_at DESC,o.id DESC LIMIT 10`,
       [userId],
     ),
+
+    query(
+      `SELECT COALESCE(
+      json_agg(
+      json_build_object('unit', totals.unit, 'quantity', totals.quantity)
+      ORDER BY totals.unit
+      ),
+      '[]'::json
+      ) AS quantity_by_unit
+       FROM (
+       SELECT ie.unit,
+       SUM(
+       CASE
+       WHEN ie.impact_entry_type = 'diversion' THEN ie.quantity
+       WHEN ie.impact_entry_type = 'reversal' THEN -ie.quantity
+       END
+       )::text AS quantity
+       FROM app.impact_events ie
+       JOIN app.orders o ON o.id = ie.order_id
+       JOIN app.listings l ON l.id = o.listing_id
+       WHERE o.buyer_id = $1
+       AND l.is_demo = false
+       GROUP BY ie.unit
+       ) totals`,
+      [userId],
+    ),
   ]);
-  return { summary: summary.rows[0], recent: recent.rows };
+  //return { summary: summary.rows[0], recent: recent.rows };
+  return {
+    summary: summary.rows[0],
+    recent: recent.rows,
+    impact: impact.rows[0],
+  };
 }
 
 async function organizationAnalytics(userId, organizationId) {
@@ -81,7 +113,8 @@ async function organizationAnalytics(userId, organizationId) {
       "ANALYTICS_ACCESS_DENIED",
       "Organization analytics require Owner access or the Manager order permission",
     );
-  const [listings, orders, monthly] = await Promise.all([
+  //const [listings, orders, monthly] = await Promise.all([
+  const [listings, orders, monthly, impact] = await Promise.all([
     query(
       `SELECT count(*)::int AS total,
          count(*) FILTER (WHERE status='published')::int AS published,
@@ -117,11 +150,38 @@ async function organizationAnalytics(userId, organizationId) {
        GROUP BY 1 ORDER BY 1`,
       [organizationId],
     ),
+    //new addition
+    query(
+      `SELECT COALESCE(
+         json_agg(
+           json_build_object('unit', totals.unit, 'quantity', totals.quantity)
+           ORDER BY totals.unit
+         ),
+         '[]'::json
+       ) AS quantity_by_unit
+       FROM (
+         SELECT ie.unit,
+           SUM(
+             CASE
+               WHEN ie.impact_entry_type = 'diversion' THEN ie.quantity
+               WHEN ie.impact_entry_type = 'reversal' THEN -ie.quantity
+             END
+           )::text AS quantity
+         FROM app.impact_events ie
+         JOIN app.orders o ON o.id = ie.order_id
+         JOIN app.listings l ON l.id = o.listing_id
+         WHERE o.organization_id = $1
+           AND l.is_demo = false
+         GROUP BY ie.unit
+       ) totals`,
+      [organizationId],
+    ),
   ]);
   return {
     listings: listings.rows[0],
     orders: orders.rows[0],
     monthly: monthly.rows,
+    impact: impact.rows[0],
   };
 }
 
@@ -209,45 +269,77 @@ async function platformUsers(userId, limit, offset) {
 
 async function platformAnalytics(userId) {
   await requirePlatformAdmin(userId);
-  const [users, organizations, listings, orders, applications, activity] =
-    await Promise.all([
-      query(
-        `SELECT count(*)::int AS total,
+  //const [users, organizations, listings, orders, applications, activity] =
+  const [
+    users,
+    organizations,
+    listings,
+    orders,
+    applications,
+    activity,
+    impact,
+  ] = await Promise.all([
+    query(
+      `SELECT count(*)::int AS total,
            count(*) FILTER (WHERE u.email_verified_at IS NOT NULL)::int AS verified
          FROM app.users u WHERE NOT EXISTS(
            SELECT 1 FROM app.demo_seed_records d WHERE d.kind='user' AND d.record_id=u.id)`,
-      ),
-      query(
-        `SELECT count(*)::int AS total,
+    ),
+    query(
+      `SELECT count(*)::int AS total,
            count(*) FILTER (WHERE o.status='active')::int AS active
          FROM app.organizations o WHERE NOT EXISTS(
            SELECT 1 FROM app.demo_seed_records d WHERE d.kind='organization' AND d.record_id=o.id)`,
-      ),
-      query(
-        `SELECT count(*)::int AS total,
+    ),
+    query(
+      `SELECT count(*)::int AS total,
            count(*) FILTER (WHERE l.status='published')::int AS published,
            count(*) FILTER (WHERE l.status='pending_review')::int AS pending_review
          FROM app.listings l WHERE l.is_demo=false`,
-      ),
-      query(
-        `SELECT count(*)::int AS total,
+    ),
+    query(
+      `SELECT count(*)::int AS total,
            count(*) FILTER (WHERE o.status='paid')::int AS paid,
            count(*) FILTER (WHERE o.status IN ('pending_seller_confirmation','group_open'))::int AS awaiting_seller,
            COALESCE(sum(o.total_minor) FILTER (WHERE o.status='paid'),0)::text AS paid_total_minor
          FROM app.orders o JOIN app.listings l ON l.id=o.listing_id WHERE l.is_demo=false`,
-      ),
-      query(
-        `SELECT count(*) FILTER (WHERE status='pending')::int AS pending,
+    ),
+    query(
+      `SELECT count(*) FILTER (WHERE status='pending')::int AS pending,
            count(*) FILTER (WHERE status='approved')::int AS approved,
            count(*) FILTER (WHERE status='rejected')::int AS rejected
          FROM app.seller_requests`,
-      ),
-      query(
-        `SELECT date_trunc('day',created_at)::date::text AS day,count(*)::int AS events
+    ),
+    query(
+      `SELECT date_trunc('day',created_at)::date::text AS day,count(*)::int AS events
          FROM app.audit_events WHERE created_at >= now()-interval '13 days'
          GROUP BY 1 ORDER BY 1`,
-      ),
-    ]);
+    ),
+
+    query(
+      `SELECT COALESCE(
+        json_agg(
+        json_build_object('unit', totals.unit, 'quantity', totals.quantity)
+        ORDER BY totals.unit
+        ),
+        '[]'::json
+        ) AS quantity_by_unit
+         FROM (
+         SELECT ie.unit,
+         SUM(
+         CASE
+         WHEN ie.impact_entry_type = 'diversion' THEN ie.quantity
+         WHEN ie.impact_entry_type = 'reversal' THEN -ie.quantity
+         END
+         )::text AS quantity
+         FROM app.impact_events ie
+         JOIN app.orders o ON o.id = ie.order_id
+         JOIN app.listings l ON l.id = o.listing_id
+         WHERE l.is_demo = false
+         GROUP BY ie.unit
+         ) totals`,
+    ),
+  ]);
   return {
     users: users.rows[0],
     organizations: organizations.rows[0],
@@ -255,6 +347,7 @@ async function platformAnalytics(userId) {
     orders: orders.rows[0],
     applications: applications.rows[0],
     auditActivity: activity.rows,
+    impact: impact.rows[0],
   };
 }
 
@@ -267,3 +360,29 @@ module.exports = {
   platformUsers,
   platformAnalytics,
 };
+
+async function sellerCommerceMetrics(userId, organizationId, period) {
+  const membership = await requireOrganizationMember(userId, organizationId, [
+    "owner",
+    "manager",
+  ]);
+  if (
+    membership.role === "manager" &&
+    !membership.permissions.includes("orders.confirm")
+  )
+    throw new AppError(
+      403,
+      "ANALYTICS_ACCESS_DENIED",
+      "Order reporting permission required",
+    );
+  return require("./commerceMetrics").commerceMetrics({
+    organizationId,
+    ...period,
+  });
+}
+async function platformCommerceMetrics(userId, period) {
+  await requirePlatformAdmin(userId);
+  return require("./commerceMetrics").commerceMetrics(period);
+}
+module.exports.sellerCommerceMetrics = sellerCommerceMetrics;
+module.exports.platformCommerceMetrics = platformCommerceMetrics;

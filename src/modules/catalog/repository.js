@@ -1,7 +1,7 @@
 const db = require("../../db");
 const { scaled } = require("./validation");
 const { AppError } = require("../../lib/errors");
-const publicColumns = `l.id,l.title,l.description,l.material,l.condition,l.color,l.composition,l.location,l.unit,l.quantity,l.min_order_quantity,l.price_per_unit,l.price_per_unit_minor,l.purchase_mode,l.expedited_price_per_unit,l.expedited_price_per_unit_minor,l.expedited_lead_time_days,l.expedited_min_order_quantity,l.is_demo,l.created_at,o.name AS organization_name`;
+const publicColumns = `l.id,l.title,l.description,l.material,l.condition,l.color,l.composition,l.location,l.unit,l.quantity,l.min_order_quantity,l.price_per_unit,l.price_per_unit_minor,l.purchase_mode,l.max_group_join_days,l.expedited_price_per_unit,l.expedited_price_per_unit_minor,l.expedited_lead_time_days,l.expedited_min_order_quantity,l.is_demo,l.created_at,o.name AS organization_name`;
 const details = `COALESCE((SELECT json_agg(json_build_object('id',t.id,'minQuantity',t.min_quantity::text,'pricePerUnitMinor',t.price_per_unit_minor::text,'pricePerUnit',(t.price_per_unit_minor::numeric/100)::text) ORDER BY t.min_quantity) FROM app.listing_price_tiers t WHERE t.listing_id=l.id),'[]') AS price_tiers,
  COALESCE((SELECT json_agg(json_build_object('id',i.id,'altText',i.alt_text,'width',i.width,'height',i.height) ORDER BY i.created_at,i.id) FROM app.listing_images i WHERE i.listing_id=l.id),'[]') AS images`;
 async function sellerRole(user, org, runner = db) {
@@ -74,7 +74,7 @@ function fields(input) {
 }
 async function createListing(runner, org, user, input) {
   const result = await runner.query(
-    `INSERT INTO app.listings(organization_id,created_by,title,description,material,condition,unit,quantity,min_order_quantity,price_per_unit,color,composition,location,purchase_mode,expedited_price_per_unit,expedited_lead_time_days,expedited_min_order_quantity) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+    `INSERT INTO app.listings(organization_id,created_by,title,description,material,condition,unit,quantity,min_order_quantity,price_per_unit,color,composition,location,purchase_mode,expedited_price_per_unit,expedited_lead_time_days,expedited_min_order_quantity,max_group_join_days) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
     [
       org,
       user,
@@ -83,6 +83,7 @@ async function createListing(runner, org, user, input) {
       input.expeditedPricePerUnit ?? null,
       input.expeditedLeadTimeDays ?? null,
       input.expeditedMinOrderQuantity ?? null,
+      input.maxGroupJoinDays,
     ],
   );
   await replaceTiers(runner, result.rows[0].id, input.priceTiers);
@@ -90,7 +91,7 @@ async function createListing(runner, org, user, input) {
 }
 async function editListing(runner, org, id, input, version) {
   const result = await runner.query(
-    `UPDATE app.listings SET title=$3,description=$4,material=$5,condition=$6,unit=$7,quantity=$8,min_order_quantity=$9,price_per_unit=$10,color=$11,composition=$12,location=$13,purchase_mode=COALESCE($14,purchase_mode),expedited_price_per_unit=CASE WHEN $15::boolean THEN $16::numeric ELSE expedited_price_per_unit END,expedited_lead_time_days=CASE WHEN $15::boolean THEN $17::integer ELSE expedited_lead_time_days END,expedited_min_order_quantity=CASE WHEN $15::boolean THEN $18::numeric ELSE expedited_min_order_quantity END,review_reason=NULL WHERE id=$1 AND organization_id=$2 AND version=$19 RETURNING *`,
+    `UPDATE app.listings SET title=$3,description=$4,material=$5,condition=$6,unit=$7,quantity=$8,min_order_quantity=$9,price_per_unit=$10,color=$11,composition=$12,location=$13,purchase_mode=COALESCE($14,purchase_mode),expedited_price_per_unit=CASE WHEN $15::boolean THEN $16::numeric ELSE expedited_price_per_unit END,expedited_lead_time_days=CASE WHEN $15::boolean THEN $17::integer ELSE expedited_lead_time_days END,expedited_min_order_quantity=CASE WHEN $15::boolean THEN $18::numeric ELSE expedited_min_order_quantity END,max_group_join_days=$19,review_reason=NULL WHERE id=$1 AND organization_id=$2 AND version=$20 RETURNING *`,
     [
       id,
       org,
@@ -102,6 +103,7 @@ async function editListing(runner, org, id, input, version) {
       input.expeditedPricePerUnit ?? null,
       input.expeditedLeadTimeDays ?? null,
       input.expeditedMinOrderQuantity ?? null,
+      input.maxGroupJoinDays,
       version,
     ],
   );

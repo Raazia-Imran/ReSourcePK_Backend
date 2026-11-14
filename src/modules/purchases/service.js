@@ -393,11 +393,19 @@ async function createBuyerGroup(buyerId, input) {
         "Group ordering is not enabled for this listing",
       );
     const closesAt = new Date(input.closesAt);
-    if (!Number.isFinite(closesAt.getTime()) || closesAt <= new Date())
+    const now = new Date();
+    if (!Number.isFinite(closesAt.getTime()) || closesAt <= now)
       throw new AppError(
         400,
         "INVALID_GROUP_DEADLINE",
         "Deadline must be in the future",
+      );
+    const sellerMaximumDays = Number(listing.max_group_join_days || 7);
+    if (closesAt.getTime() > now.getTime() + sellerMaximumDays * 86400000)
+      throw new AppError(
+        400,
+        "GROUP_DEADLINE_EXCEEDS_SELLER_MAX",
+        `Choose a joining period of ${sellerMaximumDays} days or less`,
       );
     if (scaled(input.targetQuantity, 3) < scaled(listing.min_order_quantity, 3))
       throw new AppError(

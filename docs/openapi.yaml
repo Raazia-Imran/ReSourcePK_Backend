@@ -1256,7 +1256,7 @@ paths:
     post:
       security: *id001
       summary: Create a Buyer group for a listing
-      description: Sets the total group target and three or four selectable share sizes. Target must meet the listing MOQ and current available stock.
+      description: Sets the total group target, closing time within the listing Seller's maximum joining period (1–7 days, default 7), and three or four selectable share sizes. The server enforces the maximum. Target must meet the listing MOQ and current available stock.
       parameters:
         - in: path
           name: listingId
@@ -1282,7 +1282,10 @@ paths:
                   items: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
       responses:
         "201": { description: Group created. }
-        "400": { description: Invalid target or share sizes. }
+        "400":
+          {
+            description: Invalid target/share sizes or closing time beyond the Seller's maximum joining period.,
+          }
         "409":
           {
             description: Listing cannot accept groups or available stock is insufficient.,
@@ -2082,6 +2085,12 @@ components:
           type: string
           enum: [direct, group, both]
           description: Purchase modes enabled for this listing; omitted on create defaults to direct and omitted on edit preserves the current mode.
+        maxGroupJoinDays:
+          type: integer
+          minimum: 1
+          maximum: 7
+          default: 7
+          description: Seller-set maximum number of days Buyers may choose before a group closes.
         expeditedPricePerUnit: &id019
           oneOf:
             - *id008

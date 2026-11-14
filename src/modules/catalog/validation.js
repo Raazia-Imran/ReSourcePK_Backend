@@ -52,6 +52,7 @@ const listingInput = z
     pricePerUnit: money,
     priceTiers: z.array(tier).max(10).default([]),
     purchaseMode: z.enum(["direct", "group", "both"]).optional(),
+    maxGroupJoinDays: z.number().int().min(1).max(7).default(7),
     expeditedPricePerUnit: money.nullable().optional(),
     expeditedMinOrderQuantity: quantity.nullable().optional(),
     expeditedLeadTimeDays: z

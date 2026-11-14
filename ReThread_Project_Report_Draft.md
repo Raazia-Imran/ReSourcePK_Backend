@@ -61,13 +61,13 @@ The project problem can therefore be stated as follows:
 
 There are existing services related to textile reuse, surplus exchange, and recycling. ReThread should be presented as a project with a local focus and a particular workflow, not as the first or only textile surplus marketplace.
 
-| Service | Publicly described approach | Relevance to ReThread |
-|---|---|---|
-| Queen of Raw / Material MX | Describes an online marketplace for buying and selling deadstock and sustainable inventory, alongside excess-inventory management software for organizations [2]. | Shows that digital deadstock exchange and enterprise inventory management already exist. ReThread’s intended distinction is a Pakistan-focused marketplace flow with buyer requirements, pooled purchases, and local role-based review. This distinction is a design target; validate it through user research and a broader market review. |
-| FABSCRAP | Collects pre-consumer textile material, sorts usable material for reuse/resale or recycling, and sells materials online and in person. Its collection, pickup, and warehouse operations are geographically limited, including New York City and Philadelphia services [3]. | Demonstrates a service-led collection and reuse model. ReThread currently focuses on a digital marketplace and transaction workflow; it does not run a collection warehouse or recycling operation. |
+| Service                                   | Publicly described approach                                                                                                                                                                                                                                                                                                     | Relevance to ReThread                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Queen of Raw / Material MX                | Describes an online marketplace for buying and selling deadstock and sustainable inventory, alongside excess-inventory management software for organizations [2].                                                                                                                                                               | Shows that digital deadstock exchange and enterprise inventory management already exist. ReThread’s intended distinction is a Pakistan-focused marketplace flow with buyer requirements, pooled purchases, and local role-based review. This distinction is a design target; validate it through user research and a broader market review.                                |
+| FABSCRAP                                  | Collects pre-consumer textile material, sorts usable material for reuse/resale or recycling, and sells materials online and in person. Its collection, pickup, and warehouse operations are geographically limited, including New York City and Philadelphia services [3].                                                      | Demonstrates a service-led collection and reuse model. ReThread currently focuses on a digital marketplace and transaction workflow; it does not run a collection warehouse or recycling operation.                                                                                                                                                                        |
 | Reverse Resources / SMEP Pakistan project | SMEP describes work to introduce a digital textile-waste traceability approach to Pakistan and pilot functionality for post-consumer textile waste [6]. A 2025 industry report produced through the programme describes inefficient collection, contamination, limited traceability, and a fragmented/informal value chain [5]. | This is a relevant local digital initiative and should be included in any market review. Its published focus is waste traceability and recycling-chain coordination. ReThread’s current code focuses on listing and purchase workflows. The projects may overlap or complement one another; interviews and product comparison are needed before claiming a clear boundary. |
-| Existing local cut-piece resale | A 2025 British Council Pakistan report describes cut-piece retailers, tailors, and home sewers as parts of the existing reuse channel; it names Bareeze as a major brand that continues to prominently sell cut pieces [4]. | This is an existing practice, not a ReThread partner or customer. It shows that local material reuse already happens through physical retail and tailor networks. The team should study how a digital B2B marketplace might connect to these channels without claiming to replace them. |
-| Other informal channels | **[Team to document channels actually used by target users: direct networks, WhatsApp groups, brokers, directories, or other marketplaces.]** | This comparison is essential to establish the local need. Gather evidence from intended users rather than assuming current channels are inadequate. |
+| Existing local cut-piece resale           | A 2025 British Council Pakistan report describes cut-piece retailers, tailors, and home sewers as parts of the existing reuse channel; it names Bareeze as a major brand that continues to prominently sell cut pieces [4].                                                                                                     | This is an existing practice, not a ReThread partner or customer. It shows that local material reuse already happens through physical retail and tailor networks. The team should study how a digital B2B marketplace might connect to these channels without claiming to replace them.                                                                                    |
+| Other informal channels                   | **[Team to document channels actually used by target users: direct networks, WhatsApp groups, brokers, directories, or other marketplaces.]**                                                                                                                                                                                   | This comparison is essential to establish the local need. Gather evidence from intended users rather than assuming current channels are inadequate.                                                                                                                                                                                                                        |
 
 ### 4.1 How ReThread differs in its current design
 
@@ -107,13 +107,13 @@ Outside current scope: delivery and fulfillment coordination, refunds, payouts, 
 
 ReThread provides a shared marketplace workflow where sellers can publish approved surplus inventory and buyers can discover it or state what they need. Orders and payments are tracked by the application. The expected benefit is reduced search and coordination effort and a clearer record of marketplace activity. The project has not yet measured reduced waste, cost savings, or transaction growth; these benefits must be evaluated with real users and transactions.
 
-| Intended user | How the platform is intended to help |
-|---|---|
+| Intended user                         | How the platform is intended to help                                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Buyer / small manufacturer / designer | Search available materials, compare listing information and price tiers, create a requirement, match against stock, order directly, or join a purchase group. |
-| Seller / textile supplier | Apply for seller access, maintain organization listings, submit inventory for review, receive orders, and manage authorized team access. |
-| Seller team member | Work on listings or orders according to the Owner’s assigned role and permissions. |
-| Platform reviewer | Review seller applications and/or submitted listings according to assigned permissions. |
-| Platform administrator | Manage platform review access and view platform-level organization, user, and operational information. |
+| Seller / textile supplier             | Apply for seller access, maintain organization listings, submit inventory for review, receive orders, and manage authorized team access.                      |
+| Seller team member                    | Work on listings or orders according to the Owner’s assigned role and permissions.                                                                            |
+| Platform reviewer                     | Review seller applications and/or submitted listings according to assigned permissions.                                                                       |
+| Platform administrator                | Manage platform review access and view platform-level organization, user, and operational information.                                                        |
 
 ### 6.1 Pakistani use cases grounded in published context
 
@@ -255,15 +255,15 @@ flowchart TD
 
 ## 10. Implementation and technology
 
-| Layer | Technology / responsibility |
-|---|---|
-| Frontend | React 18, React Router, and Vite; renders public pages, forms, role-specific workspaces, and hosted payment return status. |
-| API | Node.js and Express; validates inputs, authenticates sessions, enforces roles, and implements business workflows under `/api/v1`. |
-| Database | PostgreSQL; stores accounts, organization membership, listings, requirements, orders, payment attempts, audit records, and migrations. |
-| Image storage | Optional private Supabase Storage integration for listing images; requires backend-only configuration. |
-| Email | Optional SMTP/Gmail configuration for verification, reset, and invitation messages. |
-| Payment provider | RapidGateway hosted checkout. TEST and LIVE credentials are backend-only. |
-| API documentation | Backend OpenAPI file at `docs/openapi.yaml`. |
+| Layer             | Technology / responsibility                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend          | React 18, React Router, and Vite; renders public pages, forms, role-specific workspaces, and hosted payment return status.             |
+| API               | Node.js and Express; validates inputs, authenticates sessions, enforces roles, and implements business workflows under `/api/v1`.      |
+| Database          | PostgreSQL; stores accounts, organization membership, listings, requirements, orders, payment attempts, audit records, and migrations. |
+| Image storage     | Optional private Supabase Storage integration for listing images; requires backend-only configuration.                                 |
+| Email             | Optional SMTP/Gmail configuration for verification, reset, and invitation messages.                                                    |
+| Payment provider  | RapidGateway hosted checkout. TEST and LIVE credentials are backend-only.                                                              |
+| API documentation | Backend OpenAPI file at `docs/openapi.yaml`.                                                                                           |
 
 The backend is a modular monolith: modules and services separate responsibilities while the application runs as one API service. Database migrations are versioned SQL files and applied through `npm run db:migrate` to whichever database `DATABASE_URL` selects.
 
@@ -281,15 +281,15 @@ The backend is a modular monolith: modules and services separate responsibilitie
 
 The API is rooted at `/api/v1`. Key endpoint groups include:
 
-| Group | Representative endpoints |
-|---|---|
-| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `POST /auth/refresh`, `GET /auth/me` |
+| Group         | Representative endpoints                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Auth          | `POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `POST /auth/refresh`, `GET /auth/me`            |
 | Seller review | `POST /seller/requests`, `GET /platform/seller-requests`, `POST /platform/seller-requests/{requestId}/decision` |
-| Catalog | `GET /listings`, `POST /organizations/{organizationId}/listings`, `POST /platform/listings/{listingId}/review` |
-| Requirements | `POST /requirements`, `GET /requirements/{requirementId}/matches` |
-| Purchases | `POST /orders`, `GET /orders/mine`, `POST /purchase-groups/{groupId}/contributions` |
-| Payment | `POST /orders/{orderId}/checkout`, `GET /payment-attempts/{attemptId}`, `POST /rapidgateway/webhook` |
-| Workspace | `GET /analytics/buyer-impact`, `GET /organizations/{organizationId}/analytics`, `GET /platform/analytics` |
+| Catalog       | `GET /listings`, `POST /organizations/{organizationId}/listings`, `POST /platform/listings/{listingId}/review`  |
+| Requirements  | `POST /requirements`, `GET /requirements/{requirementId}/matches`                                               |
+| Purchases     | `POST /orders`, `GET /orders/mine`, `POST /purchase-groups/{groupId}/contributions`                             |
+| Payment       | `POST /orders/{orderId}/checkout`, `GET /payment-attempts/{attemptId}`, `POST /rapidgateway/webhook`            |
+| Workspace     | `GET /analytics/buyer-impact`, `GET /organizations/{organizationId}/analytics`, `GET /platform/analytics`       |
 
 See `docs/openapi.yaml` for the complete endpoint inventory, parameters, schemas, authentication, and responses. The repository `docs/backend-handoff.md` and `docs/frontend-handoff.md`, when included in the shared project, provide separate implementation inventories.
 
@@ -320,12 +320,12 @@ These are proposals for evaluation, not current features. The initial prototype 
 
 ### 12.2 Cost categories to estimate
 
-| Cost area | Examples to include in a future estimate |
-|---|---|
-| Hosting | Frontend hosting, API hosting, database plan, backups, monitoring. |
-| Payment | Provider transaction charges, failed/refunded transaction costs, reconciliation operations. |
-| Storage and traffic | Listing images, bandwidth, database growth, backups. |
-| Operations | Seller verification, support, listing moderation, dispute handling, and onboarding. |
+| Cost area                     | Examples to include in a future estimate                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Hosting                       | Frontend hosting, API hosting, database plan, backups, monitoring.                                      |
+| Payment                       | Provider transaction charges, failed/refunded transaction costs, reconciliation operations.             |
+| Storage and traffic           | Listing images, bandwidth, database growth, backups.                                                    |
+| Operations                    | Seller verification, support, listing moderation, dispute handling, and onboarding.                     |
 | Compliance and administration | Business, tax, privacy, and payment-provider requirements to be reviewed with qualified local advisers. |
 
 **Financial analysis placeholder:** `[Add pricing assumptions, per-order example, operating-cost estimate, break-even estimate, and source/date for every external price.]` Do not include provider credentials or real bank/payment details.
@@ -336,18 +336,18 @@ The codebase contains unit/regression tests, PostgreSQL integration tests, and b
 
 ### 13.1 Evaluation table to complete
 
-| Test area | What to verify | Result / evidence to insert |
-|---|---|---|
-| Authentication and roles | Buyer, Owner, Manager, Staff, Reviewer, and Admin can access only allowed actions. | `[Pass/fail, test date, CI link or screenshot]` |
-| Seller onboarding | Submit application, review decision, and organization Owner membership. | `[Pass/fail and evidence]` |
-| Catalog | Draft, submit, approve/reject, search published listing, and import validation. | `[Pass/fail and evidence]` |
-| Requirements | Create, pause/resume/close, and check deterministic matches. | `[Pass/fail and evidence]` |
-| Direct purchases | Price snapshot, stock reservation, Seller decision, timeout, and release. | `[Pass/fail and evidence]` |
-| Group purchases | Share limits, target/deadline, withdrawal, nonpayment, and reconfirmation. | `[Pass/fail and evidence]` |
-| Payment TEST success | Hosted redirect, signed webhook, order marked paid, reservation committed. | `[Pass/fail; label TEST; do not include credentials]` |
-| Payment TEST failure | Attempt becomes failed; order remains payable before its deadline. | `[Pass/fail and evidence]` |
-| Payment recovery | Duplicate event, late success, expired order, and reconciliation state. | `[Pass/fail and evidence]` |
-| Responsive behavior | Required viewport sizes and main role-specific workflows. | `[Devices/sizes, pass/fail, screenshots]` |
+| Test area                | What to verify                                                                     | Result / evidence to insert                           |
+| ------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Authentication and roles | Buyer, Owner, Manager, Staff, Reviewer, and Admin can access only allowed actions. | `[Pass/fail, test date, CI link or screenshot]`       |
+| Seller onboarding        | Submit application, review decision, and organization Owner membership.            | `[Pass/fail and evidence]`                            |
+| Catalog                  | Draft, submit, approve/reject, search published listing, and import validation.    | `[Pass/fail and evidence]`                            |
+| Requirements             | Create, pause/resume/close, and check deterministic matches.                       | `[Pass/fail and evidence]`                            |
+| Direct purchases         | Price snapshot, stock reservation, Seller decision, timeout, and release.          | `[Pass/fail and evidence]`                            |
+| Group purchases          | Share limits, target/deadline, withdrawal, nonpayment, and reconfirmation.         | `[Pass/fail and evidence]`                            |
+| Payment TEST success     | Hosted redirect, signed webhook, order marked paid, reservation committed.         | `[Pass/fail; label TEST; do not include credentials]` |
+| Payment TEST failure     | Attempt becomes failed; order remains payable before its deadline.                 | `[Pass/fail and evidence]`                            |
+| Payment recovery         | Duplicate event, late success, expired order, and reconciliation state.            | `[Pass/fail and evidence]`                            |
+| Responsive behavior      | Required viewport sizes and main role-specific workflows.                          | `[Devices/sizes, pass/fail, screenshots]`             |
 
 ### 13.2 Metrics for a user study
 
@@ -435,10 +435,10 @@ Use the required citation style from your institution. These sources were consul
 1. Ministry of Climate Change and Environmental Coordination, Government of Pakistan. “Musadik Malik Highlights Pakistan's Role in Circular Economy, Used Textiles Trade for environmental sustainability.” 16 April 2025. [Ministry source](https://mocc.gov.pk/NewsDetail/YzJhZTJjMTUtYmRjNy00MmNiLWE5YTYtYjhhMmJmZDI4MmQ0)
 2. Queen of Raw / Material MX. “Excess Inventory Software — Recycle, Buy and Sell Online.” [https://abi.queenofraw.com/](https://abi.queenofraw.com/)
 3. FABSCRAP. “Fabric & Textile Recycling Resources.” [https://fabscrap.org/resources](https://fabscrap.org/resources)
-4. Abdul Rehman. *Textile / Legacies: Mapping the Sustainable Fashion Ecosystem in Pakistan*. British Council Pakistan, January 2025. [Report PDF](https://www.britishcouncil.pk/sites/default/files/textile_legacies_report.pdf)
-5. Reverse Resources, National Textile University, and KnowTex. *Comprehensive Overview of the Pakistan Textile Waste Industry*. SMEP Programme, March 2025. [Report page and download](https://smepprogramme.org/resources-1/comprehensive-overview-of-the-pakistan-textile-waste-industry/)
+4. Abdul Rehman. _Textile / Legacies: Mapping the Sustainable Fashion Ecosystem in Pakistan_. British Council Pakistan, January 2025. [Report PDF](https://www.britishcouncil.pk/sites/default/files/textile_legacies_report.pdf)
+5. Reverse Resources, National Textile University, and KnowTex. _Comprehensive Overview of the Pakistan Textile Waste Industry_. SMEP Programme, March 2025. [Report page and download](https://smepprogramme.org/resources-1/comprehensive-overview-of-the-pakistan-textile-waste-industry/)
 6. SMEP Programme. “Textile Waste Traceability: Using data to revolutionise textile waste management and recycling.” [Project page](https://smepprogramme.org/project/reverse-resources/)
-7. Muhammad Zeeshan Younas. “A Spatial Agglomeration Analysis of Firm Productivity: A Case of the Textile Sector of Pakistan.” *The Lahore Journal of Economics*, 27(1), 2022. [Article](https://nja.pastic.gov.pk/journals/index.php/LJE/article/view/17389)
+7. Muhammad Zeeshan Younas. “A Spatial Agglomeration Analysis of Firm Productivity: A Case of the Textile Sector of Pakistan.” _The Lahore Journal of Economics_, 27(1), 2022. [Article](https://nja.pastic.gov.pk/journals/index.php/LJE/article/view/17389)
 8. RapidGateway. “Payment Webhooks: Integration & Signature Verification Guide.” **[Add exact provider guide URL used by the team before final submission.]**
 9. ReThread backend project documentation. OpenAPI contract, architecture, current feature scope, RapidGateway guide, and verification records in the project repository. **[Add repository URL and commit hash for the evaluated version.]**
 10. ReThread frontend project repository and release/commit used for screenshots. **[Add repository URL and commit hash.]**
@@ -461,12 +461,12 @@ Document variable names and safe setup steps only. Never include actual `.env` c
 
 ### Appendix C — Glossary
 
-| Term | Meaning in this report |
-|---|---|
-| Deadstock / surplus | Usable textile material that is excess to a seller’s current production or inventory needs. |
-| Buyer requirement | A record of material needs used to find potential published listing matches. |
-| Direct order | One Buyer’s order from an available listing. |
-| Group purchase | A seller-defined purchase opportunity where multiple Buyers reserve separate shares. |
-| Webhook | A server-to-server notification from the payment provider about an event. |
-| Reconciliation | Reviewing a payment event whose result conflicts with the order’s current state. |
-| Sandbox | Provider test environment where payment outcomes are simulated and no real funds should move. |
+| Term                | Meaning in this report                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| Deadstock / surplus | Usable textile material that is excess to a seller’s current production or inventory needs.   |
+| Buyer requirement   | A record of material needs used to find potential published listing matches.                  |
+| Direct order        | One Buyer’s order from an available listing.                                                  |
+| Group purchase      | A seller-defined purchase opportunity where multiple Buyers reserve separate shares.          |
+| Webhook             | A server-to-server notification from the payment provider about an event.                     |
+| Reconciliation      | Reviewing a payment event whose result conflicts with the order’s current state.              |
+| Sandbox             | Provider test environment where payment outcomes are simulated and no real funds should move. |

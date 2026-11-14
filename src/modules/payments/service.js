@@ -376,7 +376,7 @@ async function processWebhook(headers, rawBody, payload) {
     if (attempt.group_id) {
       const remaining = await runner.query(
         `SELECT count(*)::int AS unpaid FROM app.orders
-         WHERE group_id=$1 AND status <> 'paid'`,
+         WHERE group_id=$1 AND status IN ('group_open','pending_payment')`,
         [attempt.group_id],
       );
       if (remaining.rows[0].unpaid === 0)

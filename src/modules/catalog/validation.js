@@ -53,6 +53,7 @@ const listingInput = z
     priceTiers: z.array(tier).max(10).default([]),
     purchaseMode: z.enum(["direct", "group", "both"]).optional(),
     expeditedPricePerUnit: money.nullable().optional(),
+    expeditedMinOrderQuantity: quantity.nullable().optional(),
     expeditedLeadTimeDays: z
       .union([z.number(), z.string().regex(/^\d+$/).transform(Number)])
       .pipe(z.number().int().min(1).max(30))
@@ -88,10 +89,13 @@ const listingInput = z
     });
     const expeditedPrice = data.expeditedPricePerUnit;
     const expeditedDays = data.expeditedLeadTimeDays;
+    const expeditedMinimum = data.expeditedMinOrderQuantity;
     const hasExpeditedPrice =
       expeditedPrice !== null && expeditedPrice !== undefined;
     const hasExpeditedDays =
       expeditedDays !== null && expeditedDays !== undefined;
+    const hasExpeditedMinimum =
+      expeditedMinimum !== null && expeditedMinimum !== undefined;
     if (hasExpeditedPrice !== hasExpeditedDays) {
       context.addIssue({
         code: "custom",
@@ -104,6 +108,21 @@ const listingInput = z
           "Set both an urgent unit price and turnaround, or leave both blank",
       });
     }
+    if (
+      hasExpeditedMinimum &&
+      scaled(expeditedMinimum, 3) > scaled(data.quantity, 3)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["expeditedMinOrderQuantity"],
+        message: "Urgent minimum cannot exceed available listing quantity",
+      });
+    if (!hasExpeditedPrice && hasExpeditedMinimum)
+      context.addIssue({
+        code: "custom",
+        path: ["expeditedMinOrderQuantity"],
+        message: "Set an urgent price before setting an urgent minimum",
+      });
     if (hasExpeditedPrice) {
       const urgentPrice = scaled(expeditedPrice, 2);
       if (urgentPrice <= price)

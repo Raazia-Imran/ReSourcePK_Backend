@@ -13,7 +13,7 @@
 
 ## Product decision
 
-ReSource PK connects textile mills directly with small and home-based businesses seeking usable leftover material. Today, large textile firms often send leftover stock to physical wholesale markets such as Shershah, which can make suitable stock difficult for smaller businesses to access. ReSource PK's goal is to make this supply discoverable and purchasable directly. The backend now has initial group order APIs and inventory reservations; the complete frontend journey and payment flow remain unimplemented.
+ReSource PK connects textile mills directly with small and home-based businesses seeking usable leftover material. Today, large textile firms often send leftover stock to physical wholesale markets such as Shershah, which can make suitable stock difficult for smaller businesses to access. ReSource PK makes this supply discoverable and purchasable through direct orders and Buyer-created pooled orders. The purchase screens and RapidGateway sandbox flow are implemented; LIVE gateway operation, payouts, refunds, and shipping remain outside scope.
 
 ## Users and value
 
@@ -67,9 +67,9 @@ ReSource PK connects textile mills directly with small and home-based businesses
 
 Platform approval creates the organization and its Owner membership. The Owner invites Managers or Staff by email. Invitations are single-use, hashed at rest, role-scoped, expire, and are accepted only by the invited email. Managers can invite Staff only when granted `can_invite_staff`. Owners and authorized Managers can grant Staff `listings.view` and/or `listings.manage`; Staff receive no organization listing access by default. `listings.manage` includes view access. Staff cannot invite or grant permissions. Order and payment permissions will be added with those workflows.
 
-### Planned direct and group purchase
+### Direct and group purchase
 
-Phase 3 includes direct, group, and Seller-configured urgent orders. Direct orders reserve stock while awaiting Seller confirmation; the Seller has 48 hours to respond. Confirmed Buyers have 48 hours to pay. Group contributions reserve quantity when the Buyer joins, and each participant's price is locked using their own share quantity. If the group misses its target by the Seller-set deadline, the Seller can expire it or confirm all current shares as a smaller group. A group nonpayer's share reopens and requires Seller reconfirmation; paid participants keep their existing terms. Urgent orders reserve stock separately at a higher Seller-set per-unit price; their fulfillment turnaround starts after verified payment. Escrow is not part of the initial flow. Refunds, settlement, and payouts remain future work. Detailed lifecycle, inventory, pricing, and data-model decisions are in [Purchase Module](purchase-module.md).
+Phase 3 includes direct, group, and Seller-configured urgent orders. Direct orders reserve stock while awaiting Seller confirmation; the Seller has 48 hours to respond. Confirmed Buyers have 48 hours to pay. Buyers create groups by setting a total target, join deadline, and three or four share sizes. If the group misses its target, participants can extend it once for 48 hours, leave, or accept an explicitly priced urgent direct order where eligible. A group nonpayer's share reopens and requires Seller reconfirmation; paid participants keep their existing terms. Urgent orders reserve stock separately at a higher Seller-set per-unit price; their fulfillment turnaround starts after verified payment. Escrow is not part of the initial flow. Refunds, settlement, and payouts remain future work. Detailed lifecycle, inventory, pricing, and data-model decisions are in [Purchase Module](purchase-module.md).
 
 ### Payment
 
@@ -93,7 +93,7 @@ After fulfilment is confirmed, the system freezes a versioned canonical snapshot
 
 ## Purchase eligibility rules
 
-Listings choose direct purchase, group ordering, or both. Direct order eligibility follows the listing MOQ and any Seller-enabled smaller direct-buy lot; group joins require group ordering to be enabled. The API calculates eligible quantity and price from current stock and listing tiers, reserves quantity transactionally, and returns the exact terms before commitment. Full rules and open decisions are in [Purchase Module](purchase-module.md).
+Listings choose direct purchase, group ordering, or both. Direct order eligibility follows the listing MOQ; Sellers may configure an explicitly priced urgent order with a lower urgent MOQ. Buyers can create a group by setting a total target, deadline, and three or four per-person share sizes. A group that misses its target can be extended once for 48 hours; otherwise Buyers can leave or accept a separately priced urgent order. Full rules are in [Purchase Module](purchase-module.md).
 
 ## Public landing experience
 

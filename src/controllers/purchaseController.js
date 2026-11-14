@@ -9,10 +9,10 @@ const { AppError } = require("../lib/errors");
 
 const groupCreate = z
   .object({
-    listingId: uuid,
     targetQuantity: quantity,
     closesAt: z.string().datetime({ offset: true }),
     requestKey: uuid,
+    shareOptions: z.array(quantity).min(3).max(4),
   })
   .strict();
 const orderCreate = z
@@ -32,7 +32,7 @@ const decisionInput = z
   .strict();
 const groupDecisionInput = z
   .object({
-    decision: z.enum(["confirm", "expire"]),
+    decision: z.enum(["confirm", "reject"]),
     reason: z.string().trim().min(3).max(1000).optional(),
   })
   .strict();
@@ -91,13 +91,12 @@ async function sellerOrderDecision(req, res) {
   res.json({ data: result.order });
 }
 
-async function createSellerGroup(req, res) {
+async function createBuyerGroup(req, res) {
   res.status(201).json({
-    data: await service.createGroup(
-      req.auth.sub,
-      id(req.params.organizationId),
-      groupCreate.parse(req.body),
-    ),
+    data: await service.createBuyerGroup(req.auth.sub, {
+      ...groupCreate.parse(req.body),
+      listingId: id(req.params.listingId),
+    }),
   });
 }
 
@@ -115,16 +114,21 @@ async function listSellerGroups(req, res) {
 
 async function sellerGroupDecision(req, res) {
   const input = groupDecisionInput.parse(req.body);
-  res.json({
-    data: await service.decideGroup(
-      req.auth.sub,
-      id(req.params.organizationId),
-      id(req.params.groupId),
-      input.decision,
-      input.reason || null,
-      req.correlationId,
-    ),
-  });
+  const result = await service.decideGroup(
+    req.auth.sub,
+    id(req.params.organizationId),
+    id(req.params.groupId),
+    input.decision,
+    input.reason || null,
+    req.correlationId,
+  );
+  if (result.expired)
+    throw new AppError(
+      409,
+      "SELLER_RESPONSE_EXPIRED",
+      "The Seller response deadline passed; the unpaid reservations were released",
+    );
+  res.json({ data: result });
 }
 
 async function listGroups(req, res) {
@@ -166,16 +170,41 @@ async function leaveGroup(req, res) {
   });
 }
 
+async function extendGroup(req, res) {
+  res.json({
+    data: await service.extendGroup(
+      req.auth.sub,
+      id(req.params.groupId),
+      req.correlationId,
+    ),
+  });
+}
+
+async function switchGroupToDirect(req, res) {
+  const input = z.object({ requestKey: uuid }).strict().parse(req.body);
+  res.status(201).json({
+    data: await service.switchGroupShareToDirect(
+      req.auth.sub,
+      id(req.params.groupId),
+      id(req.params.orderId),
+      input.requestKey,
+      req.correlationId,
+    ),
+  });
+}
+
 module.exports = {
   createDirect,
   myOrders,
   listSellerOrders,
   sellerOrderDecision,
-  createSellerGroup,
+  createBuyerGroup,
   listSellerGroups,
   sellerGroupDecision,
   listGroups,
   groupDetail,
   joinGroup,
   leaveGroup,
+  extendGroup,
+  switchGroupToDirect,
 };

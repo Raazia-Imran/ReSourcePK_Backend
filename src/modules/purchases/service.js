@@ -1,6 +1,9 @@
 const { AppError } = require("../../lib/errors");
 const db = require("../../db");
 const { scaled } = require("../catalog/validation");
+const { deliverEmail } = require("../../email/deliveryService");
+const { purchaseGroupChoiceEmail } = require("../../email/templates");
+const { env } = require("../../config/env");
 
 const BUYER_ACTIVE_GROUP_STATUSES = ["group_open", "pending_payment", "paid"];
 const ACTIVE_RESERVATIONS_SQL = `
@@ -19,6 +22,13 @@ function totalMinor(quantity, unitPriceMinor) {
 
 function quantitiesEqual(left, right) {
   return scaled(left, 3) === scaled(right, 3);
+}
+
+function sameQuantitySet(left, right) {
+  return (
+    left.length === right.length &&
+    left.every((value) => right.some((other) => quantitiesEqual(value, other)))
+  );
 }
 
 function sameId(left, right) {
@@ -285,20 +295,24 @@ async function createDirectOrder(buyerId, input, correlationId) {
     const available = await availableQuantity(runner, listing);
     if (scaled(input.quantity, 3) > scaled(available, 3))
       throw new AppError(409, "INSUFFICIENT_STOCK", "Not enough stock remains");
+    const minimumOrder =
+      fulfilmentPriority === "expedited"
+        ? listing.expedited_min_order_quantity || listing.min_order_quantity
+        : listing.min_order_quantity;
     if (
-      scaled(input.quantity, 3) < scaled(listing.min_order_quantity, 3) &&
+      scaled(input.quantity, 3) < scaled(minimumOrder, 3) &&
       !quantitiesEqual(input.quantity, available)
     )
       throw new AppError(
         400,
         "MINIMUM_ORDER_NOT_MET",
-        "Quantity must meet the listing minimum or purchase all remaining stock",
+        `Quantity must meet the minimum of ${minimumOrder} ${listing.unit} or purchase all remaining stock`,
       );
 
     const price =
       fulfilmentPriority === "expedited"
         ? {
-            tierMinimum: listing.min_order_quantity,
+            tierMinimum: minimumOrder,
             unitPriceMinor: listing.expedited_price_per_unit_minor.toString(),
           }
         : await snapshotPrice(runner, listing, input.quantity);
@@ -366,31 +380,11 @@ async function createDirectOrder(buyerId, input, correlationId) {
   });
 }
 
-async function createGroup(actorId, organizationId, input) {
+// Buyers define the total quantity the group needs and a short menu of share
+// sizes. A share equal to the exact remaining quantity is also valid.
+async function createBuyerGroup(buyerId, input) {
   return db.transaction(async (runner) => {
-    await requireSellerManager(runner, actorId, organizationId);
-    const duplicate = await runner.query(
-      `SELECT * FROM app.purchase_groups WHERE organization_id=$1 AND request_key=$2`,
-      [organizationId, input.requestKey],
-    );
-    if (duplicate.rowCount) {
-      const existing = duplicate.rows[0];
-      if (
-        !sameId(existing.listing_id, input.listingId) ||
-        !quantitiesEqual(existing.target_quantity, input.targetQuantity) ||
-        new Date(existing.closes_at).getTime() !==
-          new Date(input.closesAt).getTime()
-      )
-        throw new AppError(
-          409,
-          "IDEMPOTENCY_KEY_REUSED",
-          "This request key was already used for a different group",
-        );
-      return existing;
-    }
     const listing = await lockListing(runner, input.listingId);
-    if (listing.organization_id !== organizationId)
-      throw new AppError(404, "LISTING_NOT_FOUND", "Listing unavailable");
     activeListing(listing);
     if (!["group", "both"].includes(listing.purchase_mode))
       throw new AppError(
@@ -405,54 +399,122 @@ async function createGroup(actorId, organizationId, input) {
         "INVALID_GROUP_DEADLINE",
         "Deadline must be in the future",
       );
-    const available = await availableQuantity(runner, listing);
-    if (scaled(input.targetQuantity, 3) > scaled(available, 3))
+    if (scaled(input.targetQuantity, 3) < scaled(listing.min_order_quantity, 3))
+      throw new AppError(
+        400,
+        "GROUP_TARGET_BELOW_MOQ",
+        "The group target must meet the listing MOQ",
+      );
+    if (
+      scaled(input.targetQuantity, 3) >
+      scaled(await availableQuantity(runner, listing), 3)
+    )
       throw new AppError(
         409,
         "INSUFFICIENT_STOCK",
         "The group target exceeds currently available stock",
       );
-    const result = await runner.query(
-      `INSERT INTO app.purchase_groups(
-         listing_id,organization_id,created_by,request_key,target_quantity,unit,closes_at
-       ) VALUES($1,$2,$3,$4,$5,$6,$7)
+    if (input.shareOptions.length < 3 || input.shareOptions.length > 4)
+      throw new AppError(
+        400,
+        "INVALID_SHARE_OPTIONS",
+        "Choose three or four share sizes",
+      );
+    const unique = [
+      ...new Set(
+        input.shareOptions.map((value) => decimalFromScaled(scaled(value, 3))),
+      ),
+    ];
+    if (
+      unique.length !== input.shareOptions.length ||
+      unique.some((value) => scaled(value, 3) > scaled(input.targetQuantity, 3))
+    )
+      throw new AppError(
+        400,
+        "INVALID_SHARE_OPTIONS",
+        "Share sizes must be unique and no larger than the group target",
+      );
+    const duplicate = await runner.query(
+      "SELECT * FROM app.purchase_groups WHERE organization_id=$1 AND request_key=$2",
+      [listing.organization_id, input.requestKey],
+    );
+    if (duplicate.rowCount) {
+      const group = duplicate.rows[0];
+      const savedOptions = await runner.query(
+        "SELECT quantity::text FROM app.purchase_group_share_options WHERE group_id=$1",
+        [group.id],
+      );
+      if (
+        !sameId(group.listing_id, listing.id) ||
+        !quantitiesEqual(group.target_quantity, input.targetQuantity) ||
+        new Date(group.closes_at).getTime() !== closesAt.getTime() ||
+        !sameQuantitySet(
+          savedOptions.rows.map((row) => row.quantity),
+          unique,
+        )
+      )
+        throw new AppError(
+          409,
+          "IDEMPOTENCY_KEY_REUSED",
+          "This request key was already used for another group",
+        );
+      return group;
+    }
+    const inserted = await runner.query(
+      `INSERT INTO app.purchase_groups(listing_id,organization_id,created_by,request_key,target_quantity,unit,closes_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (organization_id,request_key) WHERE request_key IS NOT NULL
        DO NOTHING RETURNING *`,
       [
         listing.id,
-        organizationId,
-        actorId,
+        listing.organization_id,
+        buyerId,
         input.requestKey,
         input.targetQuantity,
         listing.unit,
         closesAt,
       ],
     );
-    if (!result.rowCount) {
+    if (!inserted.rowCount) {
       const raced = await runner.query(
         "SELECT * FROM app.purchase_groups WHERE organization_id=$1 AND request_key=$2",
-        [organizationId, input.requestKey],
+        [listing.organization_id, input.requestKey],
       );
       const existing = raced.rows[0];
+      const savedOptions = existing
+        ? await runner.query(
+            "SELECT quantity::text FROM app.purchase_group_share_options WHERE group_id=$1",
+            [existing.id],
+          )
+        : { rows: [] };
       if (
         !existing ||
-        !sameId(existing.listing_id, input.listingId) ||
+        !sameId(existing.listing_id, listing.id) ||
         !quantitiesEqual(existing.target_quantity, input.targetQuantity) ||
-        new Date(existing.closes_at).getTime() !== closesAt.getTime()
+        new Date(existing.closes_at).getTime() !== closesAt.getTime() ||
+        !sameQuantitySet(
+          savedOptions.rows.map((row) => row.quantity),
+          unique,
+        )
       )
         throw new AppError(
           409,
           "IDEMPOTENCY_KEY_REUSED",
-          "This request key was already used for a different group",
+          "This request key was already used for another group",
         );
       return existing;
     }
-    const group = result.rows[0];
+    const group = inserted.rows[0];
+    await runner.query(
+      `INSERT INTO app.purchase_group_share_options(group_id,quantity)
+       SELECT $1, unnest($2::numeric[])`,
+      [group.id, unique],
+    );
     await addAudit(
       runner,
-      actorId,
-      organizationId,
-      "purchase.group_created",
+      buyerId,
+      listing.organization_id,
+      "purchase.buyer_group_created",
       "purchase_group",
       group.id,
     );
@@ -482,20 +544,13 @@ async function joinGroup(buyerId, groupId, input, correlationId) {
       assertSameOrderRequest(duplicate, listing.id, group.id, input.quantity);
       return duplicate;
     }
-    if (
-      !["open", "ready_for_confirmation", "reconfirmation_required"].includes(
-        group.status,
-      )
-    )
+    if (group.status !== "open")
       throw new AppError(
         409,
         "GROUP_NOT_OPEN",
         "This group is not accepting contributions",
       );
-    if (
-      group.status !== "reconfirmation_required" &&
-      new Date(group.closes_at) <= new Date()
-    )
+    if (new Date(group.closes_at) <= new Date())
       throw new AppError(
         409,
         "GROUP_DEADLINE_PASSED",
@@ -520,6 +575,25 @@ async function joinGroup(buyerId, groupId, input, correlationId) {
       [groupId, BUYER_ACTIVE_GROUP_STATUSES],
     );
     const afterJoin = quantitiesAdd(active.rows[0].quantity, input.quantity);
+    const options = await runner.query(
+      "SELECT quantity::text FROM app.purchase_group_share_options WHERE group_id=$1",
+      [group.id],
+    );
+    const validShare =
+      options.rowCount === 0 ||
+      options.rows.some((row) =>
+        quantitiesEqual(row.quantity, input.quantity),
+      ) ||
+      quantitiesEqual(
+        input.quantity,
+        quantitiesSubtract(group.target_quantity, active.rows[0].quantity),
+      );
+    if (!validShare)
+      throw new AppError(
+        400,
+        "INVALID_GROUP_SHARE",
+        "Choose one of the listed share sizes or the exact remaining quantity",
+      );
     if (scaled(afterJoin, 3) > scaled(group.target_quantity, 3))
       throw new AppError(
         409,
@@ -559,12 +633,14 @@ async function joinGroup(buyerId, groupId, input, correlationId) {
     }
     const order = inserted.rows[0];
     await addReservation(runner, order);
-    let nextStatus =
-      group.status === "reconfirmation_required"
-        ? "reconfirmation_required"
-        : "open";
-    if (quantitiesEqual(afterJoin, group.target_quantity))
+    let nextStatus = "open";
+    if (scaled(afterJoin, 3) >= scaled(group.target_quantity, 3)) {
       nextStatus = "ready_for_confirmation";
+      await runner.query(
+        "UPDATE app.purchase_groups SET seller_response_due_at=now()+INTERVAL '48 hours' WHERE id=$1",
+        [groupId],
+      );
+    }
     if (nextStatus !== group.status)
       await runner.query(
         "UPDATE app.purchase_groups SET status=$2,version=version+1,updated_at=now() WHERE id=$1",
@@ -610,15 +686,28 @@ async function leaveGroup(buyerId, groupId, orderId, correlationId) {
         "Group contribution unavailable",
       );
     if (
-      !["open", "ready_for_confirmation", "reconfirmation_required"].includes(
-        group.status,
-      ) ||
+      ![
+        "open",
+        "ready_for_confirmation",
+        "reconfirmation_required",
+        "deadline_choices",
+      ].includes(group.status) ||
       order.status !== "group_open"
     )
       throw new AppError(
         409,
         "GROUP_WITHDRAWAL_CLOSED",
         "This contribution can no longer be withdrawn",
+      );
+    if (
+      group.status === "deadline_choices" &&
+      group.choice_deadline_at &&
+      new Date(group.choice_deadline_at) <= new Date()
+    )
+      throw new AppError(
+        409,
+        "GROUP_CHOICES_CLOSED",
+        "The group choice period has ended",
       );
     await releaseReservation(runner, order.id, "buyer_withdrew");
     const result = await runner.query(
@@ -631,21 +720,24 @@ async function leaveGroup(buyerId, groupId, orderId, correlationId) {
       [groupId, BUYER_ACTIVE_GROUP_STATUSES],
     );
     let nextStatus = group.status;
-    if (group.status !== "reconfirmation_required") {
-      nextStatus =
-        scaled(active.rows[0].quantity, 3) >=
-          scaled(group.target_quantity, 3) ||
-        new Date(group.closes_at) <= new Date()
-          ? "ready_for_confirmation"
-          : "open";
-    } else if (
+    if (
+      group.status === "ready_for_confirmation" &&
+      scaled(active.rows[0].quantity, 3) < scaled(group.target_quantity, 3)
+    )
+      nextStatus = "open";
+    if (
+      group.status === "deadline_choices" &&
+      scaled(active.rows[0].quantity, 3) === 0n
+    )
+      nextStatus = "expired";
+    if (
+      group.status === "reconfirmation_required" &&
       scaled(active.rows[0].quantity, 3) >= scaled(group.target_quantity, 3)
-    ) {
+    )
       nextStatus = "ready_for_confirmation";
-    }
     if (nextStatus !== group.status)
       await runner.query(
-        "UPDATE app.purchase_groups SET status=$2,version=version+1,updated_at=now() WHERE id=$1",
+        "UPDATE app.purchase_groups SET status=$2,seller_response_due_at=CASE WHEN $2='ready_for_confirmation' THEN now()+INTERVAL '48 hours' ELSE NULL END,version=version+1,updated_at=now() WHERE id=$1",
         [groupId, nextStatus],
       );
     await addOrderEvent(
@@ -803,7 +895,7 @@ async function decideGroup(
     if (group.organization_id !== organizationId)
       throw new AppError(404, "PURCHASE_GROUP_NOT_FOUND", "Group unavailable");
     if (
-      !["open", "ready_for_confirmation", "reconfirmation_required"].includes(
+      !["ready_for_confirmation", "reconfirmation_required"].includes(
         group.status,
       )
     )
@@ -812,6 +904,37 @@ async function decideGroup(
         "GROUP_DECISION_CLOSED",
         "This group cannot be decided in its current state",
       );
+    if (
+      group.seller_response_due_at &&
+      new Date(group.seller_response_due_at) <= new Date()
+    ) {
+      const members = await runner.query(
+        "SELECT * FROM app.orders WHERE group_id=$1 AND status='group_open' FOR UPDATE",
+        [groupId],
+      );
+      for (const member of members.rows) {
+        await releaseReservation(runner, member.id, "seller_timeout");
+        await runner.query(
+          "UPDATE app.orders SET status='seller_expired' WHERE id=$1",
+          [member.id],
+        );
+        await addOrderEvent(
+          runner,
+          member.id,
+          null,
+          "group.seller_timeout",
+          "group_open",
+          "seller_expired",
+          null,
+          correlationId,
+        );
+      }
+      await runner.query(
+        "UPDATE app.purchase_groups SET status='expired',seller_response_due_at=NULL,version=version+1,updated_at=now() WHERE id=$1",
+        [groupId],
+      );
+      return { id: groupId, status: "expired", expired: true };
+    }
     const current = await runner.query(
       `SELECT COALESCE(sum(quantity),0)::text AS quantity
        FROM app.orders WHERE group_id=$1 AND status = ANY($2::text[])`,
@@ -820,7 +943,6 @@ async function decideGroup(
     const quantity = current.rows[0].quantity;
     const reachedTarget =
       scaled(quantity, 3) >= scaled(group.target_quantity, 3);
-    const deadlinePassed = new Date(group.closes_at) <= new Date();
     if (!scaled(quantity, 3))
       throw new AppError(
         409,
@@ -828,65 +950,56 @@ async function decideGroup(
         "A group without contributions cannot be confirmed",
       );
 
-    if (decision === "expire") {
-      if (!deadlinePassed || reachedTarget)
-        throw new AppError(
-          409,
-          "GROUP_EXPIRY_NOT_ALLOWED",
-          "Only an under-target group at its deadline can be expired",
-        );
+    if (decision === "reject") {
       const members = await runner.query(
         `SELECT * FROM app.orders WHERE group_id=$1 AND status='group_open' FOR UPDATE`,
         [groupId],
       );
       for (const member of members.rows) {
-        await releaseReservation(runner, member.id, "group_expired");
+        await releaseReservation(runner, member.id, "seller_rejected");
         await runner.query(
-          "UPDATE app.orders SET status='group_expired' WHERE id=$1",
+          "UPDATE app.orders SET status='rejected' WHERE id=$1",
           [member.id],
         );
         await addOrderEvent(
           runner,
           member.id,
           userId,
-          "group.expired",
+          "group.rejected",
           member.status,
-          "group_expired",
+          "rejected",
           reason,
           correlationId,
         );
       }
       await runner.query(
-        `UPDATE app.purchase_groups SET status='expired',deadline_decision='expire',
-         deadline_decided_by=$2,deadline_decided_at=now(),version=version+1,updated_at=now()
-         WHERE id=$1`,
-        [groupId, userId],
+        `UPDATE app.purchase_groups SET status='rejected',version=version+1,updated_at=now() WHERE id=$1`,
+        [groupId],
       );
       await addAudit(
         runner,
         userId,
         organizationId,
-        "purchase.group_expired",
+        "purchase.group_rejected",
         "purchase_group",
         groupId,
         reason,
       );
-      return { id: groupId, status: "expired", confirmedQuantity: null };
+      return { id: groupId, status: "rejected", confirmedQuantity: null };
     }
 
     if (decision !== "confirm")
       throw new AppError(
         400,
         "INVALID_GROUP_DECISION",
-        "Choose confirm or expire",
+        "Choose confirm or reject",
       );
-    if (!reachedTarget && !deadlinePassed)
+    if (!reachedTarget && group.status !== "reconfirmation_required")
       throw new AppError(
         409,
         "GROUP_TARGET_NOT_REACHED",
-        "The group can be confirmed below target only after its deadline",
+        "The group must reach its target before Seller confirmation",
       );
-    const decisionName = reachedTarget ? null : "confirm_smaller";
     const members = await runner.query(
       `SELECT * FROM app.orders WHERE group_id=$1 AND status='group_open' FOR UPDATE`,
       [groupId],
@@ -918,11 +1031,9 @@ async function decideGroup(
     await runner.query(
       `UPDATE app.purchase_groups SET status='payment_open',confirmed_quantity=$2,
        seller_confirmed_by=$3,seller_confirmed_at=now(),
-       deadline_decision=COALESCE($4,deadline_decision),
-       deadline_decided_by=CASE WHEN $4 IS NULL THEN deadline_decided_by ELSE $3 END,
-       deadline_decided_at=CASE WHEN $4 IS NULL THEN deadline_decided_at ELSE now() END,
+       seller_response_due_at=NULL,
        version=version+1,updated_at=now() WHERE id=$1`,
-      [groupId, quantity, userId, decisionName],
+      [groupId, quantity, userId],
     );
     await addAudit(
       runner,
@@ -935,6 +1046,246 @@ async function decideGroup(
     );
     return { id: groupId, status: "payment_open", confirmedQuantity: quantity };
   });
+}
+
+async function extendGroup(buyerId, groupId, correlationId) {
+  const result = await db.transaction(async (runner) => {
+    const found = await runner.query(
+      "SELECT listing_id FROM app.purchase_groups WHERE id=$1",
+      [groupId],
+    );
+    if (!found.rowCount)
+      throw new AppError(404, "PURCHASE_GROUP_NOT_FOUND", "Group unavailable");
+    await lockListing(runner, found.rows[0].listing_id);
+    const group = await lockGroup(runner, groupId);
+    if (
+      group.status !== "deadline_choices" ||
+      !group.choice_deadline_at ||
+      new Date(group.choice_deadline_at) <= new Date() ||
+      Number(group.extension_count) !== 0
+    )
+      throw new AppError(
+        409,
+        "GROUP_CANNOT_EXTEND",
+        "This group has no extension available",
+      );
+    const mine = await runner.query(
+      "SELECT id FROM app.orders WHERE group_id=$1 AND buyer_id=$2 AND status='group_open' LIMIT 1",
+      [groupId, buyerId],
+    );
+    if (!mine.rowCount)
+      throw new AppError(
+        403,
+        "GROUP_PARTICIPANT_REQUIRED",
+        "Only a current participant can extend this group",
+      );
+    const changed = await runner.query(
+      `UPDATE app.purchase_groups SET status='open',extension_count=1,closes_at=now()+INTERVAL '48 hours',choice_deadline_at=NULL,version=version+1,updated_at=now() WHERE id=$1 RETURNING closes_at`,
+      [groupId],
+    );
+    await addOrderEvent(
+      runner,
+      mine.rows[0].id,
+      buyerId,
+      "group.extended",
+      "deadline_choices",
+      "open",
+      "Buyer used the one-time 48-hour extension",
+      correlationId,
+    );
+    await addAudit(
+      runner,
+      buyerId,
+      group.organization_id,
+      "purchase.group_extended",
+      "purchase_group",
+      groupId,
+    );
+    return {
+      id: groupId,
+      status: "open",
+      closesAt: changed.rows[0].closes_at,
+      extensionCount: 1,
+    };
+  });
+  try {
+    await notifyGroupChoice(groupId);
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        event: "purchase_group_extension_email_failed",
+        groupId,
+        error: error.code || error.name,
+      }),
+    );
+  }
+  return result;
+}
+
+async function switchGroupShareToDirect(
+  buyerId,
+  groupId,
+  orderId,
+  requestKey,
+  correlationId,
+) {
+  return db.transaction(async (runner) => {
+    const found = await runner.query(
+      "SELECT listing_id FROM app.purchase_groups WHERE id=$1",
+      [groupId],
+    );
+    if (!found.rowCount)
+      throw new AppError(404, "PURCHASE_GROUP_NOT_FOUND", "Group unavailable");
+    const listing = await lockListing(runner, found.rows[0].listing_id);
+    activeListing(listing);
+    const group = await lockGroup(runner, groupId);
+    const duplicate = await findRequestOrder(runner, buyerId, requestKey);
+    if (duplicate) {
+      assertSameOrderRequest(
+        duplicate,
+        listing.id,
+        null,
+        duplicate.quantity,
+        "expedited",
+      );
+      return duplicate;
+    }
+    const choicesOpen =
+      (group.status === "deadline_choices" &&
+        group.choice_deadline_at &&
+        new Date(group.choice_deadline_at) > new Date()) ||
+      (group.status === "open" &&
+        Number(group.extension_count) === 1 &&
+        new Date(group.closes_at) > new Date());
+    if (!choicesOpen)
+      throw new AppError(
+        409,
+        "GROUP_CHOICES_CLOSED",
+        "The direct-purchase choice period has ended",
+      );
+    if (!listing.expedited_price_per_unit_minor)
+      throw new AppError(
+        409,
+        "EXPEDITED_PURCHASE_UNAVAILABLE",
+        "This listing has no urgent direct-purchase option",
+      );
+    const order = await lockOrder(runner, orderId);
+    if (
+      !sameId(order.group_id, groupId) ||
+      !sameId(order.buyer_id, buyerId) ||
+      order.status !== "group_open"
+    )
+      throw new AppError(
+        404,
+        "GROUP_SHARE_NOT_AVAILABLE",
+        "Your unpaid group share is unavailable",
+      );
+    const minimum =
+      listing.expedited_min_order_quantity || listing.min_order_quantity;
+    if (scaled(order.quantity, 3) < scaled(minimum, 3))
+      throw new AppError(
+        409,
+        "URGENT_MINIMUM_NOT_MET",
+        `Urgent orders require at least ${minimum} ${listing.unit}`,
+      );
+    await releaseReservation(runner, order.id, "buyer_switched_to_direct");
+    await runner.query("UPDATE app.orders SET status='withdrawn' WHERE id=$1", [
+      order.id,
+    ]);
+    const inserted = await runner.query(
+      `INSERT INTO app.orders(buyer_id,listing_id,organization_id,request_key,quantity,unit,listing_version,price_tier_min_quantity,unit_price_minor,total_minor,fulfilment_priority,fulfilment_lead_time_days,status,seller_response_due_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'expedited',$11,'pending_seller_confirmation',now()+INTERVAL '48 hours') RETURNING *`,
+      [
+        buyerId,
+        listing.id,
+        listing.organization_id,
+        requestKey,
+        order.quantity,
+        listing.unit,
+        listing.version,
+        minimum,
+        listing.expedited_price_per_unit_minor,
+        totalMinor(order.quantity, listing.expedited_price_per_unit_minor),
+        listing.expedited_lead_time_days,
+      ],
+    );
+    const directOrder = inserted.rows[0];
+    await addReservation(runner, directOrder);
+    await addOrderEvent(
+      runner,
+      order.id,
+      buyerId,
+      "group.share_switched_to_direct",
+      "group_open",
+      "withdrawn",
+      null,
+      correlationId,
+    );
+    await addOrderEvent(
+      runner,
+      directOrder.id,
+      buyerId,
+      "direct_order.expedited_from_group",
+      null,
+      directOrder.status,
+      null,
+      correlationId,
+    );
+    await addAudit(
+      runner,
+      buyerId,
+      listing.organization_id,
+      "purchase.group_share_switched_to_direct",
+      "order",
+      directOrder.id,
+    );
+    return directOrder;
+  });
+}
+
+async function notifyGroupChoice(groupId) {
+  const result = await db.query(
+    `SELECT DISTINCT g.extension_count,COALESCE(g.choice_deadline_at,g.closes_at) AS choice_deadline_at,l.title AS listing_title,
+       u.id AS user_id,u.email,u.full_name
+     FROM app.purchase_groups g
+     JOIN app.listings l ON l.id=g.listing_id
+     JOIN app.orders o ON o.group_id=g.id AND o.status='group_open'
+     JOIN app.users u ON u.id=o.buyer_id AND u.status='active'
+     WHERE g.id=$1 AND (g.status='deadline_choices' OR (g.status='open' AND g.extension_count=1))`,
+    [groupId],
+  );
+  const deadline = result.rows[0]?.choice_deadline_at;
+  if (!deadline) return;
+  const deadlineText = new Date(deadline).toISOString();
+  const url = new URL("/buyer/my-purchases", env.APP_URL).toString();
+  const canExtend = Number(result.rows[0].extension_count) === 0;
+  const deliveries = await Promise.allSettled(
+    result.rows.map((participant) =>
+      deliverEmail({
+        eventKey: `group-choice:${groupId}:${new Date(deadline).getTime()}:${participant.user_id}`,
+        recipient: participant.email,
+        template: "purchase_group_choice",
+        message: purchaseGroupChoiceEmail({
+          name: participant.full_name,
+          listingTitle: participant.listing_title,
+          deadline: deadlineText,
+          url,
+          canExtend,
+        }),
+      }),
+    ),
+  );
+  const failed = deliveries.filter(
+    (delivery) => delivery.status === "rejected",
+  ).length;
+  if (failed)
+    console.warn(
+      JSON.stringify({
+        event: "purchase_group_choice_email_failed",
+        groupId,
+        failed,
+      }),
+    );
 }
 
 async function expireDueOrders(limit = 100) {
@@ -1016,7 +1367,7 @@ async function expireDueOrders(limit = 100) {
           );
         }
         await runner.query(
-          `UPDATE app.purchase_groups SET status='reconfirmation_required',version=version+1,updated_at=now()
+          `UPDATE app.purchase_groups SET status='reconfirmation_required',seller_response_due_at=now()+INTERVAL '48 hours',version=version+1,updated_at=now()
            WHERE id=$1 AND status='payment_open'`,
           [group.id],
         );
@@ -1035,13 +1386,148 @@ async function expireDueOrders(limit = 100) {
     if (changed === "seller") result.sellerExpired += 1;
     if (changed === "payment") result.paymentExpired += 1;
   }
+  const dueGroups = await db.query(
+    `SELECT id,listing_id FROM app.purchase_groups
+     WHERE (status='open' AND closes_at<=now())
+        OR (status='deadline_choices' AND choice_deadline_at<=now())
+        OR (status IN ('ready_for_confirmation','reconfirmation_required') AND seller_response_due_at<=now())
+     ORDER BY COALESCE(choice_deadline_at,seller_response_due_at,closes_at),id LIMIT $1`,
+    [limit],
+  );
+  result.groupChoicesOpened = 0;
+  result.groupExpired = 0;
+  result.groupSellerTimeout = 0;
+  for (const candidate of dueGroups.rows) {
+    const state = await db.transaction(async (runner) => {
+      await lockListing(runner, candidate.listing_id);
+      const group = await lockGroup(runner, candidate.id);
+      if (group.status === "open" && new Date(group.closes_at) <= new Date()) {
+        const active = await runner.query(
+          "SELECT count(*)::int AS n FROM app.orders WHERE group_id=$1 AND status=ANY($2::text[])",
+          [group.id, BUYER_ACTIVE_GROUP_STATUSES],
+        );
+        if (!active.rows[0].n) {
+          await runner.query(
+            "UPDATE app.purchase_groups SET status='expired',version=version+1,updated_at=now() WHERE id=$1",
+            [group.id],
+          );
+          return "expired";
+        }
+        await runner.query(
+          "UPDATE app.purchase_groups SET status='deadline_choices',choice_deadline_at=now()+INTERVAL '48 hours',version=version+1,updated_at=now() WHERE id=$1",
+          [group.id],
+        );
+        await addAudit(
+          runner,
+          null,
+          group.organization_id,
+          "purchase.group_deadline_choices_opened",
+          "purchase_group",
+          group.id,
+        );
+        return "choices";
+      }
+      if (
+        group.status === "deadline_choices" &&
+        group.choice_deadline_at &&
+        new Date(group.choice_deadline_at) <= new Date()
+      ) {
+        const members = await runner.query(
+          "SELECT * FROM app.orders WHERE group_id=$1 AND status='group_open' FOR UPDATE",
+          [group.id],
+        );
+        for (const member of members.rows) {
+          await releaseReservation(runner, member.id, "group_expired");
+          await runner.query(
+            "UPDATE app.orders SET status='group_expired' WHERE id=$1",
+            [member.id],
+          );
+          await addOrderEvent(
+            runner,
+            member.id,
+            null,
+            "group.expired",
+            "group_open",
+            "group_expired",
+            "Buyer choice period ended",
+            null,
+          );
+        }
+        await runner.query(
+          "UPDATE app.purchase_groups SET status='expired',version=version+1,updated_at=now() WHERE id=$1",
+          [group.id],
+        );
+        return "expired";
+      }
+      if (
+        ["ready_for_confirmation", "reconfirmation_required"].includes(
+          group.status,
+        ) &&
+        group.seller_response_due_at &&
+        new Date(group.seller_response_due_at) <= new Date()
+      ) {
+        const members = await runner.query(
+          "SELECT * FROM app.orders WHERE group_id=$1 AND status='group_open' FOR UPDATE",
+          [group.id],
+        );
+        for (const member of members.rows) {
+          await releaseReservation(runner, member.id, "seller_timeout");
+          await runner.query(
+            "UPDATE app.orders SET status='seller_expired' WHERE id=$1",
+            [member.id],
+          );
+          await addOrderEvent(
+            runner,
+            member.id,
+            null,
+            "group.seller_timeout",
+            "group_open",
+            "seller_expired",
+            null,
+            null,
+          );
+        }
+        await runner.query(
+          "UPDATE app.purchase_groups SET status='expired',seller_response_due_at=NULL,version=version+1,updated_at=now() WHERE id=$1",
+          [group.id],
+        );
+        await addAudit(
+          runner,
+          null,
+          group.organization_id,
+          "purchase.group_seller_timeout",
+          "purchase_group",
+          group.id,
+        );
+        return "sellerTimeout";
+      }
+      return null;
+    });
+    if (state === "choices") {
+      result.groupChoicesOpened += 1;
+      try {
+        await notifyGroupChoice(candidate.id);
+      } catch (error) {
+        console.warn(
+          JSON.stringify({
+            event: "purchase_group_choice_email_failed",
+            groupId: candidate.id,
+            error: error.code || error.name,
+          }),
+        );
+      }
+    }
+    if (state === "expired") result.groupExpired += 1;
+    if (state === "sellerTimeout") result.groupSellerTimeout += 1;
+  }
   return result;
 }
 
 async function buyerOrders(buyerId, page, limit) {
   const offset = (page - 1) * limit;
   const result = await db.query(
-    `SELECT o.*,g.status AS group_status,l.title AS listing_title,
+    `SELECT o.*,g.status AS group_status,g.extension_count AS group_extension_count,g.choice_deadline_at AS group_choice_deadline_at,g.closes_at AS group_closes_at,l.title AS listing_title,
+       l.min_order_quantity,l.expedited_price_per_unit_minor,l.expedited_min_order_quantity,l.expedited_lead_time_days,
        (SELECT ps.id FROM app.passport_snapshots ps WHERE ps.order_id=o.id ORDER BY ps.version DESC LIMIT 1) AS passport_id
      FROM app.orders o JOIN app.listings l ON l.id=o.listing_id
      LEFT JOIN app.purchase_groups g ON g.id=o.group_id
@@ -1078,15 +1564,15 @@ async function sellerOrders(userId, organizationId, page, limit) {
 async function listOpenGroups(listingId, page, limit) {
   const offset = (page - 1) * limit;
   const result = await db.query(
-    `SELECT g.*, COALESCE(sum(o.quantity) FILTER (WHERE o.status=ANY($2::text[])),0)::text AS joined_quantity,
+    `SELECT g.*, (SELECT json_agg(quantity::text ORDER BY quantity) FROM app.purchase_group_share_options WHERE group_id=g.id) AS share_options,
+       COALESCE(sum(o.quantity) FILTER (WHERE o.status=ANY($2::text[])),0)::text AS joined_quantity,
        l.title AS listing_title,l.unit,o2.organization_name
      FROM app.purchase_groups g JOIN app.listings l ON l.id=g.listing_id
      JOIN app.organizations o2 ON o2.id=g.organization_id
      LEFT JOIN app.orders o ON o.group_id=g.id
      WHERE g.listing_id=$1 AND l.status='published' AND l.purchase_mode IN ('group','both')
        AND o2.status='active'
-       AND (g.status='reconfirmation_required' OR
-         (g.status IN ('open','ready_for_confirmation') AND g.closes_at>now()))
+       AND g.status='open' AND g.closes_at>now()
      GROUP BY g.id,l.title,l.unit,o2.organization_name
      ORDER BY g.closes_at,g.id LIMIT $3 OFFSET $4`,
     [listingId, BUYER_ACTIVE_GROUP_STATUSES, limit, offset],
@@ -1096,8 +1582,7 @@ async function listOpenGroups(listingId, page, limit) {
      JOIN app.listings l ON l.id=g.listing_id JOIN app.organizations o ON o.id=g.organization_id
      WHERE g.listing_id=$1 AND l.status='published' AND l.purchase_mode IN ('group','both')
        AND o.status='active'
-       AND (g.status='reconfirmation_required' OR
-         (g.status IN ('open','ready_for_confirmation') AND g.closes_at>now()))`,
+       AND g.status='open' AND g.closes_at>now()`,
     [listingId],
   );
   return { items: result.rows, total: count.rows[0].total, page, limit };
@@ -1108,7 +1593,7 @@ async function organizationGroups(userId, organizationId, page, limit) {
   return db.transaction(async (runner) => {
     await requireSellerManager(runner, userId, organizationId);
     const result = await runner.query(
-      `SELECT g.*,l.title AS listing_title,
+      `SELECT g.*,(SELECT json_agg(quantity::text ORDER BY quantity) FROM app.purchase_group_share_options WHERE group_id=g.id) AS share_options,l.title AS listing_title,
          COALESCE(sum(o.quantity) FILTER (WHERE o.status=ANY($2::text[])),0)::text AS joined_quantity
        FROM app.purchase_groups g JOIN app.listings l ON l.id=g.listing_id
        LEFT JOIN app.orders o ON o.group_id=g.id
@@ -1126,15 +1611,15 @@ async function organizationGroups(userId, organizationId, page, limit) {
 
 async function buyerGroupDetail(buyerId, groupId) {
   const result = await db.query(
-    `SELECT g.*,l.title AS listing_title,l.unit,o.name AS organization_name,
+    `SELECT g.*,(SELECT json_agg(quantity::text ORDER BY quantity) FROM app.purchase_group_share_options WHERE group_id=g.id) AS share_options,l.title AS listing_title,l.unit,o.name AS organization_name,
        COALESCE(sum(orders.quantity) FILTER (WHERE orders.status=ANY($2::text[])),0)::text AS joined_quantity
      FROM app.purchase_groups g JOIN app.listings l ON l.id=g.listing_id
      JOIN app.organizations o ON o.id=g.organization_id
      LEFT JOIN app.orders orders ON orders.group_id=g.id
      WHERE g.id=$1 AND l.status='published' AND l.purchase_mode IN ('group','both')
        AND o.status='active'
-       AND (g.status='reconfirmation_required' OR
-         (g.status IN ('open','ready_for_confirmation') AND g.closes_at>now()))
+       AND ((g.status IN ('open','ready_for_confirmation') AND g.closes_at>now()) OR
+         (g.status='deadline_choices' AND g.choice_deadline_at>now()) OR g.status='reconfirmation_required')
      GROUP BY g.id,l.title,l.unit,o.name`,
     [groupId, BUYER_ACTIVE_GROUP_STATUSES],
   );
@@ -1150,11 +1635,13 @@ async function buyerGroupDetail(buyerId, groupId) {
 
 module.exports = {
   createDirectOrder,
-  createGroup,
+  createBuyerGroup,
   joinGroup,
   leaveGroup,
   sellerDecision,
   decideGroup,
+  extendGroup,
+  switchGroupShareToDirect,
   expireDueOrders,
   buyerOrders,
   sellerOrders,

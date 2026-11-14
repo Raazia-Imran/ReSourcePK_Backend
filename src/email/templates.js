@@ -91,8 +91,30 @@ function organizationInviteEmail({ organizationName, inviterName, role, url }) {
   };
 }
 
+function purchaseGroupChoiceEmail({
+  name,
+  listingTitle,
+  deadline,
+  url,
+  canExtend,
+}) {
+  const safeName = escapeHtml(name || "Buyer");
+  const safeTitle = escapeHtml(listingTitle);
+  const safeDeadline = escapeHtml(deadline);
+  const safeUrl = escapeHtml(url);
+  const choice = canExtend
+    ? "A participant can extend the group once for 48 hours. You can also leave or switch an eligible share to the separately priced urgent order."
+    : "The one-time extension has already been used. You can leave or switch an eligible share to the separately priced urgent order.";
+  return {
+    subject: "Action needed for your group order",
+    text: `Hello ${name || "Buyer"},\n\nThe group order for ${listingTitle} did not reach its target. Choose an available option by ${deadline}. ${choice}\n\nOpen My purchases: ${url}`,
+    html: `<!doctype html><html lang="en"><body style="font-family:Arial,sans-serif;color:#17242a"><h1>Group order update</h1><p>Hello ${safeName},</p><p>The group order for <strong>${safeTitle}</strong> did not reach its target. Choose an available option by ${safeDeadline}.</p><p>${escapeHtml(choice)}</p><p><a href="${safeUrl}">Open My purchases</a></p></body></html>`,
+  };
+}
+
 module.exports = {
   verificationEmail,
   passwordResetEmail,
   organizationInviteEmail,
+  purchaseGroupChoiceEmail,
 };

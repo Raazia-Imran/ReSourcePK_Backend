@@ -184,7 +184,7 @@ Buyers filter and search published materials. A Buyer can also record a requirem
 
 ### 8.5 Direct and group purchasing
 
-For a direct order, the backend checks current stock, applies server-calculated pricing, records the order total, and reserves the requested quantity. Seller decisions and Buyer payment windows are time-limited. For a group purchase, multiple Buyers can reserve shares in a seller-defined group. Each share has a locked price; group target, deadlines, nonpayment, and seller reconfirmation rules determine whether a share remains payable.
+For a direct order, the backend checks current stock, applies server-calculated pricing, records the order total, and reserves the requested quantity. Seller decisions and Buyer payment windows are time-limited. A Buyer creates each group by setting its total target, deadline, and three or four allowed share sizes. Each share has a locked price. If the group misses target, participants can extend it once for 48 hours, leave, or accept a separately priced urgent direct order when the share meets the urgent minimum. Nonpayment sends the remaining unpaid shares back to the Seller for reconfirmation; paid shares keep their price and status.
 
 ### 8.6 Workspaces and analytics
 

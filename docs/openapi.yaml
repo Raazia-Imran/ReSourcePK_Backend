@@ -360,7 +360,7 @@ paths:
   /internal/purchase-expiry:
     get:
       summary: Expire overdue direct orders and unpaid group contributions
-      description: Scheduler-only, CRON_SECRET protected, bounded to 100 orders per invocation. Under-target groups are left for the Seller's expire-or-confirm decision.
+      description: Scheduler-only, CRON_SECRET protected, bounded processing of order payment/confirmation windows and group close/choice/Seller-response deadlines.
       security:
         - cronAuth: []
       responses:
@@ -1205,41 +1205,11 @@ paths:
       responses:
         "200": { description: Paginated groups and joined quantity. }
         "403": { description: Active Owner or Manager access required. }
-    post:
-      security: *id001
-      summary: Create a group offer for a listing
-      description: Owner or Manager creates a group target and deadline. The target must fit current available stock; shares reserve stock only as Buyers join.
-      parameters:
-        - in: path
-          name: organizationId
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [listingId, targetQuantity, closesAt, requestKey]
-              additionalProperties: false
-              properties:
-                listingId: { type: string, format: uuid }
-                targetQuantity:
-                  { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
-                closesAt: { type: string, format: date-time }
-                requestKey: { type: string, format: uuid }
-      responses:
-        "201": { description: Group created. }
-        "403": { description: Active Owner or Manager access required. }
-        "409":
-          {
-            description: Listing does not allow groups or target exceeds current stock.,
-          }
   /organizations/{organizationId}/purchase-groups/{groupId}/decision:
     post:
       security: *id001
-      summary: Confirm or expire a group
-      description: Owner or Manager with orders.confirm may confirm when target is met. At deadline, confirm accepts all current shares unchanged; expire releases all unpaid shares.
+      summary: Confirm or reject a reached or revised group
+      description: Owner or Manager with orders.confirm may confirm when the target is reached, or reconfirm a reduced unpaid total after a nonpayer. Rejecting releases unpaid shares; paid shares remain unchanged.
       parameters:
         - in: path
           name: organizationId
@@ -1258,7 +1228,7 @@ paths:
               required: [decision]
               additionalProperties: false
               properties:
-                decision: { type: string, enum: [confirm, expire] }
+                decision: { type: string, enum: [confirm, reject] }
                 reason: { type: string, minLength: 3, maxLength: 1000 }
       responses:
         "200": { description: Group decision recorded. }
@@ -1267,10 +1237,14 @@ paths:
             description: Owner access or Manager orders.confirm permission required.,
           }
         "409":
-          { description: Target/deadline/state does not permit this decision. }
+          {
+            description: Target,
+            Seller deadline,
+            or state does not permit this decision.,
+          }
   /listings/{listingId}/purchase-groups:
     get:
-      summary: Browse joinable groups for a published listing
+      summary: Browse Buyer-created groups for a published listing
       parameters:
         - in: path
           name: listingId
@@ -1279,6 +1253,40 @@ paths:
       responses:
         "200":
           { description: Paginated joinable groups with contribution totals. }
+    post:
+      security: *id001
+      summary: Create a Buyer group for a listing
+      description: Sets the total group target and three or four selectable share sizes. Target must meet the listing MOQ and current available stock.
+      parameters:
+        - in: path
+          name: listingId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetQuantity, closesAt, requestKey, shareOptions]
+              additionalProperties: false
+              properties:
+                targetQuantity:
+                  { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
+                closesAt: { type: string, format: date-time }
+                requestKey: { type: string, format: uuid }
+                shareOptions:
+                  type: array
+                  minItems: 3
+                  maxItems: 4
+                  items: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
+      responses:
+        "201": { description: Group created. }
+        "400": { description: Invalid target or share sizes. }
+        "409":
+          {
+            description: Listing cannot accept groups or available stock is insufficient.,
+          }
   /purchase-groups/{groupId}:
     get:
       security: *id001
@@ -1295,7 +1303,7 @@ paths:
     post:
       security: *id001
       summary: Join a group with a quantity share
-      description: Reserves stock immediately, selects the price tier using this Buyer's share, and does not request payment before Seller confirmation.
+      description: Reserves stock immediately. Quantity must be one of the group's share options or the exact remainder. Price tier is selected using this Buyer's share; payment waits for Seller confirmation.
       parameters:
         - in: path
           name: groupId
@@ -1335,6 +1343,56 @@ paths:
         "409":
           {
             description: Seller has confirmed the group or contribution is no longer open.,
+          }
+  /purchase-groups/{groupId}/extend:
+    post:
+      security: *id001
+      summary: Use the group's one-time 48-hour extension
+      description: Any current participant may trigger the single extension during the under-target choice window.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Group join deadline extended once by 48 hours. }
+        "403": { description: Caller is not an active participant. }
+        "409": { description: Extension unavailable or choice period ended. }
+  /purchase-groups/{groupId}/contributions/{orderId}/switch-to-direct:
+    post:
+      security: *id001
+      summary: Convert an unpaid share into a separate urgent order
+      description: Requires explicit Buyer acceptance in the client. Backend checks the urgent minimum, price configuration, stock, and the current choice or extension deadline; the urgent order then follows normal Seller confirmation and payment rules.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestKey]
+              additionalProperties: false
+              properties:
+                requestKey: { type: string, format: uuid }
+      responses:
+        "201":
+          {
+            description: Separate urgent order created; old share withdrawn and reservation transferred atomically.,
+          }
+        "409":
+          {
+            description: Choice period ended,
+            urgent option unavailable,
+            share below urgent MOQ,
+            or stock unavailable.,
           }
   /listings:
     get:
@@ -2034,6 +2092,11 @@ components:
           minimum: 1
           maximum: 30
           description: Seller's urgent fulfillment turnaround in days, starting after verified payment.
+        expeditedMinOrderQuantity: &id021
+          oneOf:
+            - *id007
+            - type: "null"
+          description: Optional urgent MOQ; if omitted, the standard listing MOQ applies.
         color: &id015
           type: string
           maxLength: 80
@@ -2158,6 +2221,7 @@ components:
           enum: [direct, group, both]
         expeditedPricePerUnit: *id019
         expeditedLeadTimeDays: *id020
+        expeditedMinOrderQuantity: *id021
         version:
           type: integer
           minimum: 1

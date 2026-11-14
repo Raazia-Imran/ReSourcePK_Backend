@@ -41,10 +41,10 @@ router.post(
 );
 
 router.post(
-  "/organizations/:organizationId/purchase-groups",
+  "/listings/:listingId/purchase-groups",
   requireAuth,
   mutationLimit,
-  controller.createSellerGroup,
+  controller.createBuyerGroup,
 );
 router.get(
   "/organizations/:organizationId/purchase-groups",
@@ -71,6 +71,18 @@ router.post(
   requireAuth,
   mutationLimit,
   controller.leaveGroup,
+);
+router.post(
+  "/purchase-groups/:groupId/extend",
+  requireAuth,
+  mutationLimit,
+  controller.extendGroup,
+);
+router.post(
+  "/purchase-groups/:groupId/contributions/:orderId/switch-to-direct",
+  requireAuth,
+  mutationLimit,
+  controller.switchGroupToDirect,
 );
 
 module.exports = router;

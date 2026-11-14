@@ -1,6 +1,6 @@
-# Phase 3, Chunk 1: Purchase rules and data model
+# Purchase ordering rules and data model
 
-Updated: 17 October 2026. This document is the working source of truth for Phase 3 purchase behavior. Chunks 1 and 2 cover the initial schema and backend order lifecycle. Payment collection, provider callbacks, refunds, settlement accounting, and the frontend purchase journey remain future work.
+Updated: 14 November 2026. This document describes the current purchase lifecycle, including Buyer-created group orders, direct/urgent orders, and RapidGateway payment verification.
 
 ## Product decisions accepted by the user
 
@@ -10,40 +10,41 @@ Updated: 17 October 2026. This document is the working source of truth for Phase
 - Each group participant's price is locked when they join. If a share reopens, a new participant gets a price based on the tier applicable at their join time; existing price snapshots do not change.
 - A group's price tier is selected using each individual Buyer's share quantity, not the total quantity contributed by the group.
 - For direct orders, the Seller has 48 hours to confirm or reject. An unanswered order expires and its stock reservation is released.
-- A Buyer may leave an open group before Seller confirmation; their reservation is released.
-- Payment integration will start with the Road/Raod gateway sandbox, with JazzCash, Easypaisa, Raast, cards, and bank transfer as desired payment methods. Exact provider identity and sandbox method availability need confirmation before integration.
-- A group that reaches its target can be submitted to the Seller for confirmation.
-- At the group deadline, the Seller Owner or a Manager with delegated order-confirmation permission chooses to expire the group or confirm its smaller current total.
-- If the Seller confirms an under-target group, all current Buyer shares are included unchanged; the Seller cannot select only some participants or reduce a share without that Buyer's agreement.
-- If a confirmed participant does not pay by the deadline, remove that participant and reopen their quantity. A replacement participant may join, after which the Seller must confirm the revised group again.
+- A Buyer creates a group, sets the total target and join deadline, and offers three or four share-size choices. The target must meet the listing MOQ; a share may be smaller than the MOQ.
+- A Buyer may leave before Seller confirmation; their reservation is released.
+- When the total target is reached, the group closes to new participants and the Seller has 48 hours to confirm or reject it.
+- If the target is missed by the deadline, participants get an email notice and a 48-hour choice window in My purchases. Any current participant may use the one-time 48-hour extension. During the extension, other participants may still leave or switch an eligible share to a Seller-configured urgent direct order at its explicitly shown higher price.
+- If the extended group still misses its target, it closes and participants get a final 48-hour window to leave or choose the urgent direct option. No group payment is taken for an under-target group.
+- If a confirmed participant does not pay by the deadline, remove that share and reopen its quantity. The Seller reconfirms the revised group before its remaining unpaid participants pay.
 - Escrow is not required for the initial flow. Delivery is outside platform scope.
 
-## Proposed rules for implementation
+## Implemented rules
 
-These rules fill in lifecycle and data-integrity details implied by the accepted decisions. Remaining choices needing confirmation are listed under [Open decisions](#open-decisions-before-purchase-implementation).
+These rules define the lifecycle and data-integrity behavior. Remaining choices outside the implementation are listed under [Remaining purchase decisions](#remaining-purchase-decisions).
 
 ### Listing eligibility and direct purchase
 
 - Every published listing selects one purchase mode: `direct`, `group`, or `both`. Disabled modes cannot be used by the API even if a client calls the endpoint directly.
-- A direct order must satisfy the listing MOQ unless the Buyer purchases all currently available stock. There is no separate smaller-lot override on listings in this implementation.
+- A standard direct order must satisfy the listing MOQ unless the Buyer purchases all currently available stock. A Seller may set a lower urgent minimum for a separate expedited order.
 - The Buyer submits a quantity and sees the exact unit price, tier, total, unit, and currency before placing the order. The server revalidates stock, MOQ, mode, and tier inside the transaction that creates the order.
 - A direct order enters `pending_seller_confirmation`. The Seller confirms or rejects it within 48 hours. Confirmation fixes the terms and starts the Buyer's 48-hour payment window. Rejection releases its stock reservation.
 
 ### Group creation and joining
 
-- A group can only be created for a published listing with group ordering enabled. A Seller sets a target quantity no greater than the listing's currently available stock and a join deadline.
-- Contributions are positive quantities in the listing's unit. The API prevents total active contributions from exceeding the group target or available stock. The API does not silently trim a requested contribution.
+- A Buyer can create a group only for a published listing with group ordering enabled. The Buyer sets a total target no lower than the listing MOQ and no greater than currently available stock, a join deadline, and three or four unique share sizes no larger than the target.
+- Contributions must match one of the listed share sizes or the exact remaining quantity. The API prevents total active contributions from exceeding the group target or available stock. It never silently trims a requested contribution.
 - Joining reserves the requested quantity immediately. A Buyer can leave an open, not-yet-confirmed group; leaving releases the reservation. Joining, leaving, and target checks are atomic and idempotent.
-- The group stops accepting contributions at its target or deadline. At target, it becomes ready for Seller confirmation. At deadline below target, the authorized Seller decision is either expire it or confirm the full current contribution total as a smaller group. Confirmation includes every current share unchanged; changing a participant's quantity requires that Buyer's agreement.
+- The group stops accepting contributions when it reaches the target or the join deadline. Reaching the target makes it ready for Seller confirmation and starts the Seller's 48-hour response window. The Seller may confirm or reject; an unanswered decision expires the group and releases unpaid reservations.
+- An under-target group enters `deadline_choices` for 48 hours. One current participant can extend it exactly once for another 48 hours. Other participants can leave or switch eligible shares to urgent direct orders during the extension. On a missed second deadline, the group does not proceed as a smaller group; participants have one final 48-hour period to leave or switch.
 - Seller confirmation snapshots the current participant set and starts a separate 48-hour payment deadline for each unpaid participant.
-- A missed payment expires that participant's order, releases their reserved quantity, and marks the group as requiring Seller reconfirmation before replacement participants are asked to pay. Paid participants remain paid and their price and order history are unchanged.
-- A replacement Buyer joins at the reopened quantity, receives a new price snapshot, and remains unpaid until the Seller reconfirms the revised group. The Seller's reconfirmation starts a new 48-hour window for the currently included unpaid participants; it does not create duplicate orders or charges for already-paid participants.
+- A missed payment expires that participant's order, releases their reserved quantity, and marks the group as requiring Seller reconfirmation. Paid participants remain paid and their price and order history are unchanged.
+- Remaining unpaid participants return to the Seller for confirmation of the revised quantity. The Seller may confirm below the original target at this reconfirmation stage; only unpaid orders receive a new 48-hour payment window. Paid shares remain paid at their original price. If the Seller rejects or times out, only unpaid reservations are released.
 - When the current group is fully paid, it becomes `paid`. No dispatch, shipment, or delivery state is managed by ReSource PK.
 
 ### Urgent purchase option
 
-- A Seller may optionally configure an urgent per-unit price and a fulfillment turnaround of 1 to 30 days on a listing. The urgent price must be higher than every standard listing price tier.
-- Buyers can place a separate urgent direct order against the same listing inventory while a group remains open. This uses the same stock reservation, Seller confirmation, and verified payment protections as a standard direct order; it does not change or remove group shares.
+- A Seller may configure an urgent per-unit price, a fulfillment turnaround of 1 to 30 days, and an optional urgent minimum. If omitted, the urgent minimum is the regular listing MOQ. The urgent price must be higher than every standard listing price tier.
+- During a group's under-target choice window, a participant can convert their unpaid share into a separate urgent direct order if it meets the urgent minimum and stock remains. The Buyer must accept the urgent unit price, total, and turnaround before the system creates the order. The group share reservation is released atomically as the separate order is reserved.
 - Urgent orders use the Seller's configured urgent price for the full share, rather than the standard quantity tiers. The price and turnaround are snapshotted on the order and cannot be changed by later listing edits.
 - The turnaround deadline begins after the payment webhook is verified. This records the Seller's fulfillment commitment; ReSource PK does not arrange or track shipping.
 - A listing without urgent price and turnaround configuration cannot accept urgent orders. Group contributions remain at the regular per-share tier price.
@@ -76,14 +77,17 @@ pending_payment -> payment_expired
 Group states:
 
 ```text
-open -> target_reached -> pending_seller_confirmation -> payment_open -> paid
-  |             |                    |                       |
-  + deadline --+                    +-> expired             +-> reconfirmation_required
-       -> expired or seller-confirmed-smaller                       |
-                                                       replacement join -> pending_seller_confirmation
+open -> ready_for_confirmation -> payment_open -> paid
+ |               |                    |
+ |               +-> rejected/expired +-> reconfirmation_required
+ |                                          |               |
+ +-> deadline_choices -> open (one 48h extension)          +-> payment_open
+          |                                                   +-> rejected/expired
+          +-> expired
+          +-> leave or switch share to urgent direct order
 ```
 
-The state names are proposals for the API/database. State changes must be explicit service operations and append an `order_event` with actor, timestamp, reason, prior state, and new state. No client may directly assign a lifecycle state.
+State changes are service-controlled and recorded in order/audit events. No client may directly assign a lifecycle state.
 
 Payment attempts have their own states (for example `created`, `pending`, `succeeded`, `failed`, `expired`, `refund_pending`, `refunded`) and never replace the authoritative order state. Provider callbacks are signature-verified, idempotent, and uniquely associated with a provider reference. A failed attempt can be retried within the order's payment window; it does not extend the 48-hour deadline.
 
@@ -94,7 +98,8 @@ Migrations `013_purchase_foundation.sql` and `014_purchase_workflow_support.sql`
 | Entity                                                | Purpose and key data                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `listings` additions                                  | `purchase_mode`; direct/group enablement; existing physical quantity, MOQ, unit, tier schedule, and version remain seller-controlled.                                                                                                                                                                                                                       |
-| `purchase_groups`                                     | One group per listing/offer: `listing_id`, `organization_id`, `target_quantity`, `closes_at`, `status`, optimistic `version`, and confirmation/decision timestamps and actor.                                                                                                                                                                               |
+| `purchase_groups`                                     | A Buyer-created pool with listing, Buyer creator, total target, join/choice/Seller deadlines, one-time extension count, lifecycle status, and confirmation fields.                                                                                                                                                                                          |
+| `purchase_group_share_options`                        | Three or four quantities offered as the normal per-Buyer share choices for a new group.                                                                                                                                                                                                                                                                     |
 | `orders`                                              | One Buyer purchase per listing contribution (direct orders have no group; group contributions reference a group): Buyer, listing/organization/group IDs, idempotency key, quantity/unit, listing version, per-Buyer tier and price snapshot, immutable total in paisa, state, seller-response deadline, confirmation time, payment deadline, and paid time. |
 | `order_price_snapshots` or immutable snapshot columns | The initial schema stores listing/tier version, threshold, unit price in paisa, currency, quantity, and total directly on the order and blocks edits to those terms.                                                                                                                                                                                        |
 | `inventory_reservations`                              | Unique source order, listing, quantity, status (`active`, `committed`, `released`), create/release/commit timestamps, and release reason. One order cannot hold multiple active duplicate reservations.                                                                                                                                                     |
@@ -108,8 +113,8 @@ Core constraints: positive quantities; matching listing unit; nonnegative paisa 
 
 ## Permissions
 
-- Buyers can create and view only their own orders/group contributions, pay only their own confirmed unpaid orders, and leave only an open pre-confirmation group.
-- Seller Owners can confirm/reject direct orders, confirm groups, and choose the deadline outcome.
+- Buyers can create groups and their own orders, pay only their own confirmed unpaid orders, leave their own unpaid group shares, extend a group only as a participant, and switch only their own eligible unpaid share to urgent direct purchase.
+- Seller Owners can confirm/reject direct orders and groups. Managers can decide only with `orders.confirm`.
 - Managers can perform those Seller decisions only with an Owner-granted `orders.confirm` permission. The Owner remains able to do them.
 - Staff receive no order access by default. An order permission for Staff is not defined for Chunk 1 and must not be inferred from listing permissions.
 - Platform Admin/Reviewer access to commerce data requires a separately specified support/audit permission; current listing-review grants do not confer order access.
@@ -122,23 +127,20 @@ Core constraints: positive quantities; matching listing unit; nonnegative paisa 
 4. Direct and group participants receive the accepted Seller terms before payment, with immutable price/quantity snapshots.
 5. No payment is requested before Seller confirmation; new confirmed unpaid orders expire 48 hours after confirmation. Orders confirmed before the 48-hour policy change keep their original deadline.
 6. A nonpayer is removed, their share reopens, and the replacement group requires Seller reconfirmation; paid members are not charged again or repriced.
-7. Seller can expire an under-target group or confirm all current shares unchanged at the deadline, with an audited reason.
+7. An under-target group permits one participant-triggered 48-hour extension. If still short, unpaid shares can only leave or convert to urgent direct orders; Seller confirmation cannot proceed.
 8. Callback replay, request retry, race at deadline, and concurrent Seller/Buyer actions produce one valid state transition and one ledger effect.
 9. No delivery/shipping status is added to the purchase lifecycle.
 
-## Open decisions before purchase implementation
+## Remaining purchase decisions
 
-These do not block documenting the initial model, but must be confirmed before the affected service/migration behavior is treated as final:
+These remain outside this implemented lifecycle:
 
-1. **Payment provider and settlement:** confirm the gateway's exact name (the user called it “Raod”) and that its sandbox account/API supports JazzCash, Easypaisa, Raast, cards, and bank transfers. Confirm settlement route before live payments. “No escrow” does not itself define the provider's settlement route.
-2. **Post-confirmation and paid-order cancellation/refunds:** open-group withdrawal before Seller confirmation is allowed. Still confirm whether a Buyer may cancel after Seller confirmation or payment, who can authorize refunds, and whether paid quantity can return to stock. Do not assume shipping/returns are managed by the platform.
-3. **Money rounding:** the API currently uses round-half-up to the nearest paisa when decimal quantity multiplied by paisa-per-unit is fractional. Confirm this before enabling real payments.
+1. **Post-confirmation and paid-order cancellation/refunds:** cancellation after Seller confirmation or payment, refund authority, and stock treatment remain undefined. Do not assume shipping/returns are managed by the platform.
+2. **Money rounding:** the API uses round-half-up to the nearest paisa when decimal quantity multiplied by paisa-per-unit is fractional.
 
 ## Implementation status
 
-Implemented routes include direct order placement, Buyer order history, Seller order lists and decisions, group create/browse/join/leave/decision, Owner-controlled Manager `orders.confirm`, and a CRON_SECRET-protected deadline worker. These services reserve and release stock, snapshot per-share pricing, enforce state transitions, and require Seller reconfirmation after a group nonpayer.
-
-Payment is still a later chunk: there is no checkout, provider adapter/callback, refund, settlement, or ledger workflow. The API uses round-half-up for fractional paisa totals; confirm this before enabling real payments. See [OpenAPI](openapi.yaml) for endpoint contracts.
+Implemented routes include Buyer group creation, browsing, joining, leaving, extending, and eligible urgent conversion; Seller group decisions; direct orders; Buyer purchase history; Seller order lists; and a CRON_SECRET-protected deadline worker. The worker emails current group participants when an under-target choice window opens and when the one-time extension begins; Buyer actions remain available in My purchases. RapidGateway TEST checkout and signed webhook verification are implemented. Refunds, settlement, and seller payouts are not implemented. See [OpenAPI](openapi.yaml) for endpoint contracts.
 
 ## Related docs
 

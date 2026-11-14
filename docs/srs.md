@@ -1,6 +1,6 @@
 # Software Requirements Specification
 
-> **Scope note (17 October 2026):** Requirements below describe the intended product. They are not proof of implementation. See [Current Features and Scope](current-features.md) for implemented backend behavior and [Purchase Module](purchase-module.md) for Phase 3 purchase decisions, proposed state model, and open choices.
+> **Scope note (14 November 2026):** This document describes product requirements. Implementation status is tracked in [Current Features and Scope](current-features.md); latest group ordering behavior is specified in [Purchase Module](purchase-module.md).
 
 ## Purpose and system boundary
 
@@ -46,18 +46,19 @@ This specification defines the MVP behavior of the ReSource PK responsive web pl
 
 ### Pools, orders and inventory
 
-The following requirements describe the purchase workflow. Migrations 013/014 and the initial backend lifecycle APIs are implemented: direct order placement, group creation/join/leave and Seller decisions, reservations, pricing snapshots, idempotency, and deadline processing. Payment collection and the complete user-facing purchase journey remain unimplemented. See [Purchase Module](purchase-module.md).
+The following requirements describe the purchase workflow. Direct/group purchases, Buyer screens, and RapidGateway sandbox checkout are implemented; LIVE gateway processing, payouts/refunds, and delivery remain out of scope. See [Purchase Module](purchase-module.md).
 
 - **FR-PUR-01:** A listing supports `direct`, `group`, or `both` purchase modes. The API enforces mode, MOQ (with an all-remaining-stock exception), available stock, group target, and price-tier rules on every request.
 - **FR-PUR-02:** A direct order is reserved at placement and enters `pending_seller_confirmation`. The Seller has 48 hours to confirm or reject. Confirmation starts a 48-hour Buyer payment deadline; rejection or expiry releases the reservation.
 - **FR-PUR-03:** Joining an open group reserves the Buyer quantity immediately. Contribution and inventory changes are atomic, idempotent, and concurrency safe. Buyers can leave only before Seller confirmation.
-- **FR-PUR-04:** Group target cannot exceed available stock. Reaching the target makes the group ready for Seller confirmation. At the deadline, the Owner or Manager with `orders.confirm` chooses to expire it or confirm the full current contribution total as a smaller group; all current shares remain unchanged and included.
-- **FR-PUR-05:** Seller confirmation snapshots the group participants and starts a 48-hour payment deadline per unpaid order. A nonpayer is removed and their quantity released. The group requires Seller reconfirmation before replacement participants are asked to pay; paid participants and their terms remain unchanged.
-- **FR-PUR-06:** Direct order prices are snapshotted on placement; group participant prices are snapshotted at join using that Buyer's individual share quantity to select the tier. Listing price edits, later joins, and group confirmation do not reprice existing orders. The server calculates totals; clients cannot set price or lifecycle state.
-- **FR-PUR-07:** Available stock equals physical stock minus active reservations and paid/committed quantities. Reservation creation, conversion, and release occur once under transaction/locking protection.
-- **FR-PUR-08:** Direct order states include `pending_seller_confirmation`, `pending_payment`, `paid`, `rejected`, and `payment_expired`. Group contribution states and legal transitions follow the Purchase Module design. Each transition records actor, time, reason, prior state, and new state. Post-confirmation cancellation/refund behavior remains to be defined.
-- **FR-PUR-09:** Payment attempts are separate from order state. Only a verified, idempotent provider result/callback can mark an order paid and create one ledger effect. The initial implementation uses a sandbox adapter until a live provider/settlement route is approved.
-- **FR-PUR-10:** ReSource PK does not manage delivery or dispatch states.
+- **FR-PUR-04:** The Buyer creates a group, chooses a total target at least equal to listing MOQ, sets its deadline, and provides three or four allowed share sizes. Reaching the target makes the group ready for Seller confirmation. If the group is short at its deadline, one current participant may extend it once for 48 hours.
+- **FR-PUR-05:** Participants may leave or accept a separately priced urgent direct order during the 48-hour extension and, if it remains short, during a final 48-hour choice period. The group is never confirmed below target during its first confirmation; urgent conversion requires explicit Buyer acceptance of its price and turnaround.
+- **FR-PUR-06:** Seller confirmation starts a 48-hour payment window per unpaid order. A nonpayer's share is released and the Seller must reconfirm the revised unpaid total. Paid participants and their terms remain unchanged; Seller rejection or timeout releases only unpaid reservations.
+- **FR-PUR-07:** Direct order prices are snapshotted on placement; group participant prices are snapshotted at join using that Buyer's individual share quantity to select the tier. Listing price edits, later joins, and group confirmation do not reprice existing orders. The server calculates totals; clients cannot set price or lifecycle state.
+- **FR-PUR-08:** Available stock equals physical stock minus active reservations and paid/committed quantities. Reservation creation, conversion, and release occur once under transaction/locking protection.
+- **FR-PUR-09:** Direct order states include `pending_seller_confirmation`, `pending_payment`, `paid`, `rejected`, and `payment_expired`. Group contribution states and legal transitions follow the Purchase Module design. Each transition records actor, time, reason, prior state, and new state. Post-confirmation cancellation/refund behavior remains to be defined.
+- **FR-PUR-10:** Payment attempts are separate from order state. Only a verified, idempotent provider result/callback can mark an order paid. The current hosted checkout and signed callback use the RapidGateway sandbox configuration.
+- **FR-PUR-11:** ReSource PK does not manage delivery or dispatch states.
 
 ### Payments and ledger
 

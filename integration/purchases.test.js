@@ -104,12 +104,14 @@ function closeTime() {
 
 async function createGroup(listingId, targetQuantity) {
   const target = Number(targetQuantity);
-  const shareOptions =
-    target > 30
-      ? ["1", "20", "30", String(target)]
-      : target === 30
-        ? ["1", "20", String(target)]
-        : [String(target / 2), String(target / 4), String(target)];
+  let shareOptions;
+  if (target > 30) {
+    shareOptions = ["1", "20", "30", String(target)];
+  } else if (target === 30) {
+    shareOptions = ["1", "20", String(target)];
+  } else {
+    shareOptions = [String(target / 2), String(target / 4), String(target)];
+  }
   const response = await request(app)
     .post(`/api/v1/listings/${listingId}/purchase-groups`)
     .set("Authorization", `Bearer ${groupCreatorToken}`)

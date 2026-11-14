@@ -1016,7 +1016,7 @@ paths:
     post:
       security: *id001
       summary: Place a direct purchase order
-      description: Reserves stock immediately, snapshots the server-selected quantity tier, and waits up to 72 hours for Seller confirmation. Payment is not initiated by this endpoint.
+      description: Reserves stock immediately and waits up to 48 hours for Seller confirmation. Standard orders snapshot the server-selected quantity tier. An expedited order uses the Seller-configured urgent unit price and turnaround; its fulfillment deadline starts after verified payment.
       requestBody:
         required: true
         content:
@@ -1029,6 +1029,12 @@ paths:
                 listingId: { type: string, format: uuid }
                 quantity: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,3})?$' }
                 requestKey: { type: string, format: uuid }
+                fulfilmentPriority:
+                  {
+                    type: string,
+                    enum: [standard, expedited],
+                    default: standard,
+                  }
       responses:
         "201": { description: Order created and inventory reserved. }
         "400": { description: Quantity, MOQ, or request body is invalid. }
@@ -1159,7 +1165,7 @@ paths:
     post:
       security: *id001
       summary: Confirm or reject a direct order
-      description: Confirmation starts the Buyer's 72-hour payment deadline; rejection releases reserved stock. Orders past the 72-hour Seller response deadline expire and release stock.
+      description: Confirmation starts the Buyer's 48-hour payment deadline; rejection releases reserved stock. Orders past the 48-hour Seller response deadline expire and release stock.
       parameters:
         - in: path
           name: organizationId
@@ -2018,6 +2024,16 @@ components:
           type: string
           enum: [direct, group, both]
           description: Purchase modes enabled for this listing; omitted on create defaults to direct and omitted on edit preserves the current mode.
+        expeditedPricePerUnit: &id019
+          oneOf:
+            - *id008
+            - type: "null"
+          description: Optional urgent unit price. Must be set with expeditedLeadTimeDays and exceed every standard price tier.
+        expeditedLeadTimeDays: &id020
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 30
+          description: Seller's urgent fulfillment turnaround in days, starting after verified payment.
         color: &id015
           type: string
           maxLength: 80
@@ -2137,6 +2153,11 @@ components:
         composition: *id016
         location: *id017
         priceTiers: *id018
+        purchaseMode:
+          type: string
+          enum: [direct, group, both]
+        expeditedPricePerUnit: *id019
+        expeditedLeadTimeDays: *id020
         version:
           type: integer
           minimum: 1

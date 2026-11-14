@@ -52,6 +52,12 @@ const listingInput = z
     pricePerUnit: money,
     priceTiers: z.array(tier).max(10).default([]),
     purchaseMode: z.enum(["direct", "group", "both"]).optional(),
+    expeditedPricePerUnit: money.nullable().optional(),
+    expeditedLeadTimeDays: z
+      .union([z.number(), z.string().regex(/^\d+$/).transform(Number)])
+      .pipe(z.number().int().min(1).max(30))
+      .nullable()
+      .optional(),
   })
   .strict()
   .superRefine((data, context) => {
@@ -80,6 +86,34 @@ const listingInput = z
       threshold = amount;
       price = nextPrice;
     });
+    const expeditedPrice = data.expeditedPricePerUnit;
+    const expeditedDays = data.expeditedLeadTimeDays;
+    const hasExpeditedPrice =
+      expeditedPrice !== null && expeditedPrice !== undefined;
+    const hasExpeditedDays =
+      expeditedDays !== null && expeditedDays !== undefined;
+    if (hasExpeditedPrice !== hasExpeditedDays) {
+      context.addIssue({
+        code: "custom",
+        path: [
+          !hasExpeditedPrice
+            ? "expeditedPricePerUnit"
+            : "expeditedLeadTimeDays",
+        ],
+        message:
+          "Set both an urgent unit price and turnaround, or leave both blank",
+      });
+    }
+    if (hasExpeditedPrice) {
+      const urgentPrice = scaled(expeditedPrice, 2);
+      if (urgentPrice <= price)
+        context.addIssue({
+          code: "custom",
+          path: ["expeditedPricePerUnit"],
+          message:
+            "Urgent unit price must be higher than every standard price tier",
+        });
+    }
   });
 const requirementInput = z
   .object({

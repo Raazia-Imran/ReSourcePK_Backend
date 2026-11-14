@@ -331,7 +331,10 @@ async function processWebhook(headers, rawBody, payload) {
     }
 
     await runner.query(
-      `UPDATE app.orders SET status='paid', fulfilment_status='paid', paid_at=now()
+      `UPDATE app.orders SET status='paid', fulfilment_status='paid', paid_at=now(),
+       fulfilment_due_at=CASE WHEN fulfilment_priority='expedited'
+         THEN now() + fulfilment_lead_time_days * INTERVAL '1 day'
+         ELSE NULL END
       WHERE id=$1 AND status='pending_payment'`,
       [attempt.order_id],
     );

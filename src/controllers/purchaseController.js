@@ -16,7 +16,12 @@ const groupCreate = z
   })
   .strict();
 const orderCreate = z
-  .object({ listingId: uuid, quantity, requestKey: uuid })
+  .object({
+    listingId: uuid,
+    quantity,
+    requestKey: uuid,
+    fulfilmentPriority: z.enum(["standard", "expedited"]).optional(),
+  })
   .strict();
 const contributionCreate = z.object({ quantity, requestKey: uuid }).strict();
 const decisionInput = z

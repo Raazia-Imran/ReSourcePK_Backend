@@ -47,7 +47,7 @@ Three engineers own vertical feature slices. A rotating integration lead merges 
 - T-206 Group lifecycle: target and deadline decisions; remove non-payers and reopen shares; require Seller reconfirmation before replacement participants pay. Escrow and delivery management are out of scope.
 - T-207 Enforce Owner order decisions and Owner-granted Manager `orders.confirm`; Staff have no order permission by default. Security review of amounts, callbacks, secrets and authorization.
 
-**Gate:** direct/group concurrent orders cannot over-reserve; callback replay has one financial effect; ledger reconciles; Seller confirmation and 72-hour expiry behave correctly.
+**Gate:** direct/group concurrent orders cannot over-reserve; callback replay has one financial effect; ledger reconciles; Seller response and Buyer payment deadlines are 48 hours for new orders.
 
 ## Week 4 Fulfilment, trust, administration and passport
 

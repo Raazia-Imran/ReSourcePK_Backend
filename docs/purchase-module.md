@@ -6,10 +6,10 @@ Updated: 17 October 2026. This document is the working source of truth for Phase
 
 - Phase 3 includes both direct purchases and group orders.
 - A Seller confirms an order before the Buyer is asked to pay.
-- After Seller confirmation, the Buyer has 3 days (72 hours) to complete payment.
+- After Seller confirmation, the Buyer has 48 hours to complete payment.
 - Each group participant's price is locked when they join. If a share reopens, a new participant gets a price based on the tier applicable at their join time; existing price snapshots do not change.
 - A group's price tier is selected using each individual Buyer's share quantity, not the total quantity contributed by the group.
-- For direct orders, the Seller has 72 hours to confirm or reject. An unanswered order expires and its stock reservation is released.
+- For direct orders, the Seller has 48 hours to confirm or reject. An unanswered order expires and its stock reservation is released.
 - A Buyer may leave an open group before Seller confirmation; their reservation is released.
 - Payment integration will start with the Road/Raod gateway sandbox, with JazzCash, Easypaisa, Raast, cards, and bank transfer as desired payment methods. Exact provider identity and sandbox method availability need confirmation before integration.
 - A group that reaches its target can be submitted to the Seller for confirmation.
@@ -27,7 +27,7 @@ These rules fill in lifecycle and data-integrity details implied by the accepted
 - Every published listing selects one purchase mode: `direct`, `group`, or `both`. Disabled modes cannot be used by the API even if a client calls the endpoint directly.
 - A direct order must satisfy the listing MOQ unless the Buyer purchases all currently available stock. There is no separate smaller-lot override on listings in this implementation.
 - The Buyer submits a quantity and sees the exact unit price, tier, total, unit, and currency before placing the order. The server revalidates stock, MOQ, mode, and tier inside the transaction that creates the order.
-- A direct order enters `pending_seller_confirmation`. The Seller confirms or rejects it. Confirmation fixes the terms and starts the 72-hour payment window. Rejection releases its stock reservation.
+- A direct order enters `pending_seller_confirmation`. The Seller confirms or rejects it within 48 hours. Confirmation fixes the terms and starts the Buyer's 48-hour payment window. Rejection releases its stock reservation.
 
 ### Group creation and joining
 
@@ -35,10 +35,18 @@ These rules fill in lifecycle and data-integrity details implied by the accepted
 - Contributions are positive quantities in the listing's unit. The API prevents total active contributions from exceeding the group target or available stock. The API does not silently trim a requested contribution.
 - Joining reserves the requested quantity immediately. A Buyer can leave an open, not-yet-confirmed group; leaving releases the reservation. Joining, leaving, and target checks are atomic and idempotent.
 - The group stops accepting contributions at its target or deadline. At target, it becomes ready for Seller confirmation. At deadline below target, the authorized Seller decision is either expire it or confirm the full current contribution total as a smaller group. Confirmation includes every current share unchanged; changing a participant's quantity requires that Buyer's agreement.
-- Seller confirmation snapshots the current participant set and starts a separate 72-hour payment deadline for each unpaid participant.
+- Seller confirmation snapshots the current participant set and starts a separate 48-hour payment deadline for each unpaid participant.
 - A missed payment expires that participant's order, releases their reserved quantity, and marks the group as requiring Seller reconfirmation before replacement participants are asked to pay. Paid participants remain paid and their price and order history are unchanged.
-- A replacement Buyer joins at the reopened quantity, receives a new price snapshot, and remains unpaid until the Seller reconfirms the revised group. The Seller's reconfirmation starts a new 72-hour window for the currently included unpaid participants; it does not create duplicate orders or charges for already-paid participants.
+- A replacement Buyer joins at the reopened quantity, receives a new price snapshot, and remains unpaid until the Seller reconfirms the revised group. The Seller's reconfirmation starts a new 48-hour window for the currently included unpaid participants; it does not create duplicate orders or charges for already-paid participants.
 - When the current group is fully paid, it becomes `paid`. No dispatch, shipment, or delivery state is managed by ReSource PK.
+
+### Urgent purchase option
+
+- A Seller may optionally configure an urgent per-unit price and a fulfillment turnaround of 1 to 30 days on a listing. The urgent price must be higher than every standard listing price tier.
+- Buyers can place a separate urgent direct order against the same listing inventory while a group remains open. This uses the same stock reservation, Seller confirmation, and verified payment protections as a standard direct order; it does not change or remove group shares.
+- Urgent orders use the Seller's configured urgent price for the full share, rather than the standard quantity tiers. The price and turnaround are snapshotted on the order and cannot be changed by later listing edits.
+- The turnaround deadline begins after the payment webhook is verified. This records the Seller's fulfillment commitment; ReSource PK does not arrange or track shipping.
+- A listing without urgent price and turnaround configuration cannot accept urgent orders. Group contributions remain at the regular per-share tier price.
 
 ### Inventory and reservations
 
@@ -77,7 +85,7 @@ open -> target_reached -> pending_seller_confirmation -> payment_open -> paid
 
 The state names are proposals for the API/database. State changes must be explicit service operations and append an `order_event` with actor, timestamp, reason, prior state, and new state. No client may directly assign a lifecycle state.
 
-Payment attempts have their own states (for example `created`, `pending`, `succeeded`, `failed`, `expired`, `refund_pending`, `refunded`) and never replace the authoritative order state. Provider callbacks are signature-verified, idempotent, and uniquely associated with a provider reference. A failed attempt can be retried within the order's payment window; it does not extend the 72-hour deadline.
+Payment attempts have their own states (for example `created`, `pending`, `succeeded`, `failed`, `expired`, `refund_pending`, `refunded`) and never replace the authoritative order state. Provider callbacks are signature-verified, idempotent, and uniquely associated with a provider reference. A failed attempt can be retried within the order's payment window; it does not extend the 48-hour deadline.
 
 ## Proposed database model
 
@@ -112,7 +120,7 @@ Core constraints: positive quantities; matching listing unit; nonnegative paisa 
 2. Parallel direct orders and group joins cannot reserve more than available inventory or the group target.
 3. Seller rejection and every expiry release the appropriate reservation once; payment converts a reservation to committed stock once.
 4. Direct and group participants receive the accepted Seller terms before payment, with immutable price/quantity snapshots.
-5. No payment is requested before Seller confirmation; all confirmed unpaid orders expire exactly 72 hours after their confirmation deadline.
+5. No payment is requested before Seller confirmation; new confirmed unpaid orders expire 48 hours after confirmation. Orders confirmed before the 48-hour policy change keep their original deadline.
 6. A nonpayer is removed, their share reopens, and the replacement group requires Seller reconfirmation; paid members are not charged again or repriced.
 7. Seller can expire an under-target group or confirm all current shares unchanged at the deadline, with an audited reason.
 8. Callback replay, request retry, race at deadline, and concurrent Seller/Buyer actions produce one valid state transition and one ledger effect.

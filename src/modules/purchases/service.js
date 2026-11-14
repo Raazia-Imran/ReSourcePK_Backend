@@ -156,13 +156,20 @@ async function findRequestOrder(runner, buyerId, requestKey) {
   return result.rows[0] || null;
 }
 
-function assertSameOrderRequest(existing, listingId, groupId, quantity) {
+function assertSameOrderRequest(
+  existing,
+  listingId,
+  groupId,
+  quantity,
+  fulfilmentPriority = "standard",
+) {
   if (
     !sameId(existing.listing_id, listingId) ||
     (existing.group_id === null
       ? groupId !== null
       : !sameId(existing.group_id, groupId)) ||
-    !quantitiesEqual(existing.quantity, quantity)
+    !quantitiesEqual(existing.quantity, quantity) ||
+    (existing.fulfilment_priority || "standard") !== fulfilmentPriority
   )
     throw new AppError(
       409,
@@ -240,20 +247,39 @@ function activeListing(listing) {
 }
 
 async function createDirectOrder(buyerId, input, correlationId) {
+  const fulfilmentPriority = input.fulfilmentPriority || "standard";
   return db.transaction(async (runner) => {
     const duplicate = await findRequestOrder(runner, buyerId, input.requestKey);
     if (duplicate) {
-      assertSameOrderRequest(duplicate, input.listingId, null, input.quantity);
+      assertSameOrderRequest(
+        duplicate,
+        input.listingId,
+        null,
+        input.quantity,
+        fulfilmentPriority,
+      );
       return duplicate;
     }
 
     const listing = await lockListing(runner, input.listingId);
     activeListing(listing);
-    if (!["direct", "both"].includes(listing.purchase_mode))
+    if (
+      fulfilmentPriority === "standard" &&
+      !["direct", "both"].includes(listing.purchase_mode)
+    )
       throw new AppError(
         409,
         "DIRECT_PURCHASE_DISABLED",
         "This listing is not available for direct purchase",
+      );
+    if (
+      fulfilmentPriority === "expedited" &&
+      !listing.expedited_price_per_unit_minor
+    )
+      throw new AppError(
+        409,
+        "EXPEDITED_PURCHASE_UNAVAILABLE",
+        "This listing does not offer urgent fulfillment",
       );
 
     const available = await availableQuantity(runner, listing);
@@ -269,14 +295,20 @@ async function createDirectOrder(buyerId, input, correlationId) {
         "Quantity must meet the listing minimum or purchase all remaining stock",
       );
 
-    const price = await snapshotPrice(runner, listing, input.quantity);
+    const price =
+      fulfilmentPriority === "expedited"
+        ? {
+            tierMinimum: listing.min_order_quantity,
+            unitPriceMinor: listing.expedited_price_per_unit_minor.toString(),
+          }
+        : await snapshotPrice(runner, listing, input.quantity);
     const total = totalMinor(input.quantity, price.unitPriceMinor);
     const inserted = await runner.query(
       `INSERT INTO app.orders(
          buyer_id,listing_id,organization_id,request_key,quantity,unit,
          listing_version,price_tier_min_quantity,unit_price_minor,total_minor,
-         status,seller_response_due_at
-       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending_seller_confirmation',now()+INTERVAL '72 hours')
+         fulfilment_priority,fulfilment_lead_time_days,status,seller_response_due_at
+       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending_seller_confirmation',now()+INTERVAL '48 hours')
        ON CONFLICT (buyer_id,request_key) DO NOTHING RETURNING *`,
       [
         buyerId,
@@ -289,11 +321,21 @@ async function createDirectOrder(buyerId, input, correlationId) {
         price.tierMinimum,
         price.unitPriceMinor,
         total,
+        fulfilmentPriority,
+        fulfilmentPriority === "expedited"
+          ? listing.expedited_lead_time_days
+          : null,
       ],
     );
     if (!inserted.rowCount) {
       const raced = await findRequestOrder(runner, buyerId, input.requestKey);
-      assertSameOrderRequest(raced, input.listingId, null, input.quantity);
+      assertSameOrderRequest(
+        raced,
+        input.listingId,
+        null,
+        input.quantity,
+        fulfilmentPriority,
+      );
       return raced;
     }
     const order = inserted.rows[0];
@@ -302,7 +344,9 @@ async function createDirectOrder(buyerId, input, correlationId) {
       runner,
       order.id,
       buyerId,
-      "direct_order.placed",
+      fulfilmentPriority === "expedited"
+        ? "direct_order.expedited_placed"
+        : "direct_order.placed",
       null,
       order.status,
       null,
@@ -312,7 +356,9 @@ async function createDirectOrder(buyerId, input, correlationId) {
       runner,
       buyerId,
       listing.organization_id,
-      "purchase.direct_order_placed",
+      fulfilmentPriority === "expedited"
+        ? "purchase.expedited_order_placed"
+        : "purchase.direct_order_placed",
       "order",
       order.id,
     );
@@ -709,7 +755,7 @@ async function sellerDecision(
     }
     const confirmed = await runner.query(
       `UPDATE app.orders SET status='pending_payment',seller_confirmed_by=$2,
-         seller_confirmed_at=now(),payment_due_at=now()+INTERVAL '72 hours'
+         seller_confirmed_at=now(),payment_due_at=now()+INTERVAL '48 hours'
        WHERE id=$1 RETURNING *`,
       [order.id, userId],
     );
@@ -854,7 +900,7 @@ async function decideGroup(
     for (const member of members.rows) {
       await runner.query(
         `UPDATE app.orders SET status='pending_payment',seller_confirmed_by=$2,
-         seller_confirmed_at=now(),payment_due_at=now()+INTERVAL '72 hours'
+         seller_confirmed_at=now(),payment_due_at=now()+INTERVAL '48 hours'
          WHERE id=$1`,
         [member.id, userId],
       );

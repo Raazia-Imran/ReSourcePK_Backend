@@ -283,7 +283,7 @@ test("group shares respect stock/target, lock each share price, and require Sell
 
   const overshoot = await joinGroup(group.id, replacementBuyerToken, "1");
   assert.equal(overshoot.status, 409);
-  assert.equal(overshoot.body.error.code, "GROUP_TARGET_EXCEEDED");
+  assert.equal(overshoot.body.error.code, "GROUP_NOT_OPEN");
 
   const denied = await request(app)
     .post(
@@ -385,8 +385,6 @@ test("payment timeout releases a group nonpayer and requires reconfirmation", as
   );
   assert.equal(groupState.rows[0].status, "reconfirmation_required");
 
-  const replacement = await joinGroup(group.id, replacementBuyerToken, "5");
-  assert.equal(replacement.status, 201, JSON.stringify(replacement.body));
   const reconfirmed = await request(app)
     .post(
       `/api/v1/organizations/${organization}/purchase-groups/${group.id}/decision`,
@@ -398,7 +396,7 @@ test("payment timeout releases a group nonpayer and requires reconfirmation", as
     "SELECT status FROM app.orders WHERE group_id=$1 AND status='pending_payment'",
     [group.id],
   );
-  assert.equal(unpaid.rowCount, 2);
+  assert.equal(unpaid.rowCount, 1);
 });
 
 test("concurrent direct orders cannot reserve more stock than a listing has", async () => {

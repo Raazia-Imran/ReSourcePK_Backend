@@ -33,6 +33,7 @@ let staff;
 let buyer;
 let secondBuyer;
 let replacementBuyer;
+let groupCreator;
 let organization;
 let ownerToken;
 let managerToken;
@@ -40,6 +41,7 @@ let staffToken;
 let buyerToken;
 let secondBuyerToken;
 let replacementBuyerToken;
+let groupCreatorToken;
 //new addition
 let platformAdmin;
 const listingIds = [];
@@ -101,14 +103,21 @@ function closeTime() {
 }
 
 async function createGroup(listingId, targetQuantity) {
+  const target = Number(targetQuantity);
+  const shareOptions =
+    target > 30
+      ? ["1", "20", "30", String(target)]
+      : target === 30
+        ? ["1", "20", String(target)]
+        : [String(target / 2), String(target / 4), String(target)];
   const response = await request(app)
-    .post(`/api/v1/organizations/${organization}/purchase-groups`)
-    .set("Authorization", `Bearer ${ownerToken}`)
+    .post(`/api/v1/listings/${listingId}/purchase-groups`)
+    .set("Authorization", `Bearer ${groupCreatorToken}`)
     .send({
-      listingId,
       targetQuantity,
       closesAt: closeTime(),
       requestKey: requestKey(),
+      shareOptions,
     });
   assert.equal(response.status, 201, JSON.stringify(response.body));
   return response.body.data;
@@ -149,6 +158,7 @@ test.before(async () => {
   buyer = await createUser("buyer");
   secondBuyer = await createUser("second-buyer");
   replacementBuyer = await createUser("replacement-buyer");
+  groupCreator = await createUser("group-creator");
   const organizationResult = await db.query(
     `INSERT INTO app.organizations(name,slug,created_by,status)
      VALUES('Purchase Test Mill',$1,$2,'active') RETURNING id`,
@@ -167,6 +177,7 @@ test.before(async () => {
     buyerToken,
     secondBuyerToken,
     replacementBuyerToken,
+    groupCreatorToken,
   ] = await Promise.all([
     tokenFor(owner),
     tokenFor(manager),
@@ -174,6 +185,7 @@ test.before(async () => {
     tokenFor(buyer),
     tokenFor(secondBuyer),
     tokenFor(replacementBuyer),
+    tokenFor(groupCreator),
   ]);
 });
 

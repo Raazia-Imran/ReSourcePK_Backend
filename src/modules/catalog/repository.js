@@ -83,7 +83,7 @@ async function createListing(runner, org, user, input) {
       input.expeditedPricePerUnit ?? null,
       input.expeditedLeadTimeDays ?? null,
       input.expeditedMinOrderQuantity ?? null,
-      input.maxGroupJoinDays,
+      input.maxGroupJoinDays ?? 7,
     ],
   );
   await replaceTiers(runner, result.rows[0].id, input.priceTiers);
@@ -103,7 +103,7 @@ async function editListing(runner, org, id, input, version) {
       input.expeditedPricePerUnit ?? null,
       input.expeditedLeadTimeDays ?? null,
       input.expeditedMinOrderQuantity ?? null,
-      input.maxGroupJoinDays,
+      input.maxGroupJoinDays ?? 7,
       version,
     ],
   );

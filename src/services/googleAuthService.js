@@ -8,6 +8,8 @@ const { verificationEmail } = require("../email/templates");
 const { deliverEmail } = require("../email/deliveryService");
 const { z } = require("zod");
 
+const { linkApprovedGoogleAccount } = require("./googleLinkApproval");
+
 let googleClient;
 
 async function verifiedProfile(credential, nonce) {
@@ -127,15 +129,24 @@ async function findGoogleUser(runner, subject) {
 
 async function createGoogleUser(runner, profile, meta) {
   const existing = await runner.query(
-    `SELECT id FROM app.users WHERE email=$1 FOR UPDATE`,
+    `SELECT id,email,full_name,status,email_verified_at FROM app.users WHERE email=$1 FOR UPDATE`,
     [profile.email],
   );
-  if (existing.rowCount)
+  if (existing.rowCount) {
+    const user = await linkApprovedGoogleAccount(
+      runner,
+      existing.rows[0],
+      profile,
+      meta,
+      env,
+    );
+    if (user) return { user, verification: null };
     throw new AppError(
       409,
       "GOOGLE_LINK_REQUIRED",
       "This email already has an account. Sign in to it first, then link Google from account settings.",
     );
+  }
 
   const created = await runner.query(
     `INSERT INTO app.users(email,full_name,password_hash,status,email_verified_at)

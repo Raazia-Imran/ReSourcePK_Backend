@@ -34,6 +34,8 @@ const schema = z.object({
 
   JWT_ACCESS_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_LINK_APPROVAL_EMAIL: z.string().email().optional(),
+  GOOGLE_LINK_APPROVAL_EXPIRES_AT: z.string().datetime().optional(),
   SELLER_REQUEST_ENCRYPTION_KEY: z
     .string()
     .regex(/^[a-fA-F0-9]{64}$/)

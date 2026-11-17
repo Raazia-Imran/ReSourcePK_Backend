@@ -20,8 +20,8 @@ Open both folders in VS Code. Install Node.js 24. Open two terminal windows: one
 | Setting/account              | Where it comes from                                                      | Where to put it                                                            |
 | ---------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | Application login            | Your own signup password; invitation users choose theirs                 | Sign-in form only; database stores a bcrypt hash, never readable passwords |
-| PostgreSQL database password | Your Supabase project database password, separate from application login | Backend `.env`, inside `DATABASE_URL`; use the provider Connect dialog     |
-| JWT secret                   | Generate locally with the command below                                  | Backend `.env` only                                                        |
+| PostgreSQL database password | Your Supabase project database password, separate from application login | Backend `.motem`, inside `DATABASE_URL`; use the provider Connect dialog   |
+| JWT secret                   | Generate locally with the command below                                  | Backend `.motem` only                                                      |
 | Gmail app password           | Google account with two-step verification → app passwords                | Backend `GMAIL_APP_PASSWORD`; not your ordinary Gmail password             |
 | Storage service credential   | Supabase project API settings, server/service credential                 | Backend `SUPABASE_SERVICE_ROLE_KEY` only; never a `VITE_` variable         |
 | Demo logins                  | Opt-in seed below; you supply the password                               | Use your chosen `DEMO_PASSWORD` for those accounts                         |
@@ -35,11 +35,11 @@ Generate a JWT secret in your backend terminal:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Copy the printed value into your private backend `.env`. Do not post it in chat or commit it.
+Copy the printed value into your private backend `.motem`. Do not post it in chat or commit it.
 
 ## 3. Configure and start the backend
 
-1. Copy `.env.example` to `.env` using VS Code. Keep `NODE_ENV=development`, port 5000, and direct-local `TRUST_PROXY_HOPS=0`.
+1. Copy `.env.example` to `.motem` using VS Code. Keep `NODE_ENV=development`, port 5000, and direct-local `TRUST_PROXY_HOPS=0`.
 2. Fill `DATABASE_URL` from your selected Supabase project's Connect dialog. Use its pooler connection, database username, real database password and required TLS setting. Percent-encode reserved characters in URL credentials.
 3. Fill the generated `JWT_ACCESS_SECRET`. Keep `APP_URL` and `CORS_ORIGINS` at `http://localhost:3000` for local testing. Allowed origins are exact; `localhost` and `127.0.0.1` differ.
 4. Uncomment and fill both Gmail variables to test real signup verification/invitations. Remove spaces from the Google app password. Missing email credentials do not create a verified real account.
@@ -90,7 +90,7 @@ select id, title, status, is_demo from app.listings;
 
 Staging was restored from an inactive state during this work. It has the schema; this session did not seed inventory there. Public catalog is intentionally empty until listings are published or you explicitly seed a development database.
 
-To populate a **dedicated non-production database**, stop the backend, then edit private backend `.env`: set `ALLOW_DEMO_SEED=true` and set `DEMO_PASSWORD` to a strong password you choose (10–72 UTF-8 bytes, uppercase/lowercase/digit). Run:
+To populate a **dedicated non-production database**, stop the backend, then edit private backend `.motem`: set `ALLOW_DEMO_SEED=true` and set `DEMO_PASSWORD` to a strong password you choose (10–72 UTF-8 bytes, uppercase/lowercase/digit). Run:
 
 ```bash
 npm run db:seed:demo
@@ -108,7 +108,7 @@ Their password is the one **you supplied when they were first created**. Rerunni
 
 Images are optional configuration; text catalog works without storage. Unconfigured uploads return an explicit 503, not fake success.
 
-1. In backend `.env`, set all three: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LISTING_IMAGE_BUCKET` (for example, `listing-images`).
+1. In backend `.motem`, set all three: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LISTING_IMAGE_BUCKET` (for example, `listing-images`).
 2. Run `npm run storage:setup`. It creates a private bucket restricted to WebP and 5 MB, or checks an existing compatible bucket. Do not make it public or add browser upload/read policies.
 3. Restart the backend. Owner/Manager, or Staff granted `listings.manage` → seller draft card → **Manage listing images** → choose JPEG/PNG/WebP and write an image description → **Upload image**.
 4. Expect up to eight images per listing, 5 MB per file and 16 megapixels. SVG, animated/corrupt images and oversize input must fail. Stored output is resized WebP without metadata.

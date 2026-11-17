@@ -1,5 +1,6 @@
 const { z } = require("zod");
-require("dotenv").config();
+const path = require("node:path");
+require("dotenv").config({ path: path.resolve(__dirname, "../../.motem") });
 
 const schema = z.object({
   NODE_ENV: z

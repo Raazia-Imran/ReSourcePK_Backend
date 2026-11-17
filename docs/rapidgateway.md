@@ -5,7 +5,7 @@ The app uses RapidGateway's hosted redirect checkout. It does not collect card o
 ## Sandbox setup
 
 1. Apply migrations with `npm run db:migrate` (includes migration 016).
-2. Set `RAPID_GATEWAY_MODE=TEST` and `RAPID_GATEWAY_MERCHANT_ID` in the backend `.env`.
+2. Set `RAPID_GATEWAY_MODE=TEST` and `RAPID_GATEWAY_MERCHANT_ID` in the backend `.motem` file.
 3. Expose the backend publicly for webhook delivery during local testing (for example, through an HTTPS development tunnel).
 4. In RapidGateway's TEST settings, register `https://<your-public-backend>/api/v1/rapidgateway/webhook` and copy its TEST signing secret to `RAPID_GATEWAY_WEBHOOK_SECRET`.
 5. Restart the backend. An Owner must confirm a Buyer order before the Buyer sees checkout.

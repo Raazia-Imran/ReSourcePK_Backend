@@ -23,8 +23,8 @@ If the repositories are already cloned, first check `git status` in each one. Wi
 
 ```bash
 cd ~/Projects/ReSourcePK-preview/ReSourcePK_Backend
-cp .env.example .env
-code .env
+cp .env.example .motem
+code .motem
 ```
 
 Fill the placeholders in this file before starting:
@@ -57,7 +57,7 @@ Use the first result for `JWT_ACCESS_SECRET` and the second for `SELLER_REQUEST_
 - **Website user password:** choose it when registering in ReSource PK. There is no universal demo login or default admin password. The database stores bcrypt hashes, which cannot be read back as passwords.
 - **GitHub login:** only needed to push code; it is not needed to run this public repository locally.
 
-Keep credentials in your local `.env` and your password manager. Never commit `.env` or put backend secrets into the frontend.
+Keep credentials in your local `.motem` and your password manager. Never commit `.motem` or put backend secrets into the frontend.
 
 ## 4. Connect the existing database
 

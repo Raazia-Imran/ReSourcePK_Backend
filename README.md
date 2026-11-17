@@ -10,7 +10,7 @@ Start with [the documentation index](docs/README.md), then read [PRD](docs/prd.m
 
 ## Local setup
 
-1. Copy `.env.example` to `.env` and replace every placeholder.
+1. Copy `.env.example` to `.motem` and replace every placeholder. The backend explicitly loads this local file; deployment environments should use their host's secret settings.
 2. Use the Supabase transaction-pooler PostgreSQL URL for `DATABASE_URL`.
 3. Enable two-step verification on the Gmail account, create an app password, and set `GMAIL_USER` and `GMAIL_APP_PASSWORD`. Never use the normal Gmail password.
 4. To enable Google Sign-In, create a Google OAuth Web client and set its client ID as `GOOGLE_CLIENT_ID` (backend) and `VITE_GOOGLE_CLIENT_ID` (frontend). See [Google auth integration](docs/google-auth-integration.md).

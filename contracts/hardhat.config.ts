@@ -1,6 +1,12 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 import { configVariable, defineConfig } from "hardhat/config";
+
+dotenv.config({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.motem"),
+});
 
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthersPlugin],

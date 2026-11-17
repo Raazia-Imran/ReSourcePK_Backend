@@ -6,7 +6,9 @@ async function main() {
   const address = process.env.PASSPORT_CONTRACT_ADDRESS;
 
   if (!address) {
-    throw new Error("PASSPORT_CONTRACT_ADDRESS is missing from .env");
+    throw new Error(
+      "PASSPORT_CONTRACT_ADDRESS is missing from the backend .motem file",
+    );
   }
 
   const registry = await ethers.getContractAt("PassportRegistry", address);

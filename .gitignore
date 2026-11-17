@@ -1,6 +1,5 @@
 node_modules/
 .env
-.motem
 .DS_Store
 test-results/
 playwright-report/

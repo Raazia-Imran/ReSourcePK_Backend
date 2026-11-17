@@ -1,0 +1,98 @@
+ReThread / ReSourcePK — Software Requirements
+=============================================
+
+This project is implemented in JavaScript/TypeScript, not Python. This file is
+an inventory for developers; do not install it with pip. Use npm ci in each
+package directory to install the exact dependency tree from its lockfile.
+
+BASE RUNTIME
+------------
+Node.js: >=24 and <27 (Node.js 24 recommended)
+npm: version shipped with the selected Node.js installation
+PostgreSQL: 17 recommended for local development and CI
+
+BACKEND PACKAGE (root package.json)
+-----------------------------------
+Runtime dependencies:
+@supabase/supabase-js 2.117.3
+bcryptjs ^3.0.2
+cookie-parser ^1.4.7
+cors ^2.8.6
+csv-parse ^7.0.3
+dotenv ^17.3.1
+ethers ^6.17.0
+express ^5.2.1
+express-rate-limit ^8.7.0
+google-auth-library ^11.3.1
+helmet ^8.1.0
+jsonwebtoken ^9.0.3
+multer ^2.4.0
+nodemailer ^10.0.10
+pg ^8.20.0
+read-excel-file ^9.3.10
+sharp 0.35.5
+zod ^4.3.6
+
+Development and test dependencies:
+@axe-core/playwright 4.13.0
+@playwright/test 1.64.0
+eslint ^10.11.0
+eslint-plugin-sonarjs ^4.2.1
+globals ^17.4.0
+prettier ^3.8.2
+supertest ^7.2.2
+
+Install and run the backend from the repository root:
+npm ci
+npm run dev
+
+BLOCKCHAIN CONTRACT PACKAGE (contracts/package.json)
+----------------------------------------------------
+Runtime dependency:
+dotenv ^18.0.9
+
+Development and test dependencies:
+@nomicfoundation/hardhat-ethers ^4.2.2
+@nomicfoundation/hardhat-ignition ^3.1.9
+@nomicfoundation/hardhat-toolbox-mocha-ethers ^4.0.0
+@types/chai ^5.2.3
+@types/chai-as-promised ^8.0.2
+@types/mocha ^10.0.10
+@types/node ^22.20.5
+chai ^6.3.0
+ethers ^6.17.0
+forge-std github:foundry-rs/forge-std#v1.17.0
+hardhat ^3.21.2
+mocha ^12.0.3
+typescript ~6.0.3
+
+Install and run contract tests from the contracts directory:
+cd contracts
+npm ci
+npm test
+
+EXTERNAL SERVICES AND LOCAL TOOLS
+---------------------------------
+PostgreSQL database: required by the backend. Supabase can provide the hosted
+PostgreSQL database; local PostgreSQL is suitable for development and tests.
+Polygon Amoy RPC endpoint: required when connecting to the Amoy blockchain.
+Polygon Amoy deployed PassportRegistry contract: required for anchoring hashes.
+Dedicated blockchain signer wallet and private key: required by the worker;
+keep the private key in local .motem or a hosting provider's secret settings.
+Google OAuth Web client: optional, for Google sign-in.
+Gmail SMTP app password: optional, for sending verification and invitation mail.
+RapidGateway account and webhook signing salt: optional, for payment checkout.
+Supabase Storage project and service-role key: optional, for listing images.
+Playwright Chromium: required only for browser end-to-end tests; install with
+the Playwright browser installer when running those tests locally.
+
+SECURITY AND VERSIONING
+-----------------------
+Never put credentials in this file, source control, or frontend environment
+variables. Keep private local values in the ignored .motem file and configure
+deployed services with their secret environment settings. package-lock.json and
+contracts/package-lock.json record the complete resolved package trees,
+including transitive dependencies; npm ci installs those pinned trees.
+
+The separate ReSourcePK_Frontend repository has its own package.json and
+package-lock.json. Install its dependencies from that repository with npm ci.
